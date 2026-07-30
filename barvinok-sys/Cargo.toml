@@ -1,0 +1,13 @@
+[package]
+name = "barvinok-sys"
+version = "0.1.0"
+edition.workspace = true
+# NOTE: barvinok itself is GPL (isl, which it vendors, is MIT) — verify the exact GPL version
+# against barvinok's own COPYING file before publishing. This license deliberately does NOT
+# inherit the workspace's MIT default: see docs/rust-port-design.md §5. Nothing in the default
+# build of `alphac` or the VS Code addon may depend on this crate.
+license = "GPL-2.0-or-later"
+description = "Raw FFI bindings to libbarvinok (Ehrhart/cardinality counting). GPL — opt-in only."
+
+# Real dependencies land with the actual bindings (barvinok milestone, feature-gated
+# everywhere it's consumed). Left empty for now.
