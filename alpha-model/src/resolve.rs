@@ -133,6 +133,13 @@ impl<'a> Resolver<'a> {
         }
     }
 
+    /// The system this resolver was built for — needed by [`crate::domain`] to walk sibling
+    /// `SystemBody`s when computing a body's own parameter domain (the `else` body's implicit
+    /// domain depends on every other body's `when` guard).
+    pub(crate) fn system(&self) -> &ast::System {
+        self.system
+    }
+
     /// The system's declared parameter domain (`[N,M]->{:N>0 and M>0}` or bare `{:...}`) — this
     /// text is already valid isl parameter-set syntax verbatim, so no rewriting is needed before
     /// handing it to isl's own parser (unlike `ArrayDomain`/`RectangularDomain`, which need a

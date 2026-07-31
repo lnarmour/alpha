@@ -67,6 +67,13 @@ impl Map {
             .check_bool(unsafe { isl_sys::isl_map_is_disjoint(self.ptr, other.ptr) })
     }
 
+    /// True if `self` maps every input tuple to itself unchanged — used by
+    /// `UniquenessAndCompletenessCheck`'s self-recursion check (`docs/rust-port-design.md` §6).
+    pub fn is_identity(&self) -> Result<bool> {
+        self.ctx
+            .check_bool(unsafe { isl_sys::isl_map_is_identity(self.ptr) })
+    }
+
     pub fn intersect(self, other: Map) -> Result<Map> {
         let ctx = self.ctx.clone();
         let ptr = unsafe { isl_sys::isl_map_intersect(self.into_raw(), other.into_raw()) };

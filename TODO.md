@@ -7,11 +7,15 @@ design doc, meant to let a new session pick up cold.
 ## TL;DR
 
 Lexer → parser → typed AST is done and thoroughly fixture-tested. The isl FFI bindings and safe
-wrapper are done and fixture-tested. `alpha-model`'s semantic analysis is ~1/3 done: interface
-resolution (phase 1) and function-literal resolution (phase 2, partial) both work and are
-fixture-tested against all 82 real `.alpha` programs from the sibling `alpha-language` repo.
-Nothing in `alpha-transform`, `alpha-codegen`, `alphac`, or the VS Code extension exists yet
-beyond crate stubs.
+wrapper are done and fixture-tested. **All six phases of `alpha-model`'s semantic analysis exist**
+and are fixture-tested against all 82 real `.alpha` programs from the sibling `alpha-language`
+repo — see below for the handful of deliberate, documented scope boundaries phases 2–4 and 6 stop
+short of. **`alpha-transform` now exists too**: `Normalize` (the ~25-rule term-rewriting pass) and
+`NormalizeReduction`, operating on a new owned "resolved AST" this crate introduces (see
+`alpha-transform/src/ir.rs`'s doc for why — the syntax layer's lossless rowan CST isn't something
+a rewrite pass should mutate in place). Every equation that successfully lowers, across the whole
+82-fixture corpus, reaches the source system's documented normal form. `alpha-codegen`/`alphac`/the
+VS Code extension are next; nothing in them exists yet beyond crate stubs.
 
 Whole workspace builds clean, clippy clean, zero test failures, as of this pause.
 
@@ -62,21 +66,28 @@ assume a `src-invalid` path means "should fail to parse."
 | `isl-sys` | **Done**: bindgen FFI over a bounded isl header set (set/map/aff/constraint/polynomial/ast_build/id/printer/options) | 1 runtime smoke test |
 | `isl` | **Done**: safe wrapper — `Context`, `Set`/`BasicSet`, `Map`, `Aff`/`MultiAff`, `Constraint`/`LocalSpace`, `PwQPolynomial`, `AstBuild`/`AstNode`/`AstExpr`, `Space`/`DimType` | 9 integration tests (set/map algebra, hulls, gist, dependence image/preimage, constraint construction, AST-builder generating real nested for/if C code) |
 | `barvinok-sys` / `barvinok` | Stub only (intentionally deferred — GPL, feature-gated, not needed until `alpha-codegen`'s cardinality counting) | none |
-| `alpha-model` | **Partial**: phase 1 (interface resolution) done; phase 2 (function-literal resolution) done; phases 3–6 not started | `resolve_fixtures` (271 systems/665 variables resolve) + `function_fixtures` (469 dependence/reduce functions resolve) |
-| `alpha-transform` | Stub only | none |
+| `alpha-model` | **All six phases exist** (phase 2 partially — see below; a few deliberate scope boundaries in phases 3–4/6 — see below) | `resolve_fixtures` (271 systems/665 variables resolve) + `function_fixtures` (469 dependence/reduce functions resolve) + `domain_fixtures` (345 equations' expression domains + 1710 context-domain entries) + `uniqueness_fixtures` (271 systems, zero false positives, + 7 unit tests) + `completeness_fixtures` (224 `src-valid` systems, zero false positives, + 5 unit tests confirming real diagnostics on known-invalid fixtures) — all across all 82 fixtures |
+| `alpha-transform` | **Done for scope**: `Normalize` + `NormalizeReduction` on a new owned IR (`ir.rs`/`lower.rs`/`normalize.rs`/`normalize_reduction.rs`) — see below | `normalize_fixtures` (428 equations, across every fixture that lowers, all reach the documented normal form) |
 | `alpha-codegen` | Stub only | none |
 | `alphac` | Stub only (prints a placeholder message) | none |
 | VS Code extension | Doesn't exist yet | — |
 
 ## `alpha-model` in detail — what exists, what's next
 
-Files: `alpha-model/src/{diagnostic,value,resolve,function}.rs`.
+Files: `alpha-model/src/{diagnostic,value,resolve,function,context_names,domain,uniqueness,walk,completeness}.rs`.
 
-- **`diagnostic.rs`**: the closed `Diagnostic` enum (per your decision to keep it closed). Current
-  variants: `Syntax`, `IslError`, `InvalidCalculatorOperand(Pair)`, `UnsupportedCalculatorOp`,
-  `UndefinedReference`, `CyclicDefinition`. More will be added *as* each check that produces them
-  gets implemented (phase 6 will add most of the remaining ~25 or so from the source project's
-  `AlphaIssueFactory` catalog) — don't add unused variants speculatively.
+- **`diagnostic.rs`**: the closed `Diagnostic` enum (per your decision to keep it closed), now with
+  every variant phases 1–6 need: `Syntax`, `IslError`, `InvalidCalculatorOperand`,
+  `InvalidCalculatorOperandPair`, `UnsupportedCalculatorOp`, `UndefinedReference`,
+  `CyclicDefinition`, `IncompatibleContextAndExpressionDomain`, `AutoRestrictNotInCase`,
+  `MultipleAutoRestrict`, `EmptyAutoRestrict`, `MultipleUnrestrictedSystemBody`,
+  `RestrictDomainDimensionMismatch`, `SelectRelationDimensionMismatch`, `DuplicateSystem`,
+  `DuplicateExternalFunction`, `DuplicateVariable`, `DuplicatePolyhedralObject`,
+  `DuplicateStandardEquation`, `DuplicateUseEquation`, `DuplicateAlphaConstant`,
+  `EmptySystemBody`, `OverlappingSystemBodies`, `IncompleteSystem`, `IncompleteEquation`,
+  `OverlappingCaseBranch`, `UnboundedReductionBody`, `InfinitelyRecursiveUseEquation`,
+  `OverlappingUseEquations`, `IncompleteUseEquation`, `UndefinedVariable`. Add more only if a
+  genuinely new check needs one — don't add unused variants speculatively.
 - **`value.rs`**: `Value` (the calculator's dynamic `Set`/`Map`/`Function`/`Polynomial` type tag)
   and the unary/binary calculator-operator evaluator. Deliberately partial: `cross` (`flatProduct`)
   only implemented for `Map`×`Map`; `Set`×`Set` cross product reports
@@ -86,30 +97,159 @@ Files: `alpha-model/src/{diagnostic,value,resolve,function}.rs`.
   `RectangularDomain` expansion, named-constant substitution (`text_of`, token-aware, walks up to
   enclosing `Root`/`AlphaPackage` for `constant NAME=INT` declarations). Deliberately scoped to
   "no ambient equation-local index names" — see the module doc for why phase 2 is split out.
-- **`function.rs`**: `Resolver::eval_function` — resolves `Function`/`ArrayFunction` calculator
-  literals into real `isl::MultiAff`, given an explicit `index_names: &[String]` context the
-  *caller* computes. This crate does **not** yet maintain the source system's full
-  `contextHistory` stack itself (pushed/popped at `RestrictExpression`/`SelectExpression`/
-  `AbstractReduceExpression`/`ConvolutionExpression`/`UseEquation`) — each caller is responsible
-  for extending context correctly at those points. The `function_fixtures.rs` test had to work
-  out (and now documents in comments) the exact scoping rules for each construct; **read that
-  test file before implementing phases 3/4**, since it's the closest thing to a spec for how
-  context should be threaded that currently exists in this codebase:
-  - `ArrayFunction` (`[k]`) sugar *extends* ambient context.
-  - `Function` (`(i,j->...)`) *replaces* ambient context outright (self-declaring).
-  - `ConvolutionExpression`'s kernel domain and `SelectExpression`'s relation range both
-    introduce new bound names for their sub-expression.
-  - `UseEquation`'s `over` clause *and* `with` clause both contribute names (not just `with`).
-  - Extending context must dedupe (a construct can re-declare a name already in scope, e.g. a
-    `RestrictExpression`'s own domain reusing the enclosing equation's index name) — isl rejects
-    a tuple with a repeated name.
+- **`function.rs`**: `Resolver::eval_function` (`Function`/`ArrayFunction` → `MultiAff`) and
+  `Resolver::eval_polynomial_in_context` (`ArrayPolynomial` → `PwQPolynomial`, handling the
+  `;`-separated piecewise case — each piece needs its own synthesized `[ctx] ->` prefix, not one
+  prefix around the whole thing). Each caller computes and threads the ambient `index_names`
+  context itself; see `context_names.rs`/`domain.rs` for the real scoping rules now in force
+  (superseding this file's now-stale-in-spirit "read `function_fixtures.rs` before implementing
+  phases 3/4" note — that test's own context-tracking copy was validated only for "does
+  `eval_function` not error," which turned out to accept some wrong-but-parseable contexts; the
+  real rules, worked out against the whole corpus while building phase 4, are in `domain.rs`'s
+  module doc and doc comments on `restrict_domain`/`select_relation`/`reduce_projection`).
+- **`context_names.rs`**: shared raw-text helpers (`domain_tuple_names`, `relation_range_names`,
+  `bare_identifier_elements`, `extend_unique`) for reading a construct's own bound names off its
+  captured text — used by both `function.rs`'s callers and `domain.rs`.
+- **`domain.rs`** (phases 3–4, new this session): `Resolver::expression_domain` (bottom-up) and
+  `Resolver::context_domain` (top-down, private — drive it via `equation_context_domains`), plus
+  `equation_expression_domains`/`equation_context_domains` as the per-equation entry points. Two
+  **deliberate, documented gaps** (see the module doc for the full rationale): convolution's own
+  expression/context domain (needs isl vertex-enumeration, not bound in `isl-sys` yet — its
+  kernel/data sub-expressions are still walked and recorded, just not the convolution node
+  itself), and `UseEquation`'s context domain (needs the cross-system instantiation-domain
+  extension from `AlphaExpressionUtil.extendCalleeDomainByInstantiationDomain` — genuinely more
+  involved; only `StandardEquation` bodies get phase 4 for now).
+  **Two rules worth knowing before touching this file, both found by fixture-testing against
+  real corpus programs (`array1e`/`array2`/`PrefixScan`/`LUDecomposition`/`polynomial2` etc.),
+  not just reading the Java source**:
+  - `RestrictExpression`'s explicit-tuple domain (`{[x]:...}`) and `SelectExpression`'s relation
+    *replace* the ambient index-name context for their sub-expression (once dimension counts
+    match) — they do **not** extend it. Only `ConvolutionExpression`'s kernel domain genuinely
+    extends. (The source Java's `inRestrictExpression`/`inSelectExpression` make this explicit;
+    `function_fixtures.rs`'s own context-tracking, written earlier for a narrower purpose, used
+    `extend_unique` for both and happened to not get caught by that test because the wrong context
+    still produces a syntactically-parseable — just semantically wrong — `MultiAff`.)
+  - A bare `{: constraints}` domain (no explicit `[...]` tuple) is parsed as the `DOMAIN` node
+    kind when it's a `RestrictExpression`'s domain source, but as `ARRAY_DOMAIN` everywhere else
+    (`when`/`else` guards) — `is_bare_colon_domain` detects the shape by content, not node kind.
+    Its constraints refer to the *ambient index names directly* (not parameters), needing them
+    synthesized as its implicit tuple — same idea as `ArrayFunction`'s implicit input tuple, but
+    for a bare domain instead of a bare function.
 
-**Not yet built**: phases 3–4 (expression-domain / context-domain inference over full equation
-bodies — the bottom-up/top-down passes from `ExpressionDomainCalculator`/`ContextDomainCalculator`
-in the source Java), phase 5 (name uniqueness), phase 6 (the ~30-diagnostic well-formedness
-catalog: incomplete/overlapping system bodies, incomplete/overlapping equations, undefined
-variables, unbounded reductions, etc. — see `docs/rust-port-design.md` §6 for the full list from
-the source project's `UniquenessAndCompletenessCheck`).
+- **`uniqueness.rs`** (phase 5, new this session): `check_system_uniqueness` (duplicate
+  variable/`define`d-object names — one shared namespace; duplicate `StandardEquation`/
+  `UseEquation` targets within a `SystemBody`, skipping the legal case of multiple `UseEquation`s
+  alone writing to the same variable; duplicate `constant` declarations) and
+  `check_program_uniqueness` (duplicate systems/external functions by fully-qualified name across
+  every `Root` given, folding `check_system_uniqueness` in for each system found — mirrors the
+  source's own `check(List<AlphaRoot>)` composition). Returns `Vec<Diagnostic>` directly (not
+  `Result`) since, unlike every earlier phase, a program can have several unrelated duplicates and
+  the source system reports all of them in one pass rather than failing fast.
+  **Deliberate divergence worth knowing**: the duplicate-`constant` check only looks at a system's
+  *direct* container (immediate `AlphaPackage`/`Root`), not the full ancestor chain
+  `resolve.rs`'s `constants_in_scope` walks for value resolution — matches the source system's
+  actual `AlphaUtil.getAlphaConstants` exactly, and avoids false positives on legitimate constant
+  shadowing across nested packages. `resolve.rs`'s broader walk is unchanged (out of this phase's
+  scope, still fixture-validated as-is, and no real fixture nests packages deeply enough to expose
+  the difference) — flagged as a latent inconsistency between the two, not fixed.
+
+- **`walk.rs`**: `walk_expr`, a generic recursive-descent visitor over every `Expr` node beneath a
+  given one — factored out once `uniqueness.rs` and `completeness.rs` both needed the identical
+  "find every node of kind X anywhere in this subtree" traversal (mirrors the source system's
+  `EcoreUtil.getAllContents`/`getAllContentsOfType`).
+- **`completeness.rs`** (phase 6, new this session): `check_system_bodies` (overlapping/empty
+  `SystemBody` domains, incomplete system coverage), `check_standard_equation_completeness`
+  (an equation's expression domain must cover its variable's domain), `check_case_branches`
+  (disjoint `case` branch context domains), `check_reduce_bounded` (a `ReduceExpression`'s body
+  must range over a boundable index space — new isl bindings: `Set::eliminate`/`Set::params`),
+  `check_use_equation_recursion` (self-recursion via an identity call-parameter function — new
+  isl bindings: `MultiAff::move_dims`, `Map::is_identity`), `check_use_equation_outputs`
+  (`UseEquation`s targeting one variable must have disjoint, jointly-complete instantiation
+  domains), `check_undefined_variables` (every output, and every referenced local, needs a
+  defining equation — pure syntax, no isl). All return `Vec<Diagnostic>` like phase 5, for the
+  same reason (a program can have several unrelated problems). `Resolver::analyze_system` (added
+  to `domain.rs`) runs phases 3–4 across a whole system into one shared pair of domain maps, since
+  phase 6's whole-system checks need every equation's domains available together.
+  **Two things worth knowing before touching this file**:
+  1. `check_system_bodies` intersects each body's raw `when`-guard domain with the *system's own*
+     parameter domain before checking pairwise disjointness — found via a real false positive on
+     `FFT.alpha`: its `N%2=1`/`N<=2` guards both admit `N=1` as raw text, which isn't a real
+     conflict since the system itself only declares `N>=2`. Skipping this intersection makes the
+     disjointness check too strict for any system whose guards are only pairwise-disjoint *within*
+     its own declared domain (the overwhelmingly common case) rather than unconditionally.
+  2. `check_use_equation_outputs` is a faithful port, but is *dormant* (never actually fires)
+     until `domain.rs` grows a `UseEquation` context domain (see that module's gap) — it inherits
+     the source system's own graceful "skip this variable's check if any of its
+     `VariableExpression`s don't have a context domain yet" behavior, and every `UseEquation`
+     internal expression always hits that path today. Written now anyway so it needs no changes
+     once that gap closes — see `subsystem1.alpha`'s `subsystem1a`/`subsystem1b` fixtures for real
+     examples this would catch once it's live.
+  3. `check_use_equation_recursion`'s self-recursion detection compares the callee's bare name
+     against the enclosing system's own name rather than resolving to an actual system object —
+     this port has no whole-program symbol table (`uniqueness.rs`'s program-wide check was built
+     for a different purpose). Sound for the common case; would miss a self-call written with a
+     full package-qualified path. Flagged in the module doc, not silently guessed at.
+
+## `alpha-transform` in detail — what exists, what's next
+
+Files: `alpha-transform/src/{ir,lower,normalize,normalize_reduction}.rs`.
+
+- **`ir.rs`**: a new, owned, mutable "resolved AST" (`System`/`SystemBody`/`Equation`/`Expr`) —
+  deliberately *not* built on `alpha_syntax::ast`'s rowan CST, since `Normalize` is a term-rewriting
+  pass that needs to replace nodes and recompute attached domains as it goes, and rowan's tree is a
+  persistent/structurally-shared one meant for the opposite property (cheap lossless *parse-time*
+  edits). `Expr` carries its own `expression_domain: Set` and `context_domain: Option<Set>`
+  directly as fields (no side-table). This was a genuine, up-front architecture decision — see the
+  design doc discussion before this work started for the alternatives considered (full port vs.
+  core subset vs. codegen-first) and why "full port on a new owned IR" was chosen.
+- **`lower.rs`**: builds an `ir::System` from an analyzed `ast::System` (via
+  `alpha_model::domain::Resolver::analyze_system`) by *transcribing*, never re-deriving — every
+  isl object a node needs comes from the exact same now-`pub` `Resolver` methods phases 3–4 already
+  used (`restrict_domain`, `select_relation`, `reduce_projection`, `convolution_kernel_names`,
+  `eval_function`, `eval_calc_expr`), so lowering can never disagree with analysis about a node's
+  function/context. Equations that don't lower (a `ConvolutionExpression`'s own domain — the
+  `domain.rs` gap — or a fuzzy feature) are skipped, each contributing one diagnostic; the rest of
+  the system still lowers. One syntax-layer subtlety worth knowing: `val(f)` (function-valued) and
+  `val{...}` (polynomial-valued) share one `INDEX_EXPR` syntax node kind, but only the
+  function-valued shape has a `Normalize` rewrite rule in the source system — lowering preserves the
+  distinction as two different `ir::ExprKind` variants (`IndexFunction`/`IndexPolynomial`) so
+  `normalize.rs` doesn't need to re-derive it.
+- **`normalize.rs`**: the ~25-rule `Normalize` port. Structural rewriting always recomputes a
+  rewritten node's `expression_domain` immediately and correctly (`expr_from_kind`, the same
+  formulas as `alpha_model::domain`'s phase 3, just run directly on isl objects already sitting in
+  the tree); `context_domain` is recomputed in a separate top-down pass (`refresh_context`, mirrors
+  phase 4) run between rounds of structural rewriting (`apply`'s `MAX_ROUNDS = 8` loop), since two
+  rules (case-branch pruning by empty context, the binary-case cross-product) need it fresh. See
+  the module doc for the two small, deliberate departures from the source's literal behavior
+  (symmetric binary-restrict-hoist; unconditional redundant-restrict removal) — both make this port
+  strictly more complete, never differently correct.
+  **The two hardest-won bugs this session, both silent-wrong-answer bugs, not compile errors —
+  worth real attention before extending this file**:
+  1. Every "no rule matched, put this node back unchanged" fallback path reconstructs via
+     `expr_from_kind`, which (correctly, for a genuinely *new* node) always sets
+     `context_domain: None`. Applied to an *unchanged* node, this silently wipes context on every
+     single node in the tree on every structural pass — including case branches, right before their
+     parent needs to read it — which looks like "context is never available" no matter how many
+     refresh rounds run, since children are always processed (and thus wiped) before their parent's
+     own rules see them in the same pass. Fixed in `normalize_expr`/`normalize_dependence_operand`
+     themselves: when `try_rewrite` reports "unchanged" (`Err`), restore the *original* node's
+     context domain rather than leaving it wiped — a node's own top-level shape not having changed
+     means its context is still valid regardless of what its children's own reconstruction did.
+  2. Relatedly: several "no rule matched" fallbacks used to call `expr_from_kind(other)` on a
+     peeled-off operand — `expr_from_kind` intentionally panics (`unreachable!`) on a leaf
+     (`Variable`/`Bool`/`Int`/`Real`), since a leaf's domain can't be recomputed bottom-up from
+     children it doesn't have. But a "no rule fired" operand can absolutely *be* a leaf (e.g.
+     `f @ X` where `X` is a bare variable and `f` isn't the identity) — every such site now
+     reconstructs via `Expr::new(other, saved_domain, saved_context)` using the operand's own
+     already-correct fields, captured *before* the match moved its `kind` out (Rust's partial-move
+     rules make this fine: moving `e.kind` out via a match scrutinee doesn't prevent using `e`'s
+     other fields, like `expression_domain`/`context_domain`, afterward).
+- **`normalize_reduction.rs`**: `NormalizeReduction` — extracts every *top-level* `Reduce` in a
+  `StandardEquation` into a fresh local + equation (skips `UseEquation`s and nested reductions,
+  matching the source exactly). Small and self-contained relative to `normalize.rs`. Note the real
+  pipeline order: run this *before* `Normalize` (a `Dependence` directly wrapping a bare `Reduce`
+  only reaches normal form once the reduction has somewhere else to live) — see
+  `normalize_fixtures.rs` for exactly this sequencing.
 
 ## Non-obvious bugs found and fixed this session (worth knowing before touching the parser)
 
@@ -146,16 +286,52 @@ And in `isl`/`isl-sys`:
    a *failed* resolution, not just a successful one — otherwise a real (unrelated) error on first
    lookup poisons every later lookup of the same name into a false `CyclicDefinition` report.
 
+And in `alpha-model`'s `domain.rs` (phases 3–4, this session):
+
+9. `Set::universe`/`Set::empty` (in `isl`) used to construct their `Set` unconditionally without
+   checking isl's null-on-error convention (`debug_assert!(!ptr.is_null())` inside `from_raw`
+   would panic instead of returning a `Result`) — the one place in the `isl` crate that didn't
+   follow its own stated "every fallible call returns `Result`" rule. Found via an actual panic:
+   `isl_set_universe` on a `PwQPolynomial`'s raw `.space()` fails an internal isl assertion
+   (`space->n_in == 0`) because that space is map-shaped (`[in]->[out]`), not set-shaped — fixed
+   by (a) making both functions fallible, and (b) adding `domain_space()` accessors to
+   `MultiAff`/`PwQPolynomial` (bound to `isl_{multi_aff,pw_qpolynomial}_get_domain_space`) so
+   callers get the actual set-shaped domain space instead of the raw map-shaped one.
+10. `StandardEquation`'s own context domain must combine the variable's declared domain with the
+    enclosing `SystemBody`'s (0-dimensional) parameter domain via `intersect_params`, not
+    `intersect` — they have different dimensionalities, and plain `intersect` fails with "spaces
+    don't match" (mirrors the source Java's `variable.domain.intersectParams(systemBody.parameterDomain)`,
+    easy to misread as a plain intersect at a glance).
+11. `RestrictExpression`/`SelectExpression` REPLACE the ambient index-name context (not extend —
+    see the `domain.rs` entry above); getting this backwards doesn't error on `eval_function` calls
+    (a too-large context still parses as a valid, just wrong, function) but does produce a
+    dimension mismatch downstream when intersecting against the restrict/select's own domain.
+
 ## Immediate next steps (in order)
 
-1. Phases 3–4: expression-domain / context-domain inference over full equation bodies. Read
-   `function_fixtures.rs`'s context-tracking logic first (see above) — it's the de facto spec.
-2. Phase 5: name uniqueness (duplicate systems/variables/constants/external-functions).
-3. Phase 6: the well-formedness catalog (§6 of the design doc has the full list).
-4. `alpha-transform`: `Normalize` + `NormalizeReduction` only (per scope — see design doc §0/§7).
-5. `alpha-codegen`: `simpleC` model + `WriteC` demand-driven generator (design doc §7).
-6. `alphac` CLI wiring it all together.
-7. VS Code extension (napi-rs native addon + TextMate grammar — design doc §8).
+1. `alpha-codegen`: `simpleC` model + `WriteC` demand-driven generator (design doc §7), consuming
+   `alpha-transform::ir` (the normalized tree) directly — this is the natural next step now that
+   both `alpha-model` and `alpha-transform` exist end-to-end. Known, inherited limitation to carry
+   forward explicitly (not a new gap): `UseEquation`/subsystem calls have no codegen backend in the
+   source system either — match that (a clear error diagnostic on attempting to generate C for a
+   system containing a `UseEquation`), per design doc §7.
+2. `alphac` CLI wiring it all together — `parse → analyze (all 6 phases) → NormalizeReduction →
+   Normalize → generate → print`. Note there's no single "run all of alpha-model" entry point yet
+   (each phase's fixture test wires phases together itself, e.g. `completeness_fixtures.rs`'s
+   `check_all`) — worth consolidating into one `pub fn analyze(root) -> SemanticModel`-shaped
+   function (design doc §6's sketch) when building this driver, rather than duplicating the wiring
+   a third time. Similarly, `normalize_fixtures.rs`'s `lower → NormalizeReduction → Normalize`
+   sequencing is the reference for what this driver's transform stage should do.
+3. VS Code extension (napi-rs native addon + TextMate grammar — design doc §8).
+
+Lower priority, not blocking anything above: the three documented scope boundaries in
+`alpha-model` (convolution's own domain in `domain.rs`; `UseEquation`'s context domain, which
+would also make `completeness.rs`'s `check_use_equation_outputs` live; `check_use_equation_recursion`'s
+bare-name self-recursion check) could be revisited if a real program ever needs them — none of the
+82 real fixtures currently require it beyond what's already covered. Note `alpha-transform`
+inherits both of the `alpha-model` gaps automatically (`lower.rs` skips equations either one would
+affect), so closing them in `alpha-model` is what unblocks `alpha-transform`/`alpha-codegen` for
+that remaining handful of equations too — no separate `alpha-transform`-side work needed.
 
 ## Where to look for more context
 

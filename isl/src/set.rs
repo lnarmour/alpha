@@ -49,16 +49,16 @@ impl Set {
         Ok(unsafe { Set::from_raw(ctx.clone(), ctx.check(ptr)?) })
     }
 
-    pub fn universe(space: Space) -> Set {
+    pub fn universe(space: Space) -> Result<Set> {
         let ctx = space.ctx.clone();
         let ptr = unsafe { isl_sys::isl_set_universe(space.into_raw()) };
-        unsafe { Set::from_raw(ctx, ptr) }
+        Ok(unsafe { Set::from_raw(ctx.clone(), ctx.check(ptr)?) })
     }
 
-    pub fn empty(space: Space) -> Set {
+    pub fn empty(space: Space) -> Result<Set> {
         let ctx = space.ctx.clone();
         let ptr = unsafe { isl_sys::isl_set_empty(space.into_raw()) };
-        unsafe { Set::from_raw(ctx, ptr) }
+        Ok(unsafe { Set::from_raw(ctx.clone(), ctx.check(ptr)?) })
     }
 
     pub fn space(&self) -> Space {
@@ -157,6 +157,27 @@ impl Set {
     pub fn project_out(self, ty: DimType, first: u32, n: u32) -> Result<Set> {
         let ctx = self.ctx.clone();
         let ptr = unsafe { isl_sys::isl_set_project_out(self.into_raw(), ty.to_raw(), first, n) };
+        Ok(unsafe { Set::from_raw(ctx.clone(), ctx.check(ptr)?) })
+    }
+
+    /// Removes `n` dims of type `ty` starting at `first` from the constraints without changing
+    /// the set's dimensionality (unlike [`Self::project_out`], which actually removes the dims) —
+    /// `UniquenessAndCompletenessCheck`'s unbounded-reduction check (`docs/rust-port-design.md`
+    /// §6) uses this to test each reduction dimension's boundedness independently of the ones
+    /// already checked.
+    pub fn eliminate(self, ty: DimType, first: u32, n: u32) -> Result<Set> {
+        let ctx = self.ctx.clone();
+        let ptr = unsafe { isl_sys::isl_set_eliminate(self.into_raw(), ty.to_raw(), first, n) };
+        Ok(unsafe { Set::from_raw(ctx.clone(), ctx.check(ptr)?) })
+    }
+
+    /// Projects out every set dim, leaving only the parameter constraints — used to render an
+    /// "undefined for these parameter values" diagnostic detail purely in terms of parameters
+    /// (`docs/rust-port-design.md` §6: `UniquenessAndCompletenessCheck.inStandardEquation`'s
+    /// `undefDom.params()`).
+    pub fn params(self) -> Result<Set> {
+        let ctx = self.ctx.clone();
+        let ptr = unsafe { isl_sys::isl_set_params(self.into_raw()) };
         Ok(unsafe { Set::from_raw(ctx.clone(), ctx.check(ptr)?) })
     }
 

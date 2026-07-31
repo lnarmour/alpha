@@ -33,6 +33,16 @@ impl PwQPolynomial {
         unsafe { Space::from_raw(self.ctx.clone(), ptr) }
     }
 
+    /// The polynomial's domain space alone, as its own `Set`-kind space — unlike `space()`,
+    /// which (for a `pw_qpolynomial` built from `[idx] -> poly` text) is map-shaped and rejected
+    /// by `Set::universe`/`Set::empty` (they require a set space, `n_in == 0`).
+    /// `PolynomialIndexExpression`'s expression-domain inference (`docs/rust-port-design.md` §6)
+    /// needs exactly this.
+    pub fn domain_space(&self) -> Space {
+        let ptr = unsafe { isl_sys::isl_pw_qpolynomial_get_domain_space(self.ptr) };
+        unsafe { Space::from_raw(self.ctx.clone(), ptr) }
+    }
+
     pub fn to_string_fmt(&self, format: Format) -> String {
         unsafe {
             let printer = isl_sys::isl_printer_to_str(self.ctx.as_ptr());

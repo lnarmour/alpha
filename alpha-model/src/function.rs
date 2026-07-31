@@ -80,6 +80,37 @@ impl Resolver<'_> {
         }
     }
 
+    /// Resolves an `ArrayPolynomial` (`{ poly (: constraints)? (; poly (: constraints)?)* }`)
+    /// into a `PwQPolynomial`, given the ambient index-name context as its implicit input tuple —
+    /// the polynomial-literal analog of `eval_function`'s `ArrayFunction` case (§6, phase 3's
+    /// `IndexExpression`/`PolynomialIndexExpression` handling in [`crate::domain`]).
+    ///
+    /// Each `;`-separated piece needs its *own* `[ctx] ->` prefix synthesized (`polynomial2.alpha`
+    /// in the real fixture corpus — `val { N^2+1/2*i : N>1; i : N=0}` — has two pieces sharing one
+    /// pair of braces; naively wrapping the whole inner text in a single `[ctx] -> (...)` produces
+    /// invalid isl syntax on the second piece onward).
+    pub fn eval_polynomial_in_context(
+        &self,
+        ap: &ast::ArrayPolynomial,
+        index_names: &[String],
+    ) -> Result<isl::PwQPolynomial, Diagnostic> {
+        let text = self.text_of(ap.syntax());
+        let inner = text
+            .trim()
+            .strip_prefix('{')
+            .and_then(|s| s.strip_suffix('}'))
+            .unwrap_or("")
+            .trim();
+        let prefix = format!("[{}] ->", index_names.join(","));
+        let pieces: Vec<String> = inner
+            .split(';')
+            .map(|piece| format!("{prefix} {}", piece.trim()))
+            .collect();
+        let full = format!("{{ {} }}", pieces.join("; "));
+        isl::PwQPolynomial::read_from_str(&self.ctx, &self.with_param_prefix(&full))
+            .map_err(|e| isl_err(e, ap.syntax()))
+    }
+
     /// `ArrayFunction`'s raw per-element affine-expression text, comma-split at the top nesting
     /// level (bracket-depth-tracked, unlike `ast::ArrayFunction::raw_elements`'s plain split —
     /// needed because an element itself can contain a nested `(...)`, e.g. `floor(i/2)`), with

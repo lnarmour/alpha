@@ -6,17 +6,27 @@
 //!
 //! Implemented so far: phase 1 (interface resolution — system parameter domains, variable
 //! domains, `define`d objects, `RectangularDomain` expansion) in [`resolve`], the
-//! calculator-expression evaluator ("the calculator's tiny type system") in [`value`], and
-//! (part of phase 2) `Function`/`ArrayFunction` → `MultiAff` resolution in [`function`]. The
-//! rest of phase 2 (threading ambient index-name context through full equation bodies) and
-//! phases 3–6 (expression/context domain inference, name uniqueness, well-formedness) are not
-//! yet implemented.
+//! calculator-expression evaluator ("the calculator's tiny type system") in [`value`],
+//! `Function`/`ArrayFunction` → `MultiAff` resolution in [`function`] (part of phase 2), phases
+//! 3–4 (expression-domain / context-domain inference) in [`domain`], phase 5 (name uniqueness) in
+//! [`uniqueness`], and phase 6 (the well-formedness catalog) in [`completeness`]. All six phases
+//! of `docs/rust-port-design.md` §6 now exist, with three documented, deliberate scope
+//! boundaries — see [`domain`]'s module doc (convolution's own domain, `UseEquation`'s context
+//! domain) and [`completeness`]'s module doc (self-recursion detection by bare name, and the
+//! `UseEquation`-output-completeness check that stays dormant until `domain`'s gap closes).
 
+pub mod completeness;
+pub mod context_names;
 pub mod diagnostic;
+pub mod domain;
 pub mod function;
 pub mod resolve;
+pub mod uniqueness;
 pub mod value;
+pub mod walk;
 
 pub use diagnostic::Diagnostic;
+pub use domain::Domains;
 pub use resolve::Resolver;
+pub use uniqueness::{check_program_uniqueness, check_system_uniqueness};
 pub use value::Value;
