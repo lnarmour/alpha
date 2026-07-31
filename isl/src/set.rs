@@ -61,6 +61,14 @@ impl Set {
         Ok(unsafe { Set::from_raw(ctx.clone(), ctx.check(ptr)?) })
     }
 
+    /// The isl context this set was built in — callers that need to construct a *fresh* isl
+    /// object tied to the same context (e.g. `alpha-codegen` building a small "universe" `Set`
+    /// to drive `AstBuild::expr_from_set`) have no other way to get one, since `Context` isn't
+    /// otherwise derivable from an existing object outside this crate.
+    pub fn ctx(&self) -> Context {
+        self.ctx.clone()
+    }
+
     pub fn space(&self) -> Space {
         let ptr = unsafe { isl_sys::isl_set_get_space(self.ptr) };
         unsafe { Space::from_raw(self.ctx.clone(), ptr) }

@@ -15,6 +15,7 @@
 //! domain) and [`completeness`]'s module doc (self-recursion detection by bare name, and the
 //! `UseEquation`-output-completeness check that stays dormant until `domain`'s gap closes).
 
+pub mod analyze;
 pub mod completeness;
 pub mod context_names;
 pub mod diagnostic;
@@ -25,6 +26,7 @@ pub mod uniqueness;
 pub mod value;
 pub mod walk;
 
+pub use analyze::{analyze_root, analyze_system};
 pub use diagnostic::Diagnostic;
 pub use domain::Domains;
 pub use resolve::Resolver;

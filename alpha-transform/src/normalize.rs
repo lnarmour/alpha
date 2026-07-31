@@ -838,6 +838,7 @@ fn try_reduce_rules(
     is_arg_reduce: bool,
     operator: Operator,
     projection: isl::MultiAff,
+    body_context: Vec<String>,
     body: Expr,
 ) -> Result<Expr, Expr> {
     let body_saved = (body.expression_domain.clone(), body.context_domain.clone());
@@ -852,6 +853,7 @@ fn try_reduce_rules(
                     is_arg_reduce: inner_arg,
                     operator: inner_op,
                     projection: inner_proj,
+                    body_context: inner_body_context,
                     body: inner_body,
                 } => {
                     let preimage = domain
@@ -865,12 +867,14 @@ fn try_reduce_rules(
                         is_arg_reduce: inner_arg,
                         operator: inner_op,
                         projection: inner_proj,
+                        body_context: inner_body_context,
                         body: new_inner_body,
                     });
                     Ok(expr_from_kind(ExprKind::Reduce {
                         is_arg_reduce,
                         operator,
                         projection,
+                        body_context,
                         body: new_inner_reduce,
                     }))
                 }
@@ -883,6 +887,7 @@ fn try_reduce_rules(
                         is_arg_reduce,
                         operator,
                         projection,
+                        body_context,
                         body,
                     }))
                 }
@@ -892,6 +897,7 @@ fn try_reduce_rules(
             is_arg_reduce,
             operator,
             projection,
+            body_context,
             body: Expr::new(other, body_saved.0, body_saved.1),
         })),
     }
@@ -920,8 +926,9 @@ fn try_rewrite(e: Expr, deep: bool) -> Result<Expr, Expr> {
             is_arg_reduce,
             operator,
             projection,
+            body_context,
             body,
-        } => try_reduce_rules(is_arg_reduce, operator, projection, body),
+        } => try_reduce_rules(is_arg_reduce, operator, projection, body_context, body),
         other => Err(Expr::new(other, saved.0, saved.1)),
     }
 }
@@ -975,11 +982,13 @@ fn normalize_children(e: Expr, deep: bool) -> Expr {
             is_arg_reduce,
             operator,
             projection,
+            body_context,
             body,
         } => ExprKind::Reduce {
             is_arg_reduce,
             operator,
             projection,
+            body_context,
             body: normalize_expr(body, deep),
         },
         ExprKind::Convolution {
@@ -1249,12 +1258,12 @@ pub fn apply(system: System, deep: bool) -> System {
                 .into_iter()
                 .map(|eq| match eq {
                     Equation::Standard(s) => {
-                        let crate::ir::StandardEquation { variable, expr } = s;
+                        let crate::ir::StandardEquation { variable, index_names, expr } = s;
                         let top_context = find_domain(&variable)
                             .intersect_params(domain.clone())
                             .expect("Normalize: intersecting an already-valid variable domain with its body's parameter domain");
                         let expr = normalize_to_fixpoint(expr, top_context, deep);
-                        Equation::Standard(crate::ir::StandardEquation { variable, expr })
+                        Equation::Standard(crate::ir::StandardEquation { variable, index_names, expr })
                     }
                     Equation::Use(u) => {
                         let crate::ir::UseEquation {

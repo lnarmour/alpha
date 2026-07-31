@@ -160,6 +160,7 @@ fn lower_equation(
             let expr = lower_expr(resolver, &ast_expr, &context, &domains, &contexts)?;
             Ok(ir::Equation::Standard(ir::StandardEquation {
                 variable: var_name.text().to_string(),
+                index_names: context,
                 expr,
             }))
         }
@@ -347,6 +348,7 @@ fn lower_expr(
                 is_arg_reduce: r.is_arg_reduce(),
                 operator,
                 projection,
+                body_context,
                 body,
             }
         }

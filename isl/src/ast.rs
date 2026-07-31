@@ -6,6 +6,7 @@
 use crate::ctx::{take_c_string, Context, Result};
 use crate::map::Map;
 use crate::set::{Format, Set};
+use std::ffi::CString;
 
 /// `isl_union_map`: minimal for now — just enough to hand a schedule (built from a plain `Map`)
 /// to [`AstBuild::generate`]. Full union-set/union-map algebra is scheduling-tree territory,
@@ -70,6 +71,47 @@ impl AstBuild {
         let ptr =
             unsafe { isl_sys::isl_ast_build_node_from_schedule_map(self.ptr, schedule.into_raw()) };
         Ok(unsafe { AstNode::from_raw(self.ctx.clone(), self.ctx.check(ptr)?) })
+    }
+
+    pub(crate) fn into_raw(self) -> *mut isl_sys::isl_ast_build {
+        let ptr = self.ptr;
+        std::mem::forget(self);
+        ptr
+    }
+
+    /// Names the loop iterators `generate` introduces, in dimension order — `alpha-codegen`'s
+    /// `WriteC` generator uses this so the C identifiers isl's own AST builder emits for a loop
+    /// match the equation's own index names (or, for a `Reduce`'s ambient dims held fixed while
+    /// generating its own reduction loop, that dim's "primed" parameter name — see
+    /// `docs/rust-port-design.md` §7).
+    pub fn set_iterators(self, names: &[&str]) -> Result<AstBuild> {
+        let ctx = self.ctx.clone();
+        let mut list_ptr =
+            unsafe { isl_sys::isl_id_list_alloc(ctx.as_ptr(), names.len() as i32) };
+        list_ptr = ctx.check(list_ptr)?;
+        for name in names {
+            let cname = CString::new(*name).expect("iterator name must not contain NUL bytes");
+            let id_ptr = unsafe {
+                isl_sys::isl_id_alloc(ctx.as_ptr(), cname.as_ptr(), std::ptr::null_mut())
+            };
+            let id_ptr = ctx.check(id_ptr)?;
+            list_ptr = ctx.check(unsafe { isl_sys::isl_id_list_add(list_ptr, id_ptr) })?;
+        }
+        let ptr = unsafe { isl_sys::isl_ast_build_set_iterators(self.into_raw(), list_ptr) };
+        Ok(AstBuild {
+            ctx: ctx.clone(),
+            ptr: ctx.check(ptr)?,
+        })
+    }
+
+    /// Renders `set` (a Presburger condition sharing `self`'s "current" dims — see this method's
+    /// callers in `alpha-codegen` for how they line those up) as a boolean isl AST expression,
+    /// e.g. a `case` branch's guard domain into the C condition of a ternary — `isl_ast_build_expr_from_set`.
+    /// Unlike [`Self::generate`], this doesn't consume `self`: it's meant to be called repeatedly
+    /// against the same build (one per `case` branch of the same equation).
+    pub fn expr_from_set(&self, set: Set) -> Result<AstExpr> {
+        let ptr = unsafe { isl_sys::isl_ast_build_expr_from_set(self.ptr, set.into_raw()) };
+        Ok(unsafe { AstExpr::from_raw(self.ctx.clone(), self.ctx.check(ptr)?) })
     }
 }
 

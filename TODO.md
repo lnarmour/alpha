@@ -10,12 +10,24 @@ Lexer → parser → typed AST is done and thoroughly fixture-tested. The isl FF
 wrapper are done and fixture-tested. **All six phases of `alpha-model`'s semantic analysis exist**
 and are fixture-tested against all 82 real `.alpha` programs from the sibling `alpha-language`
 repo — see below for the handful of deliberate, documented scope boundaries phases 2–4 and 6 stop
-short of. **`alpha-transform` now exists too**: `Normalize` (the ~25-rule term-rewriting pass) and
+short of. **`alpha-transform` exists too**: `Normalize` (the ~25-rule term-rewriting pass) and
 `NormalizeReduction`, operating on a new owned "resolved AST" this crate introduces (see
 `alpha-transform/src/ir.rs`'s doc for why — the syntax layer's lossless rowan CST isn't something
 a rewrite pass should mutate in place). Every equation that successfully lowers, across the whole
-82-fixture corpus, reaches the source system's documented normal form. `alpha-codegen`/`alphac`/the
-VS Code extension are next; nothing in them exists yet beyond crate stubs.
+82-fixture corpus, reaches the source system's documented normal form.
+
+**`alpha-codegen`/`alphac` now exist end-to-end too**: the `simpleC` model, the `WriteC`
+demand-driven generator (memoized `eval_<Var>` functions, synthesized `reduce<N>` helpers, and the
+system's own driver entry point — all built on `isl_ast_build` for loop generation and isl's own
+C-format printer for every affine/boolean condition, never a hand-written affine-to-C converter),
+and `alphac`'s CLI wiring (`parse → analyze → lower → NormalizeReduction → Normalize → generate →
+print`). Validated two ways: (1) generated C for `CopyInput`/`PrefixScan`/`LUDecomposition` (the
+three `alpha.codegen.tests` reference fixtures) compiles warning-free and, linked against the
+sibling Java system's own `*-wrapper.c`/`*_verify.c` files, **passes real numeric verification**
+against the original AlphaZ-generated output across a range of `N`; (2) a corpus-wide fixture test
+runs the whole pipeline over all 82 fixtures and asserts every system either generates successfully
+or hits one of this session's documented, named scope boundaries — zero unexpected failures. The
+VS Code extension is the one remaining piece with nothing built yet beyond a design (§8).
 
 Whole workspace builds clean, clippy clean, zero test failures, as of this pause.
 
@@ -68,8 +80,8 @@ assume a `src-invalid` path means "should fail to parse."
 | `barvinok-sys` / `barvinok` | Stub only (intentionally deferred — GPL, feature-gated, not needed until `alpha-codegen`'s cardinality counting) | none |
 | `alpha-model` | **All six phases exist** (phase 2 partially — see below; a few deliberate scope boundaries in phases 3–4/6 — see below) | `resolve_fixtures` (271 systems/665 variables resolve) + `function_fixtures` (469 dependence/reduce functions resolve) + `domain_fixtures` (345 equations' expression domains + 1710 context-domain entries) + `uniqueness_fixtures` (271 systems, zero false positives, + 7 unit tests) + `completeness_fixtures` (224 `src-valid` systems, zero false positives, + 5 unit tests confirming real diagnostics on known-invalid fixtures) — all across all 82 fixtures |
 | `alpha-transform` | **Done for scope**: `Normalize` + `NormalizeReduction` on a new owned IR (`ir.rs`/`lower.rs`/`normalize.rs`/`normalize_reduction.rs`) — see below | `normalize_fixtures` (428 equations, across every fixture that lowers, all reach the documented normal form) |
-| `alpha-codegen` | Stub only | none |
-| `alphac` | Stub only (prints a placeholder message) | none |
+| `alpha-codegen` | **Done for scope**: `simplec.rs` (the C AST) + `layout.rs` (storage layout) + `writec.rs` (the generator) — see below | `codegen_fixtures` (199/220 systems with zero analysis diagnostics generate C; the other 21 hit a *named* documented scope boundary — zero unexpected failures) + functional verification of `CopyInput`/`PrefixScan`/`LUDecomposition` against the sibling Java system's own reference `_verify.c` files (see below) |
+| `alphac` | **Done for scope**: CLI wiring `parse → analyze → lower → NormalizeReduction → Normalize → generate → print`, `-o` output flag | manually verified against the three reference fixtures (see below) — no dedicated crate-level test yet |
 | VS Code extension | Doesn't exist yet | — |
 
 ## `alpha-model` in detail — what exists, what's next
@@ -251,6 +263,73 @@ Files: `alpha-transform/src/{ir,lower,normalize,normalize_reduction}.rs`.
   only reaches normal form once the reduction has somewhere else to live) — see
   `normalize_fixtures.rs` for exactly this sequencing.
 
+## `alpha-codegen`/`alphac` in detail — what exists, what's next
+
+Files: `alpha-codegen/src/{simplec,layout,writec,error}.rs`, `alphac/src/main.rs`.
+
+- **`simplec.rs`**: the `simpleC` model, deliberately minimal (design doc §7: "this was always
+  'just a small C AST'") — `Stmt`/`Expr`/`Function`/`CType` as plain enums, with `Expr::Raw(String)`
+  as the escape hatch every affine/boolean condition goes through (isl's own C-format printer — see
+  `isl::ast`'s doc — already produces valid C text for those, so there's no hand-written
+  affine-to-C converter to port at all). Preprocessor lines (`#include`, `#define` macros, global
+  var decls) are plain formatted strings, not their own AST nodes, since nothing ever pattern-matches
+  on them after they're produced.
+- **`layout.rs`**: storage layout for a system's variables. Two schemes, matching what's actually
+  observed in the source project's own reference-generated C (read directly as ground truth for
+  this port — `~/git/poly/alpha-language/tests/alpha.codegen.tests/resources/{CopyInput,
+  PrefixScan,LUDecomposition}/*.c`): **interface variables** (a system's own `inputs`/`outputs`)
+  are a plain pointer chain indexed *directly*, no offset, ever — memory for these is the caller's
+  responsibility (see the `*-wrapper.c` files: they allocate a full dense block regardless of the
+  declared domain's actual shape, e.g. `LUDecomposition`'s triangular `L`). **Flat variables**
+  (locals, and every generated flag array) are one allocation this generator sizes/frees itself, via
+  a row-major linearization over each dimension's own **bounding box** (`Set::dim_min`/`dim_max`,
+  independently per dim) — the isl-only fallback design doc §5 explicitly sanctions in place of the
+  source system's exact Barvinok/Ehrhart-derived linearization (visible in its own reference output
+  as the piecewise `(i,j) -> rank` formulas on every flag array in `LUDecomposition.c`) — implementing
+  that exactly is real, separate work still gated behind the (currently stub) `barvinok` feature.
+  For a rectangular domain the two coincide exactly; for a triangular one this allocates strictly
+  more than the source system does, never less, so it stays correct.
+- **`writec.rs`**: the `WriteC` generator itself. Every equation becomes a memoized
+  `eval_<Var>(indices...)` function guarded by the same `'N'`/`'I'`/`'F'` flag convention as the
+  source system; every `Reduce` becomes its own synthesized `reduce<N>(params..., ambient_p...)`
+  function (ambient index values passed in "primed" — `ip`, `jp`, ... — matching the source
+  system's own naming); loops (the driver's "evaluate all outputs" nest, and each reduce's own
+  summation loop) are generated via `isl_ast_build` over an identity schedule, never hand-rolled;
+  `case` branches become a right-nested ternary, with the *last* branch always unconditional (sound
+  because phase 6's completeness check already guarantees the branches jointly cover the domain) and
+  every other branch's guard rendered from its own `context_domain` via `AstBuild::expr_from_set` —
+  deliberately *not* from inspecting whether it's wrapped in an explicit `Restrict`, since
+  `context_domain` is already the uniformly-correct "when is this branch live" answer regardless of
+  a branch's particular shape post-`Normalize`. `Restrict`/`AutoRestrict` are always transparently
+  peeled during *value* generation (they only ever contribute a domain, consumed elsewhere — a case
+  guard, or a reduce's loop bounds — never the computed value itself).
+  **Scope, relative to the source system's own `WriteC`** (every boundary raises a named
+  `CodegenError::Unsupported`, never a panic or a bare isl error — see `codegen_fixtures.rs`'s
+  `is_known_scope_boundary` for the exact list): `UseEquation` (no codegen backend, matching the
+  source system exactly — not a port regression); `Convolution` (unreachable in practice — already
+  excluded at lowering, per `domain.rs`'s own gap); `Select`/`IndexPolynomial` (`val{...}`)/
+  `argreduce` (real features, genuinely not implemented — the whole 82-fixture corpus has zero
+  `argreduce` uses and only a handful of `select`/`val{...}` uses); a `case`'s `auto` branch whose
+  true domain isn't independently bounded once combined with only the enclosing reduce/equation's
+  own ambient context (see bug #14 below — a real, rare tree shape, not a crash to hide).
+- **`alphac/src/main.rs`**: the CLI driver, `alphac file.alpha [-o file.c]`. Per system found in the
+  file (walking nested `AlphaPackage`s): `alpha_model::analyze_system` (the new consolidated
+  entry point, see below) → if clean, `lower → NormalizeReduction → Normalize(deep=true) →
+  alpha_codegen::generate_system`. A file with more than one system gets one self-contained
+  generated-C block per system, concatenated (each carries its own `#include`/macro preamble).
+- **`alpha_model::analyze_system`/`analyze_root`** (new this session, in `alpha-model/src/analyze.rs`):
+  the consolidated "run all of alpha-model" entry point `alphac` (and any future driver) needed —
+  previously every phase's own fixture test wired phases 1–6 together itself (e.g.
+  `completeness_fixtures.rs`'s `check_all`); this is that wiring, promoted to a real `pub` function
+  and reused by `alphac` directly instead of a fourth copy.
+- **Validation**: `codegen_fixtures.rs` runs the whole pipeline over all 82 fixtures — 199 systems
+  generate successfully, 21 hit a named scope boundary, zero unexpected failures. Separately (no
+  automated test for this yet — see "immediate next steps"), generated C for the three real
+  `alpha.codegen.tests` reference programs was compiled and linked against the sibling Java
+  system's own `*-wrapper.c`/`*_verify.c` files and **passes real numeric verification**
+  (`TEST for Y/L/U PASSED`) across `N` = 1, 2, 5, 20, 30, 50 — this is the strongest evidence the
+  generator is actually correct, not just "produces syntactically valid C".
+
 ## Non-obvious bugs found and fixed this session (worth knowing before touching the parser)
 
 All in `alpha-syntax/src/parser/`:
@@ -307,22 +386,69 @@ And in `alpha-model`'s `domain.rs` (phases 3–4, this session):
     (a too-large context still parses as a valid, just wrong, function) but does produce a
     dimension mismatch downstream when intersecting against the restrict/select's own domain.
 
+And in `alpha-codegen`/`alpha-transform` (`writec.rs`/`normalize_reduction.rs`, this session):
+
+12. `isl_ast_build_expr_from_set(build, set)` renders using **the build's own context set's dim
+    names**, positionally — the `set` argument's *own* dim names are ignored entirely, even if
+    completely different or anonymous. Verified empirically (a throwaway isl-sys example) before
+    relying on it: a build from `[N]->{[i,j]:...}` correctly renders a condition set literally
+    named `[N]->{[x,y]:x=0}` as `i == 0`. This is what makes `writec.rs`'s approach work at all —
+    `alpha_model::domain`'s own real `Set`s frequently carry anonymous or synthetic dim names (see
+    #13), so codegen builds its *own* small "universe" context set with exactly the C identifiers
+    it wants, once per equation, and never worries about aligning names on the sets it's rendering.
+13. Relatedly: a `Set`'s own dim names, as constructed by `alpha_model::domain`'s resolver
+    pipeline, are **not reliably the equation's real source names** — an unnamed `RectangularDomain`
+    (e.g. `outputs Y:[N]`, no explicit `{[i]:...}`) gets an internal synthetic name
+    (`__rect0`), and plenty of intermediate `Set`s carry no name at all. `alpha_transform::ir`
+    grew two narrow fields purely to carry the *real* names through as a naming hint for codegen
+    (`StandardEquation::index_names`, `ExprKind::Reduce::body_context`) — `Normalize` itself never
+    reads them (isl set/map algebra never needed dimension *names*, only *counts*, which is why
+    `Normalize` got away without tracking any of this). `writec.rs`'s `pick_names` prefers the hint
+    but always falls back to synthesizing `i0,i1,...`/`k0,k1,...` if it's missing, wrong-length, or
+    not a valid/safe C identifier — codegen is correct either way (every isl object it prints from
+    is explicitly renamed to match via `MultiAff::set_dim_name` first), so this is purely cosmetic.
+14. A `Reduce`'s own `expression_domain` is a *purely bottom-up* derivation (see `normalize.rs`'s
+    `expr_from_kind`) — it has no reason to be bounded in the *ambient* dims. `PrefixScan`'s
+    `reduce(+, [j], {:j<=i} : X[j])` only ever bounds `j` relative to `i`, never bounds `i` itself.
+    Using it alone as the reduce's iteration domain made `Set::dim_max`/`dim_min` fail with isl's
+    "unbounded optimum" the moment ambient dims got moved to params — found by an actual `alphac`
+    run against `PrefixScan.alpha`, not by inspection. Fixed by intersecting with `context_domain`
+    (the complementary top-down piece that *does* carry the ambient equation's own bounds) before
+    computing anything. A related, rarer case survives even after that fix: `Normalize`'s own "D :
+    auto : E -> auto : E" rule (`normalize.rs`) *discards* a wrapping restrict for an `auto` branch
+    specifically (by design — an `auto` branch's true domain is meant to come from "parent context
+    minus siblings", not from a restrict that happened to wrap it) — if a reduce's own explicit
+    restrict was the *only* source of ambient bounds (e.g. a 0-dimensional output whose whole body
+    is one `reduce(..., case {..; auto: ...})`), the `auto` branch's resulting domain can end up
+    genuinely unbounded. `writec.rs`'s `isl_bound_err` classifies isl's "unbounded" failures from
+    `dim_max`/`dim_min`/`AstBuild::generate` as a named, documented scope boundary rather than
+    letting a raw isl error (or worse, a wrong answer) surface — a real limitation of this session's
+    from-context bound derivation, not a crash to paper over.
+15. `NormalizeReduction`'s extracted local (the `_NR` variable) needs its own domain **intersected
+    with the enclosing equation's target-variable domain**, not just the extracted `Reduce`
+    node's own (bottom-up, per #14) `expression_domain` — otherwise the same "unbounded in the
+    ambient dims" problem infects the new local's own storage sizing. Fixed in
+    `normalize_reduction.rs::apply` by looking up every variable's domain once, up front, before
+    the mutating pass, and threading the enclosing equation's own domain down into
+    `extract_top_level` for exactly this intersection.
+
 ## Immediate next steps (in order)
 
-1. `alpha-codegen`: `simpleC` model + `WriteC` demand-driven generator (design doc §7), consuming
-   `alpha-transform::ir` (the normalized tree) directly — this is the natural next step now that
-   both `alpha-model` and `alpha-transform` exist end-to-end. Known, inherited limitation to carry
-   forward explicitly (not a new gap): `UseEquation`/subsystem calls have no codegen backend in the
-   source system either — match that (a clear error diagnostic on attempting to generate C for a
-   system containing a `UseEquation`), per design doc §7.
-2. `alphac` CLI wiring it all together — `parse → analyze (all 6 phases) → NormalizeReduction →
-   Normalize → generate → print`. Note there's no single "run all of alpha-model" entry point yet
-   (each phase's fixture test wires phases together itself, e.g. `completeness_fixtures.rs`'s
-   `check_all`) — worth consolidating into one `pub fn analyze(root) -> SemanticModel`-shaped
-   function (design doc §6's sketch) when building this driver, rather than duplicating the wiring
-   a third time. Similarly, `normalize_fixtures.rs`'s `lower → NormalizeReduction → Normalize`
-   sequencing is the reference for what this driver's transform stage should do.
-3. VS Code extension (napi-rs native addon + TextMate grammar — design doc §8).
+1. VS Code extension (napi-rs native addon + TextMate grammar — design doc §8) — the one piece of
+   the original phased roadmap (design doc §9) with nothing built yet.
+2. A dedicated `alphac`-level test (compile the generated C, or at least parse it with a real C
+   frontend) — today the three reference fixtures were verified *manually* this session (compiled
+   and linked against the sibling Java system's own `*-wrapper.c`/`*_verify.c`, run across several
+   `N`, `TEST for Y/L/U PASSED`); nothing in the test suite exercises this automatically yet, so a
+   regression here wouldn't be caught by `cargo test`. Needs a C compiler on the test machine
+   (`cc`/`clang`), which isl/isl-sys don't currently require — worth deciding whether that's an
+   acceptable new test-time dependency before wiring it up.
+3. `alpha-codegen`'s own documented scope boundaries, if a real program ever needs them: `Select`
+   (relation-based reindexing — only 3 fixtures use it), `IndexPolynomial`/`val{...}` (needs
+   `PwQPolynomial` C-format printing, unverified whether isl even supports it — `Set`'s own C-format
+   printing does *not*, discovered this session by an actual failed printer call, not assumed),
+   `argreduce` (zero fixtures use it). None of the 82 real fixtures currently require any of these
+   beyond what's already covered.
 
 Lower priority, not blocking anything above: the three documented scope boundaries in
 `alpha-model` (convolution's own domain in `domain.rs`; `UseEquation`'s context domain, which
@@ -331,7 +457,11 @@ bare-name self-recursion check) could be revisited if a real program ever needs 
 82 real fixtures currently require it beyond what's already covered. Note `alpha-transform`
 inherits both of the `alpha-model` gaps automatically (`lower.rs` skips equations either one would
 affect), so closing them in `alpha-model` is what unblocks `alpha-transform`/`alpha-codegen` for
-that remaining handful of equations too — no separate `alpha-transform`-side work needed.
+that remaining handful of equations too — no separate `alpha-transform`-side work needed. Also
+note `UseEquation`/subsystem calls have no codegen backend in the source system's own `WriteC`
+either (design doc §7) — `alpha-codegen` matching that isn't a port regression, and closing the
+`domain.rs`/`completeness.rs` gaps above wouldn't change that; a working `UseEquation` codegen
+backend would be new work beyond what the source system itself does.
 
 ## Where to look for more context
 

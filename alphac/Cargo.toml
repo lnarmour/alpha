@@ -10,6 +10,7 @@ alpha-syntax.workspace = true
 alpha-model.workspace = true
 alpha-transform.workspace = true
 alpha-codegen.workspace = true
+isl.workspace = true
 
 [features]
 barvinok = ["alpha-codegen/barvinok"]

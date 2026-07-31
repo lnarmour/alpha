@@ -55,6 +55,7 @@ dependencies = [
  "alpha-model",
  "alpha-syntax",
  "alpha-transform",
+ "isl",
 ]
 
 [[package]]

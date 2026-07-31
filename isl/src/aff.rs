@@ -153,6 +153,21 @@ impl MultiAff {
         Ok(unsafe { MultiAff::from_raw(ctx.clone(), ctx.check(ptr)?) })
     }
 
+    /// Renames input dim `pos` — `alpha-codegen` uses this to force a dependence function's
+    /// domain-dim names to match whatever C identifiers it already chose for the enclosing
+    /// equation's ambient indices (these aren't reliably preserved as real source names through
+    /// `alpha_model::domain`'s own construction pipeline — e.g. an unnamed `RectangularDomain`
+    /// gets an internal synthetic name — so codegen can't just trust `space().dim_name(..)` here
+    /// and must set the names it wants explicitly before printing in C format).
+    pub fn set_dim_name(self, ty: DimType, pos: u32, name: &str) -> Result<MultiAff> {
+        let ctx = self.ctx.clone();
+        let cname = CString::new(name).expect("dimension name must not contain NUL bytes");
+        let ptr = unsafe {
+            isl_sys::isl_multi_aff_set_dim_name(self.into_raw(), ty.to_raw(), pos, cname.as_ptr())
+        };
+        Ok(unsafe { MultiAff::from_raw(ctx.clone(), ctx.check(ptr)?) })
+    }
+
     pub fn get_aff(&self, pos: u32) -> Result<Aff> {
         let ptr = unsafe { isl_sys::isl_multi_aff_get_aff(self.ptr, pos as i32) };
         Ok(unsafe { Aff::from_raw(self.ctx.clone(), self.ctx.check(ptr)?) })
@@ -241,5 +256,106 @@ impl crate::set::Set {
         let ctx = self.ctx.clone();
         let ptr = unsafe { isl_sys::isl_set_preimage_multi_aff(self.into_raw(), f.into_raw()) };
         Ok(unsafe { crate::set::Set::from_raw(ctx.clone(), ctx.check(ptr)?) })
+    }
+
+    /// The (parametric) maximum/minimum value of dimension `pos`, over every point in `self` —
+    /// `isl_set_dim_max`/`isl_set_dim_min`. `alpha-codegen`'s `WriteC` generator uses this to size
+    /// a variable's flat storage from its declared domain's own per-dimension bounding box,
+    /// without needing Barvinok's exact Ehrhart-polynomial cardinality (see
+    /// `docs/rust-port-design.md` §5/§7: "cardinality counting... can often be computed directly
+    /// from isl for box/rectangular domain cases... falling back to a runtime-computed size... or
+    /// conservative overallocation"). Consumes a clone of `self` (isl's own API takes the set by
+    /// value) rather than `self` directly, since callers need both bounds off the same set.
+    pub fn dim_max(&self, pos: u32) -> Result<PwAff> {
+        let ctx = self.ctx.clone();
+        let ptr = unsafe { isl_sys::isl_set_dim_max(self.clone().into_raw(), pos as i32) };
+        Ok(unsafe { PwAff::from_raw(ctx.clone(), ctx.check(ptr)?) })
+    }
+
+    pub fn dim_min(&self, pos: u32) -> Result<PwAff> {
+        let ctx = self.ctx.clone();
+        let ptr = unsafe { isl_sys::isl_set_dim_min(self.clone().into_raw(), pos as i32) };
+        Ok(unsafe { PwAff::from_raw(ctx.clone(), ctx.check(ptr)?) })
+    }
+
+    /// Moves `n` dims of type `src_ty` starting at `src_pos` to type `dst_ty` starting at
+    /// `dst_pos` — mirrors [`MultiAff::move_dims`], for `Set` instead. `alpha-codegen`'s reduce-loop
+    /// generation uses this to turn a `Reduce`'s ambient index dims into named parameters (fixed
+    /// values passed into the synthesized `reduce<N>` function) so only the reduction's own new
+    /// indices remain as real loop dims for `isl_ast_build` to generate bounds for.
+    pub fn move_dims(
+        self,
+        dst_ty: DimType,
+        dst_pos: u32,
+        src_ty: DimType,
+        src_pos: u32,
+        n: u32,
+    ) -> Result<crate::set::Set> {
+        let ctx = self.ctx.clone();
+        let ptr = unsafe {
+            isl_sys::isl_set_move_dims(
+                self.into_raw(),
+                dst_ty.to_raw(),
+                dst_pos,
+                src_ty.to_raw(),
+                src_pos,
+                n,
+            )
+        };
+        Ok(unsafe { crate::set::Set::from_raw(ctx.clone(), ctx.check(ptr)?) })
+    }
+
+    pub fn set_dim_name(self, ty: DimType, pos: u32, name: &str) -> Result<crate::set::Set> {
+        let ctx = self.ctx.clone();
+        let cname = CString::new(name).expect("dimension name must not contain NUL bytes");
+        let ptr = unsafe {
+            isl_sys::isl_set_set_dim_name(self.into_raw(), ty.to_raw(), pos, cname.as_ptr())
+        };
+        Ok(unsafe { crate::set::Set::from_raw(ctx.clone(), ctx.check(ptr)?) })
+    }
+}
+
+/// `isl_pw_aff`: a piecewise affine expression — what [`crate::set::Set::dim_max`]/[`crate::set::Set::dim_min`]
+/// return. Only what `alpha-codegen` needs (C-format printing for embedding a parametric bound
+/// directly into generated C) — see `docs/rust-port-design.md` §5.
+pub struct PwAff {
+    pub(crate) ctx: Context,
+    pub(crate) ptr: *mut isl_sys::isl_pw_aff,
+}
+
+impl PwAff {
+    pub(crate) unsafe fn from_raw(ctx: Context, ptr: *mut isl_sys::isl_pw_aff) -> PwAff {
+        debug_assert!(!ptr.is_null());
+        PwAff { ctx, ptr }
+    }
+
+    pub fn to_string_fmt(&self, format: Format) -> String {
+        unsafe {
+            let printer = isl_sys::isl_printer_to_str(self.ctx.as_ptr());
+            let printer = isl_sys::isl_printer_set_output_format(printer, format.to_raw());
+            let printer = isl_sys::isl_printer_print_pw_aff(printer, self.ptr);
+            let s = take_c_string(isl_sys::isl_printer_get_str(printer));
+            isl_sys::isl_printer_free(printer);
+            s
+        }
+    }
+}
+
+impl std::fmt::Display for PwAff {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.to_string_fmt(Format::Isl))
+    }
+}
+
+impl Clone for PwAff {
+    fn clone(&self) -> PwAff {
+        let ptr = unsafe { isl_sys::isl_pw_aff_copy(self.ptr) };
+        unsafe { PwAff::from_raw(self.ctx.clone(), ptr) }
+    }
+}
+
+impl Drop for PwAff {
+    fn drop(&mut self) {
+        unsafe { isl_sys::isl_pw_aff_free(self.ptr) };
     }
 }

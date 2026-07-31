@@ -155,11 +155,18 @@ pub enum ExprKind {
     },
 
     /// `reduce`/`argreduce`. `projection` maps `body`'s own (larger) index space down to this
-    /// node's — see `alpha_model::domain::Resolver::reduce_projection`.
+    /// node's — see `alpha_model::domain::Resolver::reduce_projection`. `body_context` is that
+    /// same call's second return value: the *full* ambient-plus-new index-name list for `body`'s
+    /// own index space, in order (ambient names first, this reduce's own new names appended) —
+    /// carried through only for `alpha-codegen`'s benefit (`Normalize` itself never inspects
+    /// names, only isl objects; see this module's doc for why the syntax layer's real source
+    /// names otherwise don't survive into this IR). A rewrite rule that reconstructs a `Reduce`
+    /// node must copy this field through unchanged; it never changes under rewriting.
     Reduce {
         is_arg_reduce: bool,
         operator: Operator,
         projection: MultiAff,
+        body_context: Vec<String>,
         body: Expr,
     },
 
@@ -250,12 +257,14 @@ impl std::fmt::Debug for ExprKind {
                 is_arg_reduce,
                 operator,
                 projection,
+                body_context,
                 body,
             } => f
                 .debug_struct("Reduce")
                 .field("is_arg_reduce", is_arg_reduce)
                 .field("operator", operator)
                 .field("projection", &projection.to_string())
+                .field("body_context", body_context)
                 .field("body", body)
                 .finish(),
             ExprKind::Convolution {
@@ -310,6 +319,10 @@ pub enum Equation {
 
 pub struct StandardEquation {
     pub variable: String,
+    /// The equation's own declared ambient index-binder names (e.g. `i`/`j` in `U[i,j] = ...`),
+    /// empty if the equation has no explicit index binder (e.g. `let Y = X;`) — carried through
+    /// only for `alpha-codegen`'s benefit, see [`ExprKind::Reduce::body_context`]'s doc for why.
+    pub index_names: Vec<String>,
     pub expr: Expr,
 }
 

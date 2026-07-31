@@ -12,7 +12,7 @@
 //!   one pass — matches `Normalize`'s own similar acknowledged imperfection).
 
 use crate::ir::{Equation, Expr, ExprKind, StandardEquation, System, Variable};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 /// Applies the transformation across every `StandardEquation` in `system`, returning the number
 /// of reductions extracted (mirrors the source system's `apply(AlphaVisitable)` return value).
@@ -24,6 +24,16 @@ pub fn apply(system: &mut System) -> usize {
         .chain(system.locals.iter())
         .map(|v| v.name.clone())
         .collect();
+    // Every variable's own declared domain, looked up once before mutating `system` — see
+    // `extract_top_level`'s doc for why the extracted `Reduce`'s own bottom-up `expression_domain`
+    // isn't, on its own, a tight enough domain for the new local.
+    let var_domains: HashMap<String, isl::Set> = system
+        .inputs
+        .iter()
+        .chain(system.outputs.iter())
+        .chain(system.locals.iter())
+        .map(|v| (v.name.clone(), v.domain.clone()))
+        .collect();
 
     let mut extracted = 0usize;
     let mut new_locals = Vec::new();
@@ -31,8 +41,10 @@ pub fn apply(system: &mut System) -> usize {
         let mut new_equations = Vec::new();
         for eq in &mut body.equations {
             let Equation::Standard(s) = eq else { continue };
+            let enclosing_domain = var_domains.get(&s.variable).cloned();
             extract_from_equation(
                 s,
+                enclosing_domain.as_ref(),
                 &mut existing_names,
                 &mut new_equations,
                 &mut new_locals,
@@ -52,13 +64,22 @@ pub fn apply(system: &mut System) -> usize {
 /// equation, replacing it in place with a reference to that new variable.
 fn extract_from_equation(
     eq: &mut StandardEquation,
+    enclosing_domain: Option<&isl::Set>,
     existing_names: &mut HashSet<String>,
     new_equations: &mut Vec<StandardEquation>,
     new_locals: &mut Vec<Variable>,
     extracted: &mut usize,
 ) {
+    // The extracted equation's own ambient index names are exactly the original equation's own —
+    // `extract_top_level` never descends past a name-changing boundary (it stops at the first
+    // `Reduce` found, per the module doc, and doesn't itself know about `Select`/explicit-tuple
+    // `Restrict`, the only other name-changing constructs — see `alpha_model::domain`'s module
+    // doc), so no ambient name ever actually changes on the path to a top-level `Reduce`.
+    let index_names = eq.index_names.clone();
     extract_top_level(
         &mut eq.expr,
+        &index_names,
+        enclosing_domain,
         existing_names,
         new_equations,
         new_locals,
@@ -68,13 +89,27 @@ fn extract_from_equation(
 
 fn extract_top_level(
     e: &mut Expr,
+    index_names: &[String],
+    enclosing_domain: Option<&isl::Set>,
     existing_names: &mut HashSet<String>,
     new_equations: &mut Vec<StandardEquation>,
     new_locals: &mut Vec<Variable>,
     extracted: &mut usize,
 ) {
     if matches!(&*e.kind, ExprKind::Reduce { .. }) {
-        let domain = e.expression_domain.clone();
+        // The `Reduce` node's own `expression_domain` is a purely bottom-up derivation — it has
+        // no reason to be bounded in the *ambient* dims (e.g. a `reduce(+, [j], {:j<=i}: X[j])`
+        // only ever bounds `j` relative to `i`, never bounds `i` itself). Intersecting with the
+        // enclosing equation's own target-variable domain (properly bounded, since that's a real
+        // declared domain) is what keeps the new local's domain actually finite — caught by a
+        // real `alphac` run against `PrefixScan.alpha` producing an isl "unbounded optimum" error
+        // straight out of `alpha-codegen`'s array-sizing, not by inspection.
+        let mut domain = e.expression_domain.clone();
+        if let Some(enclosing) = enclosing_domain {
+            if let Ok(narrowed) = domain.clone().intersect(enclosing.clone()) {
+                domain = narrowed;
+            }
+        }
         let name = fresh_name("R", existing_names);
         let placeholder = Expr::new(
             ExprKind::Variable(name.clone()),
@@ -88,6 +123,7 @@ fn extract_top_level(
         });
         new_equations.push(StandardEquation {
             variable: name,
+            index_names: index_names.to_vec(),
             expr: reduce_expr,
         });
         *extracted += 1;
@@ -108,6 +144,8 @@ fn extract_top_level(
         | ExprKind::Unary { operand, .. } => {
             extract_top_level(
                 operand,
+                index_names,
+                enclosing_domain,
                 existing_names,
                 new_equations,
                 new_locals,
@@ -119,9 +157,11 @@ fn extract_top_level(
             then_branch,
             else_branch,
         } => {
-            extract_top_level(cond, existing_names, new_equations, new_locals, extracted);
+            extract_top_level(cond, index_names, enclosing_domain, existing_names, new_equations, new_locals, extracted);
             extract_top_level(
                 then_branch,
+                index_names,
+                enclosing_domain,
                 existing_names,
                 new_equations,
                 new_locals,
@@ -129,6 +169,8 @@ fn extract_top_level(
             );
             extract_top_level(
                 else_branch,
+                index_names,
+                enclosing_domain,
                 existing_names,
                 new_equations,
                 new_locals,
@@ -137,7 +179,7 @@ fn extract_top_level(
         }
         ExprKind::Case { branches, .. } => {
             for b in branches.iter_mut() {
-                extract_top_level(b, existing_names, new_equations, new_locals, extracted);
+                extract_top_level(b, index_names, enclosing_domain, existing_names, new_equations, new_locals, extracted);
             }
         }
         ExprKind::Convolution {
@@ -147,6 +189,8 @@ fn extract_top_level(
         } => {
             extract_top_level(
                 kernel_expr,
+                index_names,
+                enclosing_domain,
                 existing_names,
                 new_equations,
                 new_locals,
@@ -154,6 +198,8 @@ fn extract_top_level(
             );
             extract_top_level(
                 data_expr,
+                index_names,
+                enclosing_domain,
                 existing_names,
                 new_equations,
                 new_locals,
@@ -162,12 +208,12 @@ fn extract_top_level(
         }
         ExprKind::MultiArg { args, .. } => {
             for a in args.iter_mut() {
-                extract_top_level(a, existing_names, new_equations, new_locals, extracted);
+                extract_top_level(a, index_names, enclosing_domain, existing_names, new_equations, new_locals, extracted);
             }
         }
         ExprKind::Binary { lhs, rhs, .. } => {
-            extract_top_level(lhs, existing_names, new_equations, new_locals, extracted);
-            extract_top_level(rhs, existing_names, new_equations, new_locals, extracted);
+            extract_top_level(lhs, index_names, enclosing_domain, existing_names, new_equations, new_locals, extracted);
+            extract_top_level(rhs, index_names, enclosing_domain, existing_names, new_equations, new_locals, extracted);
         }
         ExprKind::Variable(_)
         | ExprKind::Bool(_)

@@ -23,7 +23,7 @@ mod polynomial;
 mod set;
 mod space;
 
-pub use aff::{Aff, MultiAff};
+pub use aff::{Aff, MultiAff, PwAff};
 pub use ast::{AstBuild, AstExpr, AstExprKind, AstNode, AstNodeKind, UnionMap};
 pub use constraint::{Constraint, LocalSpace};
 pub use ctx::{Context, IslError, Result};
