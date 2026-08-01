@@ -1,0 +1,10 @@
+[package]
+name = "alpha-syntax"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+description = "Lexer, lossless CST, parser, and typed AST for the Alpha language."
+
+[dependencies]
+logos = "0.14"
+rowan = "0.15"

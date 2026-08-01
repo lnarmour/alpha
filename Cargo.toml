@@ -1,0 +1,28 @@
+[workspace]
+resolver = "2"
+members = [
+    "isl-sys",
+    "isl",
+    "barvinok-sys",
+    "barvinok",
+    "alpha-syntax",
+    "alpha-model",
+    "alpha-transform",
+    "alpha-codegen",
+    "alphac",
+]
+
+[workspace.package]
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/CSU-CS-Melange/alpha-rs"
+
+[workspace.dependencies]
+isl-sys = { path = "isl-sys" }
+isl = { path = "isl" }
+barvinok-sys = { path = "barvinok-sys" }
+barvinok = { path = "barvinok" }
+alpha-syntax = { path = "alpha-syntax" }
+alpha-model = { path = "alpha-model" }
+alpha-transform = { path = "alpha-transform" }
+alpha-codegen = { path = "alpha-codegen" }
