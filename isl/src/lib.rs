@@ -1,7 +1,7 @@
 //! Safe, idiomatic Rust wrapper over `isl-sys`.
 //!
-//! See `docs/rust-port-design.md` §5 in the workspace root for the design and the bounded
-//! operation inventory this covers (a real subset of full isl, not "all of it"). MIT-licensed;
+//! Covers a bounded operation inventory (a real subset of full isl, not "all of it"): sets/maps,
+//! affine functions, constraints, piecewise quasipolynomials, and the AST builder. MIT-licensed;
 //! must never depend on `barvinok` (GPL) — cardinality/Ehrhart counting lives there instead,
 //! feature-gated in `alpha-codegen`.
 //!

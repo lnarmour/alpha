@@ -1,5 +1,5 @@
 //! Top-level structure: `AlphaRoot`, imports, constants, external functions, packages, systems,
-//! variables, and equations. See `docs/rust-port-design.md` §1/§4/§6 in the workspace root.
+//! variables, and equations.
 
 use super::calculator;
 use super::expr::{alpha_expr, recover_stmt};

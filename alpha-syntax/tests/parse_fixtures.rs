@@ -1,5 +1,5 @@
 //! Parser conformance check against the real `.alpha` corpus from the sibling `alpha-language`
-//! (Java/Xtext) repo — the milestone-1 acceptance bar from `docs/rust-port-design.md` §9.
+//! (Java/Xtext) repo — the milestone-1 acceptance bar for this port.
 //!
 //! All 82 fixtures under `tests/**` — `src-valid` *and* `src-invalid` alike — are, in fact,
 //! syntactically well-formed Alpha: despite one `src-invalid` subdirectory being named

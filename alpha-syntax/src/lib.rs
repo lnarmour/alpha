@@ -1,9 +1,10 @@
 //! Lexer, lossless CST, parser, and typed AST for the Alpha language.
 //!
-//! See `docs/rust-port-design.md` §4 in the workspace root for the design (logos lexer +
-//! hand-written recursive-descent/Pratt parser + rowan lossless CST + typed `ast::` layer).
-//! Currently implemented: the lexer (`token_kind`, `lexer`). The rowan CST, parser, and typed
-//! `ast::` layer land in subsequent milestones.
+//! Design: a `logos` lexer, a hand-written recursive-descent/Pratt parser, a lossless `rowan`
+//! CST, and a typed `ast::` accessor layer over it. All four pieces are implemented: the lexer
+//! (`token_kind`, `lexer`), the resilient
+//! recursive-descent/Pratt parser (`parser`) building a lossless `rowan` CST, and the typed
+//! `ast::` accessor layer over that CST.
 
 pub mod ast;
 pub mod lexer;

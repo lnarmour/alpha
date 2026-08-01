@@ -1,5 +1,4 @@
-//! The closed diagnostic catalog — Alpha's real "type errors". See
-//! `docs/rust-port-design.md` §6/§10 in the workspace root: closed enum, matching the fixed
+//! The closed diagnostic catalog — Alpha's real "type errors". A closed enum, matching the fixed
 //! catalog the source project's `AlphaIssueFactory` already established. Variants are added as
 //! the corresponding check is implemented, not speculatively ahead of one.
 use alpha_syntax::SyntaxError;

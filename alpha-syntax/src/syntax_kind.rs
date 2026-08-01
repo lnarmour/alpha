@@ -1,5 +1,4 @@
-//! The unified token+node kind enum rowan needs, plus the `rowan::Language` wiring. See
-//! `docs/rust-port-design.md` §4 in the workspace root.
+//! The unified token+node kind enum rowan needs, plus the `rowan::Language` wiring.
 //!
 //! Node kinds are deliberately more coarse-grained than `Alpha.xtext`'s grammar rules in a few
 //! places where the source grammar defines several near-identical productions only to satisfy
@@ -147,8 +146,8 @@ pub enum SyntaxKind {
     REAL_LIT,
 
     // --- the "calculator" (domain/relation/function/polynomial) layer ---
-    // Domain/relation/polynomial literal bodies are raw-text-captured (isl parses them later,
-    // see docs/rust-port-design.md §1/§4/§6) — these nodes just mark the span, structurally.
+    // Domain/relation/polynomial literal bodies are raw-text-captured (isl parses them later) —
+    // these nodes just mark the span, structurally.
     PARAM_DOMAIN,
     DOMAIN,
     ARRAY_DOMAIN,

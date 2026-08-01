@@ -1,6 +1,5 @@
 //! `isl_map`: relations between sets — Alpha's `JNIRelation`, and the workhorse behind
-//! dependence-expression domain propagation (`apply`/`preimage`) in `alpha-model`. See
-//! `docs/rust-port-design.md` §5/§6 in the workspace root.
+//! dependence-expression domain propagation (`apply`/`preimage`) in `alpha-model`.
 use crate::ctx::{take_c_string, Context, Result};
 use crate::set::{Format, Set};
 use crate::space::DimType;
@@ -68,7 +67,7 @@ impl Map {
     }
 
     /// True if `self` maps every input tuple to itself unchanged — used by
-    /// `UniquenessAndCompletenessCheck`'s self-recursion check (`docs/rust-port-design.md` §6).
+    /// `UniquenessAndCompletenessCheck`'s self-recursion check.
     pub fn is_identity(&self) -> Result<bool> {
         self.ctx
             .check_bool(unsafe { isl_sys::isl_map_is_identity(self.ptr) })
@@ -186,8 +185,8 @@ impl Drop for Map {
 impl Set {
     /// The image of `self` under `map` (`map.apply(set)` in the source Java's naming) —
     /// `DependenceExpression`'s forward pre/post-image computation in `alpha-model` goes through
-    /// this. Consumes both, per isl's own ownership convention (see `docs/rust-port-design.md`
-    /// §5 on why consuming isl calls take `self`/args by value here).
+    /// this. Consumes both, per isl's own ownership convention (see this crate's doc on why
+    /// consuming isl calls take `self`/args by value here).
     pub fn apply(self, map: Map) -> Result<Set> {
         let ctx = self.ctx.clone();
         let ptr = unsafe { isl_sys::isl_set_apply(self.into_raw(), map.into_raw()) };

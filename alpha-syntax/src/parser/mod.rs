@@ -1,5 +1,4 @@
-//! Hand-written recursive-descent parser producing a lossless rowan CST. See
-//! `docs/rust-port-design.md` §4 in the workspace root for the overall design and rationale.
+//! Hand-written recursive-descent parser producing a lossless rowan CST.
 //!
 //! Trivia handling: whitespace/comment tokens are attached to the tree the moment they're
 //! encountered, immediately before whatever real token follows them — this keeps the tree

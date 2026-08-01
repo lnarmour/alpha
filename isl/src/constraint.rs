@@ -1,5 +1,5 @@
 //! `isl_local_space`/`isl_constraint`: direct constraint construction, coefficient by
-//! coefficient. See `docs/rust-port-design.md` §5/§7 in the workspace root — this is the API
+//! coefficient. This is the API
 //! `WriteCExprConverter`'s reduce-loop-domain construction (`createReduceLoopDomain` in the
 //! source Java) uses directly, and the one place `alpha-codegen` builds ISL objects "by hand"
 //! rather than by parsing Alpha's own textual domains.

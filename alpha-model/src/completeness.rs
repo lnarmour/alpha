@@ -1,4 +1,4 @@
-//! Phase 6 of the six-phase pipeline (`docs/rust-port-design.md` §6): the well-formedness
+//! Phase 6 of the six-phase pipeline: the well-formedness
 //! catalog (`UniquenessAndCompletenessCheck` in the source Java). Per that class's own doc
 //! comment, the properties checked are:
 //! - the expression domain of an equation's root expression must cover its variable's domain

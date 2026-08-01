@@ -1,6 +1,5 @@
 //! Phase 2 (partial): resolving `Function`/`ArrayFunction` calculator literals — Alpha's
 //! `(idx -> exprs)` and `[exprs]` access-function notations — into real isl `MultiAff` objects.
-//! See `docs/rust-port-design.md` §6 in the workspace root.
 //!
 //! This is the piece phase 1 deliberately left unsupported (`eval_calc_expr`'s `Function`/
 //! `ArrayFunction` branches report `UnsupportedCalculatorOp`, since they need per-equation

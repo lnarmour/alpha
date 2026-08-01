@@ -1,7 +1,7 @@
 //! An owned, mutable "resolved AST" for `Normalize`/`NormalizeReduction` to rewrite — deliberately
 //! distinct from `alpha_syntax::ast`'s lossless, immutable rowan tree.
 //!
-//! The source system's `Normalize` (`docs/rust-port-design.md` §7) is a term-rewriting pass that
+//! The source system's `Normalize` is a term-rewriting pass that
 //! mutates a live EMF object graph in place: it replaces nodes (`EcoreUtil.replace`), reassigns
 //! containment references, and incrementally recomputes attached domains as it goes. Rowan's CST
 //! is a persistent, structurally-shared tree built specifically for the opposite property
@@ -18,8 +18,8 @@
 //!
 //! Deliberately minimal: this crate does not attempt to track source spans/provenance back to the
 //! original syntax tree (Normalize's whole point is that exact source shape no longer matters
-//! once semantic analysis is done — see the design doc §7's "semantic equivalence, not
-//! bit-for-bit" codegen-fidelity call, which applies just as much here). Diagnostics from
+//! once semantic analysis is done — the same "semantic equivalence, not bit-for-bit" codegen-
+//! fidelity call `alpha-codegen`'s README documents applies just as much here). Diagnostics from
 //! `alpha-model` (phases 1–6) already carry real spans from the syntax tree; nothing past that
 //! point needs them.
 
@@ -105,8 +105,7 @@ pub enum ExprKind {
     Real(String),
 
     /// `f @ E` / array notation (`X[E]`) — `function` maps the ambient index space to `operand`'s
-    /// own. Normalize's dependence-pushdown rules (`docs/rust-port-design.md` §7) are the bulk of
-    /// what this crate ports.
+    /// own. Normalize's dependence-pushdown rules are the bulk of what this crate ports.
     Dependence {
         function: MultiAff,
         operand: Expr,

@@ -1,4 +1,4 @@
-//! `WriteC`: the demand-driven C code generator (`docs/rust-port-design.md` §7). Every equation
+//! `WriteC`: the demand-driven C code generator. Every equation
 //! compiles to a memoized `eval_<Var>(indices...)` function guarded by a `NOT_EVALUATED
 //! ('N')/IN_PROGRESS ('I')/EVALUATED ('F')` flag array, exactly like the source system; loops
 //! (the driver's "evaluate all outputs" nest, and each `Reduce`'s own summation loop) are
@@ -6,16 +6,15 @@
 //! affine/boolean condition is rendered through isl's own C-format printer (see
 //! `crate::layout`/`isl::ast`'s module docs) rather than a hand-written affine-to-C converter.
 //!
-//! **Scope, relative to the source system's own `WriteC`** — see `docs/rust-port-design.md` §7
-//! and this crate's `error::CodegenError::Unsupported` sites for the specifics:
+//! **Scope, relative to the source system's own `WriteC`** — see this crate's
+//! `error::CodegenError::Unsupported` sites for the specifics:
 //! - `UseEquation`: no codegen backend, matching the source system exactly (not a port
 //!   regression).
 //! - `Convolution`: unreachable in practice — `alpha_model::domain`'s own documented gap means
 //!   `alpha_transform::lower` already excludes any equation containing one.
 //! - `Select` (relation-based reindexing), `IndexPolynomial` (`val{...}`), `argreduce`: real
 //!   features, genuinely not implemented this session (the whole 82-fixture corpus has zero
-//!   `argreduce` uses and only a handful of `select`/`val{...}` uses — see the design doc
-//!   discussion this module's development was based on).
+//!   `argreduce` uses and only a handful of `select`/`val{...}` uses).
 //! - Storage for anything this generator itself allocates (locals, and every flag array) uses a
 //!   **bounding-box** linearization (`crate::layout`), not the source system's exact
 //!   Barvinok/Ehrhart-derived one — see that module's doc for why this is the sanctioned
@@ -58,7 +57,7 @@ pub fn generate_system(system: &ir::System) -> Result<String> {
             if matches!(eq, ir::Equation::Use(_)) {
                 return Err(CodegenError::Unsupported(
                     "UseEquation has no codegen backend — matches the source system's own \
-                     WriteC, which doesn't support subsystem calls either (docs/rust-port-design.md §7)"
+                     WriteC, which doesn't support subsystem calls either"
                         .to_string(),
                 ));
             }

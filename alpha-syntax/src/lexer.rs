@@ -1,7 +1,6 @@
 //! Thin wrapper turning `logos`'s streaming lexer into a materialized token list carrying
 //! source spans (byte ranges), which the parser needs for both error reporting and for slicing
-//! out the raw text of domain/relation/function literals to hand to isl later (see
-//! `docs/rust-port-design.md` §4/§5).
+//! out the raw text of domain/relation/function literals to hand to isl later.
 
 use crate::token_kind::TokenKind;
 use logos::Logos;

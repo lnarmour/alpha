@@ -1,6 +1,6 @@
 //! `Normalize`: the term-rewriting pass bringing every `StandardEquation` (and, for its own
 //! input/output expressions only — see [`crate::ir::Equation::Use`]'s doc — every `UseEquation`)
-//! into the source system's normal form (`docs/rust-port-design.md` §7):
+//! into the source system's normal form:
 //! - the parent of a `Case` must be a `StandardEquation` or `Reduce`,
 //! - the parent of a `Restrict` must be a `StandardEquation`, `Reduce`, or `Case`,
 //! - the parent of a `Variable` must be a `Dependence`,
@@ -277,8 +277,8 @@ fn try_dependence_rules(function: isl::MultiAff, operand: Expr) -> Result<Expr, 
                 else_branch: new_else,
             }))
         }
-        // f @ conv(...) -> conv(kernel, f'@weight, f'@data): deferred (see module doc / the
-        // design doc's convolution gap) — `f'` needs `AlphaExpressionUtil.extendMultiAffWithIdentityDimensions`,
+        // f @ conv(...) -> conv(kernel, f'@weight, f'@data): deferred (see module doc — the
+        // same convolution gap alpha-model's domain.rs documents) — `f'` needs `AlphaExpressionUtil.extendMultiAffWithIdentityDimensions`,
         // and lowering already excludes any equation with a Convolution, so this never actually
         // fires today; left as a documented no-op rather than implemented against an unreachable
         // input.

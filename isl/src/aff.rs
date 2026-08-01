@@ -1,8 +1,8 @@
 //! `isl_aff`/`isl_multi_aff`: affine functions — Alpha's `JNIFunction`, and the type
 //! `DependenceExpression`'s access function and `ReduceExpression`'s projection function
-//! resolve to. See `docs/rust-port-design.md` §5/§6/§7 in the workspace root: isl's own
-//! C-format pretty-printer for these (via [`MultiAff::to_string_fmt`]/[`Aff::to_string_fmt`]
-//! with [`crate::Format::C`]) is what codegen leans on instead of a hand-rolled printer.
+//! resolve to. isl's own C-format pretty-printer for these (via
+//! [`MultiAff::to_string_fmt`]/[`Aff::to_string_fmt`] with [`crate::Format::C`]) is what codegen
+//! leans on instead of a hand-rolled printer.
 use crate::ctx::{take_c_string, Context, Result};
 use crate::map::Map;
 use crate::set::Format;
@@ -105,8 +105,8 @@ impl MultiAff {
     /// The input (domain) half of [`Self::space`] alone, as its own `Set`-kind space — unlike
     /// `space()`, which is a map-shaped `[in] -> [out]` space that `Set::universe`/`Set::empty`
     /// reject (they require a set space, `n_in == 0`). `IndexExpression`'s expression-domain
-    /// inference (`docs/rust-port-design.md` §6: `ISLSet.buildUniverse(function.getDomainSpace())`
-    /// in the source Java) needs exactly this.
+    /// inference (`ISLSet.buildUniverse(function.getDomainSpace())` in the source Java) needs
+    /// exactly this.
     pub fn domain_space(&self) -> Space {
         let ptr = unsafe { isl_sys::isl_multi_aff_get_domain_space(self.ptr) };
         unsafe { Space::from_raw(self.ctx.clone(), ptr) }
@@ -119,15 +119,15 @@ impl MultiAff {
 
     /// Number of output dimensions — the arity check `alpha-model` needs for e.g.
     /// `DependenceExpression`'s "does this function's output arity match the child expression's
-    /// domain dimension?" check (see `docs/rust-port-design.md` §6).
+    /// domain dimension?" check.
     pub fn n_out(&self) -> u32 {
         self.dim(DimType::OutOrSet)
     }
 
     /// Moves `n` dims of type `src_ty` starting at `src_pos` to type `dst_ty` starting at
     /// `dst_pos` — `UniquenessAndCompletenessCheck`'s self-recursion check
-    /// (`docs/rust-port-design.md` §6: `inUseEquation`'s "is this `UseEquation`'s call-parameter
-    /// function the identity") uses this to turn a purely-parametric `MultiAff` (0 input dims,
+    /// (`inUseEquation`'s "is this `UseEquation`'s call-parameter
+    /// function the identity" check) uses this to turn a purely-parametric `MultiAff` (0 input dims,
     /// output expressed over parameters) into one with matching input dims, since
     /// [`Map::is_identity`] only means something once inputs and outputs are the same kind of
     /// dim.
@@ -175,9 +175,8 @@ impl MultiAff {
 
     /// The identity function over a domain-shaped `space` (`n_in == 0`, e.g. from [`Self::domain_space`]
     /// or a plain `Set`'s [`crate::set::Set::space`]) — `Normalize`'s rule inserting an implicit
-    /// identity dependence around a bare `VariableExpression` (`docs/rust-port-design.md` §7:
-    /// "every `VariableExpression` must have a `DependenceExpression` parent") builds its function
-    /// this way.
+    /// identity dependence around a bare `VariableExpression` (every `VariableExpression` must
+    /// have a `DependenceExpression` parent) builds its function this way.
     pub fn identity_on_domain_space(space: Space) -> Result<MultiAff> {
         let ctx = space.ctx.clone();
         let ptr = unsafe { isl_sys::isl_multi_aff_identity_on_domain_space(space.into_raw()) };
@@ -185,8 +184,7 @@ impl MultiAff {
     }
 
     /// `self ∘ other` (apply `other` first, then `self`) — `Normalize`'s dependence-composition
-    /// rule (`f1 @ f2 @ E -> (f2 o f1) @ E`, `docs/rust-port-design.md` §7) is exactly
-    /// `f2.pullback(f1)`.
+    /// rule (`f1 @ f2 @ E -> (f2 o f1) @ E`) is exactly `f2.pullback(f1)`.
     pub fn pullback(self, other: MultiAff) -> Result<MultiAff> {
         let ctx = self.ctx.clone();
         let ptr =
@@ -208,9 +206,9 @@ impl MultiAff {
         self.dim(DimType::In) == 0 && self.dim(DimType::OutOrSet) == 0
     }
 
-    /// The graph of this function as a `Map` — the source system's "function.toMap()" pattern
-    /// (see `docs/rust-port-design.md` §5), used to feed a `MultiAff` into map-based set/map
-    /// algebra (`apply`, `intersect`, ...) where a plain function object won't do.
+    /// The graph of this function as a `Map` — the source system's "function.toMap()" pattern,
+    /// used to feed a `MultiAff` into map-based set/map algebra (`apply`, `intersect`, ...) where
+    /// a plain function object won't do.
     pub fn into_map(self) -> Result<Map> {
         let ctx = self.ctx.clone();
         let ptr = unsafe { isl_sys::isl_map_from_multi_aff(self.into_raw()) };
@@ -250,8 +248,7 @@ impl Drop for MultiAff {
 
 impl crate::set::Set {
     /// The preimage of `self` under `f` — `ReduceExpression`/`ArgReduceExpression`'s domain
-    /// inference (image/preimage under the projection function, see `docs/rust-port-design.md`
-    /// §6) goes through this.
+    /// inference (image/preimage under the projection function) goes through this.
     pub fn preimage_multi_aff(self, f: MultiAff) -> Result<crate::set::Set> {
         let ctx = self.ctx.clone();
         let ptr = unsafe { isl_sys::isl_set_preimage_multi_aff(self.into_raw(), f.into_raw()) };
@@ -261,11 +258,11 @@ impl crate::set::Set {
     /// The (parametric) maximum/minimum value of dimension `pos`, over every point in `self` —
     /// `isl_set_dim_max`/`isl_set_dim_min`. `alpha-codegen`'s `WriteC` generator uses this to size
     /// a variable's flat storage from its declared domain's own per-dimension bounding box,
-    /// without needing Barvinok's exact Ehrhart-polynomial cardinality (see
-    /// `docs/rust-port-design.md` §5/§7: "cardinality counting... can often be computed directly
-    /// from isl for box/rectangular domain cases... falling back to a runtime-computed size... or
-    /// conservative overallocation"). Consumes a clone of `self` (isl's own API takes the set by
-    /// value) rather than `self` directly, since callers need both bounds off the same set.
+    /// without needing Barvinok's exact Ehrhart-polynomial cardinality — a deliberate fallback,
+    /// since cardinality counting can often be computed directly from isl for box/rectangular
+    /// domain cases, falling back to conservative overallocation otherwise. Consumes a clone of
+    /// `self` (isl's own API takes the set by value) rather than `self` directly, since callers
+    /// need both bounds off the same set.
     pub fn dim_max(&self, pos: u32) -> Result<PwAff> {
         let ctx = self.ctx.clone();
         let ptr = unsafe { isl_sys::isl_set_dim_max(self.clone().into_raw(), pos as i32) };
@@ -317,7 +314,7 @@ impl crate::set::Set {
 
 /// `isl_pw_aff`: a piecewise affine expression — what [`crate::set::Set::dim_max`]/[`crate::set::Set::dim_min`]
 /// return. Only what `alpha-codegen` needs (C-format printing for embedding a parametric bound
-/// directly into generated C) — see `docs/rust-port-design.md` §5.
+/// directly into generated C).
 pub struct PwAff {
     pub(crate) ctx: Context,
     pub(crate) ptr: *mut isl_sys::isl_pw_aff,

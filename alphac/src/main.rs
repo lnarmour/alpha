@@ -1,12 +1,11 @@
 //! Alpha language CLI compiler.
 //!
-//! See `docs/rust-port-design.md` §7 in the workspace root. `alphac file.alpha -o file.c`,
-//! replacing the source project's `alpha.loader`, deliberately without its accidental coupling
-//! to the schedule-tree grammar.
+//! `alphac file.alpha -o file.c`, replacing the source project's `alpha.loader`, deliberately
+//! without its accidental coupling to the schedule-tree grammar.
 //!
 //! Pipeline, per system found in the input file: parse (once, for the whole file) → analyze (all
-//! six `alpha_model` phases, via `alpha_model::analyze_system` — `docs/rust-port-design.md` §6's
-//! "consolidate into one entry point" note) → if clean, lower → `NormalizeReduction` → `Normalize`
+//! six `alpha_model` phases, via `alpha_model::analyze_system`, the consolidated "run all of
+//! alpha-model" entry point) → if clean, lower → `NormalizeReduction` → `Normalize`
 //! → `alpha_codegen::generate_system` → print. A file with more than one system (nested
 //! `AlphaPackage`s included) gets one self-contained generated-C block per system, concatenated —
 //! see the module doc on why each block carries its own preamble rather than sharing one.

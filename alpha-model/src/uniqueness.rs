@@ -1,5 +1,5 @@
-//! Phase 5 of the six-phase pipeline (`docs/rust-port-design.md` §6): name-uniqueness checks
-//! (`AlphaNameUniquenessChecker` in the source Java). Two scopes:
+//! Phase 5 of the six-phase pipeline: name-uniqueness checks (`AlphaNameUniquenessChecker` in
+//! the source Java). Two scopes:
 //! - Program-wide ([`check_program_uniqueness`]): duplicate systems/external functions, keyed by
 //!   fully-qualified (package-prefixed) name, across every `Root` handed in together — the source
 //!   system's `check(List<AlphaRoot>)`.

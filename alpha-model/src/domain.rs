@@ -1,4 +1,4 @@
-//! Phases 3–4 of the six-phase pipeline (`docs/rust-port-design.md` §6): bottom-up
+//! Phases 3–4 of the six-phase pipeline: bottom-up
 //! expression-domain inference (`ExpressionDomainCalculator` in the source Java) and top-down
 //! context-domain inference (`ContextDomainCalculator`).
 //!
@@ -21,9 +21,9 @@
 //! rules each construct follows; this module reuses [`crate::context_names`]'s helpers to extend
 //! that context identically for both passes, so they never disagree about what's in scope where.
 //!
-//! **Known, deliberate gaps** (mirrors this project's practice of documenting scope boundaries
-//! rather than silently under-handling them — see the design doc §7's `UseEquation` codegen
-//! gap for the precedent):
+//! **Known, deliberate gaps** (this project's practice throughout is to document scope
+//! boundaries rather than silently under-handle them — see `alpha-codegen`'s own `UseEquation`
+//! codegen gap for the precedent):
 //! - `ConvolutionExpression`'s own expression/context domain needs vertex enumeration of the
 //!   kernel domain (`AlphaExpressionUtil.preimageByConvolutionDependences` in the source system),
 //!   which isl exposes but this crate's bounded `isl-sys` surface doesn't bind yet (§5). Reports
@@ -557,9 +557,9 @@ impl Resolver<'_> {
     /// Runs phases 3–4 over every equation in the whole system, aggregating every equation's
     /// expression/context domains into one shared pair of maps (unlike
     /// [`Self::equation_expression_domains`]/[`Self::equation_context_domains`], which each work
-    /// on one equation in isolation) — phase 6's whole-system checks (`docs/rust-port-design.md`
-    /// §6: overlapping `case` branches, unbounded reductions, `UseEquation` output completeness,
-    /// ...) need domains from *every* equation available together, not siloed per call.
+    /// on one equation in isolation) — phase 6's whole-system checks (overlapping `case`
+    /// branches, unbounded reductions, `UseEquation` output completeness, ...) need domains from
+    /// *every* equation available together, not siloed per call.
     ///
     /// Doesn't fail fast: one equation's domain-inference error is collected into the returned
     /// diagnostics and analysis continues with the rest, so a single mistake elsewhere in a large

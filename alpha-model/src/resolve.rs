@@ -1,4 +1,4 @@
-//! Phase 1 of the six-phase pipeline (`docs/rust-port-design.md` §6): resolve each system's
+//! Phase 1 of the six-phase pipeline: resolve each system's
 //! parameter domain and every variable's domain into real isl objects — the "interface" pass
 //! (`DOMAIN_CALC_MODE::INTERFACE_ONLY` in the source Java), before any equation body is looked
 //! at. Phase 2 (resolving calculator expressions *inside* equation bodies, which need per-
@@ -176,11 +176,12 @@ impl<'a> Resolver<'a> {
     /// Renders a raw-captured calculator node's text, substituting any `AlphaConstant` reference
     /// (`constant factor=2` used as `factor*WW=W`) with its integer value first. isl has no
     /// notion of Alpha's named constants at all — the source Java system handles this with a
-    /// blunt `String.replaceAll` *before* the text ever reaches isl (flagged in
-    /// `docs/rust-port-design.md` §6 as a fragile gotcha worth fixing properly); this does the
-    /// same substitution but token-aware (only actual `IDENT` tokens are considered, never
-    /// substring matches inside other identifiers or numbers), which is exactly the fix that
-    /// note calls for.
+    /// blunt `String.replaceAll` *before* the text ever reaches isl, a fragile gotcha worth
+    /// fixing properly; this does the same substitution but token-aware (only actual `IDENT`
+    /// tokens are considered, never
+    /// substring matches inside other identifiers or numbers) — the lexer/parser already knows
+    /// where identifiers are, so substituting textually before constructing the isl-bound string
+    /// is strictly safer than a post-hoc `replaceAll`.
     pub(crate) fn text_of(&self, node: &SyntaxNode) -> String {
         use alpha_syntax::syntax_kind::SyntaxKind;
         let mut out = String::new();

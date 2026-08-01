@@ -1,5 +1,4 @@
-//! `AlphaExpression` and friends: the full expression grammar. See
-//! `docs/rust-port-design.md` §1/§4/§6 in the workspace root, and `syntax_kind.rs`'s module doc
+//! `AlphaExpression` and friends: the full expression grammar. See `syntax_kind.rs`'s module doc
 //! for which near-duplicate grammar rules (the 8 reduce/argreduce variants, the 3 index-flavored
 //! expressions, plain vs. fuzzy dependence) collapse into one CST node kind here.
 //!

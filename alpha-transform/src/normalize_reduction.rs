@@ -1,6 +1,6 @@
 //! `NormalizeReduction`: moves every top-level `Reduce` out of a `StandardEquation`'s expression
 //! and into its own fresh local variable + equation — giving later passes (reduction
-//! simplification, out of this port's scope per the design doc, but also the demand-driven
+//! simplification, out of this port's scope, but also the demand-driven
 //! codegen's own per-variable memoization) an equation boundary to work with directly, without
 //! needing to dig a reduction out of an arbitrary surrounding expression.
 //!

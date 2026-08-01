@@ -41,8 +41,7 @@ impl Context {
     /// Every isl FFI call that can fail returns a null pointer on failure; this turns that into
     /// a `Result`, pulling the human-readable message isl itself already tracked via
     /// `isl_ctx_last_error_msg` before resetting the context's error state (mirroring the Java
-    /// system's `callISLwithErrorHandling` — see `docs/rust-port-design.md` §5, §6 in the
-    /// workspace root).
+    /// system's `callISLwithErrorHandling` pattern).
     pub(crate) fn check<T>(&self, ptr: *mut T) -> Result<*mut T> {
         if ptr.is_null() {
             Err(self.last_error())

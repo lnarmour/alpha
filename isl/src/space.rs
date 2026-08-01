@@ -1,7 +1,6 @@
 //! `isl_space`: the "shape" (parameter/input/output dimension counts and names) shared by every
-//! set/map/aff. See `docs/rust-port-design.md` §5 in the workspace root — `DimType` is, per the
-//! survey, isl's single most-referenced type in the source Java codebase (used pervasively to
-//! distinguish param/in/out/set dims when building/querying spaces).
+//! set/map/aff. `DimType` is isl's single most-referenced type in the source Java codebase (used
+//! pervasively to distinguish param/in/out/set dims when building/querying spaces).
 
 use crate::ctx::{Context, Result};
 use std::ffi::CString;

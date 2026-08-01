@@ -1,11 +1,11 @@
 //! Locates and links libisl, then generates raw FFI bindings for the header subset in
-//! `wrapper.h`. See `docs/rust-port-design.md` §5 in the workspace root.
+//! `wrapper.h`.
 //!
-//! Currently: pkg-config only. The design doc's planned fallback (vendor + build isl from
-//! source when pkg-config can't find a system install, for platforms/CI images that don't have
-//! it) isn't implemented yet — this panics with a clear message pointing here instead of
-//! silently doing something more complicated. Add the vendored path when that need actually
-//! arises (e.g. wiring up CI), rather than building it in advance of a real requirement.
+//! Currently: pkg-config only. A planned fallback (vendor + build isl from source when
+//! pkg-config can't find a system install, for platforms/CI images that don't have it) isn't
+//! implemented yet — this panics with a clear message instead of silently doing something more
+//! complicated. Add the vendored path when that need actually arises (e.g. wiring up CI), rather
+//! than building it in advance of a real requirement.
 
 fn main() {
     println!("cargo:rerun-if-changed=wrapper.h");
@@ -15,9 +15,8 @@ fn main() {
         .probe("isl")
         .expect(
             "isl-sys: could not find libisl via pkg-config. Install it (e.g. `brew install isl \
-             pkg-config` on macOS) — see docs/rust-port-design.md §5 in the workspace root. A \
-             vendored-source fallback for environments without a system isl is planned but not \
-             yet implemented.",
+             pkg-config` on macOS). A vendored-source fallback for environments without a \
+             system isl is planned but not yet implemented.",
         );
 
     let mut builder = bindgen::Builder::default()

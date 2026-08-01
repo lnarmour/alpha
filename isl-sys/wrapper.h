@@ -1,5 +1,4 @@
-// Deliberately not "all of isl" — this is the bounded operation surface
-// docs/rust-port-design.md §5 (workspace root) identifies as what the core Alpha compiler
+// Deliberately not "all of isl" — this is the bounded operation surface the core Alpha compiler
 // actually needs: sets/maps, affine functions, constraints, piecewise-quasipolynomials
 // (cardinality counting), and the AST builder (isl's loop-generation entry point).
 #include <isl/ctx.h>

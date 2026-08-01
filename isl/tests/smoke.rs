@@ -1,6 +1,5 @@
 //! End-to-end exercise of the safe wrapper's operation inventory against real isl, covering the
-//! subset `docs/rust-port-design.md` §5/§6/§7 in the workspace root identifies as what
-//! `alpha-model`/`alpha-codegen` actually need: parsing, set/map algebra, hulls, dependence
+//! subset `alpha-model`/`alpha-codegen` actually need: parsing, set/map algebra, hulls, dependence
 //! image/preimage, constraint construction, and the AST builder (the one isl earns its keep on).
 
 use isl::{
@@ -55,9 +54,8 @@ fn hulls_and_gist() {
 
 #[test]
 fn unbounded_reduction_style_bound_check() {
-    // Mirrors `UniquenessAndCompletenessCheck.inReduceExpression`'s unbounded-reduction check
-    // (docs/rust-port-design.md §6): a reduction body domain must have both bounds on every
-    // dimension being reduced over.
+    // Mirrors `UniquenessAndCompletenessCheck.inReduceExpression`'s unbounded-reduction check:
+    // a reduction body domain must have both bounds on every dimension being reduced over.
     let ctx = Context::new();
     let bounded = Set::read_from_str(&ctx, "{ [i] : 0 <= i < 10 }").unwrap();
     assert!(bounded.has_lower_bound(DimType::OutOrSet, 0).unwrap());

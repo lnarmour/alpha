@@ -2,7 +2,7 @@
 //! `lower.rs`'s module doc for why some don't — convolution/fuzzy gaps inherited from
 //! `alpha_model::domain`) across the whole real fixture corpus, running `Normalize` should
 //! produce a tree satisfying all four of the source system's own documented normal-form
-//! invariants (`docs/rust-port-design.md` §7):
+//! invariants:
 //! - the parent of a `Case` must be the equation root or a `Reduce`,
 //! - the parent of a `Restrict` must be the equation root, a `Reduce`, or a `Case`,
 //! - the parent of a `Variable` must be a `Dependence`,

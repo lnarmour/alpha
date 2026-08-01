@@ -3,8 +3,7 @@
 //!
 //! Two different schemes, matching what's actually observed in the source project's own generated
 //! C (`~/git/poly/alpha-language/tests/alpha.codegen.tests/resources/{CopyInput,PrefixScan,
-//! LUDecomposition}/*.c`, read directly as reference output for this port — see
-//! `docs/rust-port-design.md` §7):
+//! LUDecomposition}/*.c`, read directly as reference output for this port):
 //!
 //! - **Interface variables** (a system's own `inputs`/`outputs`): a plain pointer chain (`float*`
 //!   for a 1-D domain, `float**` for 2-D, ...) indexed *directly* by the equation's own index
@@ -17,10 +16,9 @@
 //!   which needs memoization too): a single 1-D allocation this generator sizes and frees itself,
 //!   indexed via a row-major linearization over a **bounding box** of the domain (each dimension's
 //!   own min/max via [`isl::Set::dim_min`]/[`isl::Set::dim_max`], computed independently per
-//!   dimension). This is the sanctioned isl-only fallback `docs/rust-port-design.md` §5 calls out
-//!   explicitly ("conservative overallocation... for the box/rectangular domain cases that cover
-//!   the vast majority of real programs... falling back to conservative overallocation... when the
-//!   domain isn't simple") rather than the source system's own exact, Barvinok/Ehrhart-derived
+//!   dimension). This is a deliberately sanctioned isl-only fallback — conservative
+//!   overallocation covering the box/rectangular domain cases that make up the vast majority of
+//!   real programs — rather than the source system's own exact, Barvinok/Ehrhart-derived
 //!   linearization (visible in its reference output as the piecewise `(i,j) -> rank` formulas on
 //!   `U_NR`/`L_NR`/every flag array in `LUDecomposition.c`) — implementing that exactly is real,
 //!   separate work gated behind the (currently stub) `barvinok` feature, not attempted this

@@ -1,6 +1,5 @@
 //! The "calculator" layer: domain/relation/function/polynomial literals, and the small
-//! `CalculatorExpression` algebra over them (`define X = <calc expr>`). See
-//! `docs/rust-port-design.md` §1/§4/§6 in the workspace root.
+//! `CalculatorExpression` algebra over them (`define X = <calc expr>`).
 //!
 //! Domain/relation/polynomial literal *bodies* are raw-text-captured, not semantically parsed —
 //! `Alpha.xtext` itself doesn't parse them either (its `AISLString`/`AISLExpression`/etc. rules

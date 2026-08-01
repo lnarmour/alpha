@@ -4,8 +4,9 @@
 //! plus phase 5's `check_system_uniqueness`, which no per-system fixture test needed on its own
 //! since `uniqueness_fixtures.rs` exercises it directly).
 //!
-//! `docs/rust-port-design.md` §6's sketch models this as a whole-`AlphaRoot` `SemanticModel`; this
-//! crate doesn't build one of those yet (no caller has needed cross-system name resolution beyond
+//! A whole-`AlphaRoot` `SemanticModel` aggregating every system's analysis was sketched as a
+//! possible future shape; this crate doesn't build one of those yet (no caller has needed
+//! cross-system name resolution beyond
 //! [`crate::uniqueness::check_program_uniqueness`]'s duplicate-detection) — [`analyze_system`] is
 //! the per-system core every real caller actually needs, and [`analyze_root`] folds every system
 //! in a parsed file through it plus the one whole-program check.

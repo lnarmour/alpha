@@ -1,8 +1,8 @@
 //! Semantic model and six-phase checker for the Alpha language.
 //!
-//! See `docs/rust-port-design.md` §6 in the workspace root: interface/expression domain
-//! resolution, expression-domain / context-domain inference, name-uniqueness, and the
-//! uniqueness-and-completeness checks, all reported through a closed `Diagnostic` enum.
+//! Interface/expression domain resolution, expression-domain / context-domain inference,
+//! name-uniqueness, and the uniqueness-and-completeness checks, all reported through a closed
+//! `Diagnostic` enum.
 //!
 //! Implemented so far: phase 1 (interface resolution — system parameter domains, variable
 //! domains, `define`d objects, `RectangularDomain` expansion) in [`resolve`], the
@@ -10,7 +10,7 @@
 //! `Function`/`ArrayFunction` → `MultiAff` resolution in [`function`] (part of phase 2), phases
 //! 3–4 (expression-domain / context-domain inference) in [`domain`], phase 5 (name uniqueness) in
 //! [`uniqueness`], and phase 6 (the well-formedness catalog) in [`completeness`]. All six phases
-//! of `docs/rust-port-design.md` §6 now exist, with three documented, deliberate scope
+//! now exist, with three documented, deliberate scope
 //! boundaries — see [`domain`]'s module doc (convolution's own domain, `UseEquation`'s context
 //! domain) and [`completeness`]'s module doc (self-recursion detection by bare name, and the
 //! `UseEquation`-output-completeness check that stays dormant until `domain`'s gap closes).

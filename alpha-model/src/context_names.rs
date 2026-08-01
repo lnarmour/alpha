@@ -2,7 +2,7 @@
 //! its sub-expressions (`RestrictExpression`'s domain tuple, `SelectExpression`'s relation
 //! range, `ReduceExpression`'s array-notation projection, `UseEquation`'s `over`/`with` clauses)
 //! — shared between [`crate::function`]'s context-dependent resolution and [`crate::domain`]'s
-//! phase 3/4 inference. See `docs/rust-port-design.md` §6 in the workspace root.
+//! phase 3/4 inference.
 //!
 //! Deliberately simple raw-text parsing rather than full calculator-expression evaluation —
 //! sufficient for reading a construct's own leading/range-side tuple names. The exact same

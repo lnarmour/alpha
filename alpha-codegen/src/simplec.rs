@@ -1,5 +1,5 @@
-//! A deliberately minimal C AST — `docs/rust-port-design.md` §7's `simpleC` model, as plain Rust
-//! enums/structs (no Xcore/EMF needed, per that section: "this was always 'just a small C AST'").
+//! A deliberately minimal C AST — the `simpleC` model, as plain Rust
+//! enums/structs (no Xcore/EMF needed: this was always "just a small C AST").
 //!
 //! Scoped to exactly what [`crate::writec`] needs to build: function bodies with the handful of
 //! statement/expression shapes the demand-driven generator emits (decl/assign/if-else/for/return),
@@ -7,8 +7,8 @@
 //! global variable declarations) are plain pre-formatted text rather than their own AST nodes —
 //! they're never rewritten or pattern-matched on after being produced, only ever concatenated
 //! verbatim into the output, so a structured representation would buy nothing here (this crate's
-//! actual "affine/conditional expression" converters lean entirely on isl's own C-format printer —
-//! see `docs/rust-port-design.md` §5/§7 — rather than reimplementing one).
+//! actual "affine/conditional expression" converters lean entirely on isl's own C-format printer
+//! rather than reimplementing one).
 
 use std::fmt;
 

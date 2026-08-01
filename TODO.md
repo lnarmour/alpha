@@ -1,8 +1,7 @@
 # Progress notes — Rust port of alpha-language
 
-Status as of this pause. For the *why* behind every architectural choice, see
-`docs/rust-port-design.md` — this file is the *where things actually stand* companion to that
-design doc, meant to let a new session pick up cold.
+Status as of this pause — the *where things actually stand* companion to the root
+[`README.md`](README.md), meant to let a new session pick up cold.
 
 ## TL;DR
 
@@ -33,15 +32,9 @@ Whole workspace builds clean, clippy clean, zero test failures, as of this pause
 
 ## Environment setup (do this first in a fresh session/machine)
 
-- **Rust**: installed via `rustup` (not system package manager). If a fresh machine: `curl
-  --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y`, then `source
-  "$HOME/.cargo/env"`.
-- **isl + pkg-config**: installed via Homebrew (`brew install isl pkg-config`) — isl 0.28, MIT
-  licensed. `isl-sys`'s `build.rs` uses `pkg-config` to find it; **`pkg-config` is installed to
-  `/opt/homebrew/bin`, which is often not on `PATH` in non-interactive shells** — prefix cargo
-  invocations with `export PATH="/opt/homebrew/bin:$PATH"` if `cargo build` can't find isl.
-- **libclang** (for `bindgen`): comes with Xcode Command Line Tools, already present on this
-  machine (`/Library/Developer/CommandLineTools/usr/lib/libclang.dylib`).
+Full prerequisites and build/test commands now live in the root [`README.md`](README.md) — read
+that first. Gotchas specific to working in this repo across sessions, not covered there:
+
 - **Working directory matters**: this repo (`~/git/poly/alpha-rs`) is *not* nested under the
   `alpha-language`/`alphaz` Java repos — it's a sibling directory, its own git repo. Cargo
   commands need `cwd` to actually be inside `alpha-rs` (a stray `cd` elsewhere earlier in a
@@ -49,20 +42,10 @@ Whole workspace builds clean, clippy clean, zero test failures, as of this pause
   `pwd`).
 - **Git**: the user handles `git add`/`commit`/`status` themselves — don't run those proactively.
 
-Typical command line for this session:
-```
-cd ~/git/poly/alpha-rs
-source "$HOME/.cargo/env" && export PATH="/opt/homebrew/bin:$PATH"
-cargo test --workspace
-```
-
 ## Fixture corpus
 
-All conformance tests read `.alpha` fixtures directly from the sibling Java repo at
-`~/git/poly/alpha-language/tests/**` (82 files total, both `src-valid` and `src-invalid`
-subtrees) via a relative path (`../../alpha-language/tests` from each crate's `CARGO_MANIFEST_DIR`).
-Tests skip gracefully (with an `eprintln!`) if that directory isn't present, so the suite still
-runs (with reduced coverage) if this repo is ever moved somewhere without that sibling checkout.
+See the root README's "Fixture corpus" section for the mechanics (sibling-checkout path, 82
+files, graceful skip if absent).
 
 **Important, hard-won finding**: despite one subdirectory being named `src-invalid/syntax-tests`,
 *every* fixture in the entire corpus is syntactically well-formed Alpha — including that one.
@@ -211,9 +194,9 @@ Files: `alpha-transform/src/{ir,lower,normalize,normalize_reduction}.rs`.
   pass that needs to replace nodes and recompute attached domains as it goes, and rowan's tree is a
   persistent/structurally-shared one meant for the opposite property (cheap lossless *parse-time*
   edits). `Expr` carries its own `expression_domain: Set` and `context_domain: Option<Set>`
-  directly as fields (no side-table). This was a genuine, up-front architecture decision — see the
-  design doc discussion before this work started for the alternatives considered (full port vs.
-  core subset vs. codegen-first) and why "full port on a new owned IR" was chosen.
+  directly as fields (no side-table). This was a genuine, up-front architecture decision, weighed
+  against the alternatives (full port onto `alpha_syntax::ast` directly, a codegen-first subset)
+  before settling on "full port on a new owned IR."
 - **`lower.rs`**: builds an `ir::System` from an analyzed `ast::System` (via
   `alpha_model::domain::Resolver::analyze_system`) by *transcribing*, never re-deriving — every
   isl object a node needs comes from the exact same now-`pub` `Resolver` methods phases 3–4 already
@@ -267,8 +250,8 @@ Files: `alpha-transform/src/{ir,lower,normalize,normalize_reduction}.rs`.
 
 Files: `alpha-codegen/src/{simplec,layout,writec,error}.rs`, `alphac/src/main.rs`.
 
-- **`simplec.rs`**: the `simpleC` model, deliberately minimal (design doc §7: "this was always
-  'just a small C AST'") — `Stmt`/`Expr`/`Function`/`CType` as plain enums, with `Expr::Raw(String)`
+- **`simplec.rs`**: the `simpleC` model, deliberately minimal — "this was always just a small C
+  AST" — `Stmt`/`Expr`/`Function`/`CType` as plain enums, with `Expr::Raw(String)`
   as the escape hatch every affine/boolean condition goes through (isl's own C-format printer — see
   `isl::ast`'s doc — already produces valid C text for those, so there's no hand-written
   affine-to-C converter to port at all). Preprocessor lines (`#include`, `#define` macros, global
@@ -283,8 +266,8 @@ Files: `alpha-codegen/src/{simplec,layout,writec,error}.rs`, `alphac/src/main.rs
   declared domain's actual shape, e.g. `LUDecomposition`'s triangular `L`). **Flat variables**
   (locals, and every generated flag array) are one allocation this generator sizes/frees itself, via
   a row-major linearization over each dimension's own **bounding box** (`Set::dim_min`/`dim_max`,
-  independently per dim) — the isl-only fallback design doc §5 explicitly sanctions in place of the
-  source system's exact Barvinok/Ehrhart-derived linearization (visible in its own reference output
+  independently per dim) — a deliberately sanctioned isl-only fallback in place of the source
+  system's exact Barvinok/Ehrhart-derived linearization (visible in its own reference output
   as the piecewise `(i,j) -> rank` formulas on every flag array in `LUDecomposition.c`) — implementing
   that exactly is real, separate work still gated behind the (currently stub) `barvinok` feature.
   For a rectangular domain the two coincide exactly; for a triangular one this allocates strictly
@@ -434,8 +417,8 @@ And in `alpha-codegen`/`alpha-transform` (`writec.rs`/`normalize_reduction.rs`, 
 
 ## Immediate next steps (in order)
 
-1. VS Code extension (napi-rs native addon + TextMate grammar — design doc §8) — the one piece of
-   the original phased roadmap (design doc §9) with nothing built yet.
+1. VS Code extension (napi-rs native addon + TextMate grammar) — the one piece of the original
+   phased roadmap with nothing built yet.
 2. A dedicated `alphac`-level test (compile the generated C, or at least parse it with a real C
    frontend) — today the three reference fixtures were verified *manually* this session (compiled
    and linked against the sibling Java system's own `*-wrapper.c`/`*_verify.c`, run across several
@@ -459,14 +442,14 @@ inherits both of the `alpha-model` gaps automatically (`lower.rs` skips equation
 affect), so closing them in `alpha-model` is what unblocks `alpha-transform`/`alpha-codegen` for
 that remaining handful of equations too — no separate `alpha-transform`-side work needed. Also
 note `UseEquation`/subsystem calls have no codegen backend in the source system's own `WriteC`
-either (design doc §7) — `alpha-codegen` matching that isn't a port regression, and closing the
+either — `alpha-codegen` matching that isn't a port regression, and closing the
 `domain.rs`/`completeness.rs` gaps above wouldn't change that; a working `UseEquation` codegen
 backend would be new work beyond what the source system itself does.
 
 ## Where to look for more context
 
-- `docs/rust-port-design.md` — the full design doc (scope, naming conventions, crate layout,
-  parsing strategy, ISL binding strategy + licensing, codegen plan, VS Code architecture,
-  phased roadmap). Read this for *why*, not just *what*.
+- `README.md` (workspace root) — setup, build/test, usage, workspace layout, licensing.
+- Each crate's own `README.md` — module-level design rationale, status, and scope boundaries
+  specific to that crate. Read those for *why*, not just *what*.
 - `~/.claude/projects/-Users-anna-git-poly/memory/` — cross-session memory (currently just one
   entry: don't run `git add`/`commit`/`status` proactively in this repo).

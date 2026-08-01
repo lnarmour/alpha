@@ -14,6 +14,5 @@ barvinok = { workspace = true, optional = true }
 
 [features]
 # Off by default: enables Ehrhart/cardinality-based malloc sizing via the GPL-licensed
-# barvinok crate. Never enabled in the default `alphac` build or the VS Code addon —
-# see docs/rust-port-design.md §5 and §10.
+# barvinok crate. Never enabled in the default `alphac` build or the VS Code addon.
 barvinok = ["dep:barvinok"]

@@ -4,9 +4,10 @@
 //! semantic information (name resolution, resolved ISL domains, ...) lives here — that's
 //! `alpha-model`'s job, once it exists; this layer only knows about *syntax*.
 //!
-//! Naming follows `docs/rust-port-design.md` §2 in the workspace root: the redundant `Alpha`
-//! prefix is dropped (`AlphaRoot` → `Root`, `AlphaSystem` → `System`, `AlphaExpression` → `Expr`),
-//! and the `JNI*` prefix is dropped from the calculator-layer types (`JNIDomain` → `Domain`,
+//! Naming strips Eclipse/Java/JNI artifacts and keeps Alpha's/the polyhedral model's own
+//! vocabulary verbatim: the redundant `Alpha` prefix is dropped (`AlphaRoot` → `Root`,
+//! `AlphaSystem` → `System`, `AlphaExpression` → `Expr`), and the `JNI*` prefix is dropped from
+//! the calculator-layer types (`JNIDomain` → `Domain`,
 //! etc.) — see `syntax_kind.rs` for where each CST node kind maps back to a source-grammar rule.
 
 use crate::syntax_kind::{SyntaxKind as K, SyntaxNode, SyntaxToken};

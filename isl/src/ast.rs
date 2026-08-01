@@ -1,7 +1,7 @@
-//! `isl_ast_build`/`isl_ast_node`/`isl_ast_expr`: isl's loop-generation entry point. Per
-//! `docs/rust-port-design.md` §5/§7 in the workspace root, this is the single highest-value
-//! piece of isl to bind well — it's where isl's own loop-generation/simplification algorithm
-//! (deciding loop order, collapsing bounds, ...) earns its keep, and exactly what
+//! `isl_ast_build`/`isl_ast_node`/`isl_ast_expr`: isl's loop-generation entry point. This is the
+//! single highest-value piece of isl to bind well — it's where isl's own
+//! loop-generation/simplification algorithm (deciding loop order, collapsing bounds, ...) earns
+//! its keep, and exactly what
 //! `alpha-codegen`'s `WriteC` demand-driven generator uses instead of hand-rolling one.
 use crate::ctx::{take_c_string, Context, Result};
 use crate::map::Map;
@@ -10,7 +10,7 @@ use std::ffi::CString;
 
 /// `isl_union_map`: minimal for now — just enough to hand a schedule (built from a plain `Map`)
 /// to [`AstBuild::generate`]. Full union-set/union-map algebra is scheduling-tree territory,
-/// out of scope per `docs/rust-port-design.md` §0/§9.
+/// out of scope for this port (see the root README's scope note).
 pub struct UnionMap {
     pub(crate) ctx: Context,
     pub(crate) ptr: *mut isl_sys::isl_union_map,
@@ -64,9 +64,8 @@ impl AstBuild {
     }
 
     /// Walks every point in `schedule`'s domain in the order `schedule` maps them to (identity
-    /// schedule = plain lexicographic order, as in the demand-driven `WriteC` generator — see
-    /// `docs/rust-port-design.md` §7), producing the loop/conditional AST isl's own build
-    /// algorithm computes.
+    /// schedule = plain lexicographic order, as in the demand-driven `WriteC` generator),
+    /// producing the loop/conditional AST isl's own build algorithm computes.
     pub fn generate(&self, schedule: UnionMap) -> Result<AstNode> {
         let ptr =
             unsafe { isl_sys::isl_ast_build_node_from_schedule_map(self.ptr, schedule.into_raw()) };
@@ -82,8 +81,7 @@ impl AstBuild {
     /// Names the loop iterators `generate` introduces, in dimension order — `alpha-codegen`'s
     /// `WriteC` generator uses this so the C identifiers isl's own AST builder emits for a loop
     /// match the equation's own index names (or, for a `Reduce`'s ambient dims held fixed while
-    /// generating its own reduction loop, that dim's "primed" parameter name — see
-    /// `docs/rust-port-design.md` §7).
+    /// generating its own reduction loop, that dim's "primed" parameter name).
     pub fn set_iterators(self, names: &[&str]) -> Result<AstBuild> {
         let ctx = self.ctx.clone();
         let mut list_ptr =
@@ -137,7 +135,7 @@ pub struct AstNode {
 }
 
 /// `isl_ast_node_type`, minus the `mark`/`error` variants — `mark` nodes (schedule-tree
-/// annotations) are scheduling-tree territory, out of scope per `docs/rust-port-design.md` §0.
+/// annotations) are scheduling-tree territory, out of scope for this port.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AstNodeKind {
     For {
@@ -274,8 +272,8 @@ pub struct AstExpr {
 
 /// `isl_ast_expr_type`. `Op`'s specific operator (`+`, `min`, ternary select, ...) is exposed
 /// separately via [`AstExpr::op_type`]/[`AstExpr::op_args`] rather than folded in here — isl has
-/// ~30 operator kinds and `alpha-codegen`'s converters (per `docs/rust-port-design.md` §7) only
-/// ever need to match on a handful of them.
+/// ~30 operator kinds and `alpha-codegen`'s converters only ever need to match on a handful of
+/// them.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AstExprKind {
     Op,

@@ -1,8 +1,7 @@
 //! The calculator layer's dynamic type system: every `CalculatorExpression` evaluates to a
 //! [`Value`] tagged `Set`/`Map`/`Function`/`Polynomial` (`POLY_OBJECT_TYPE` in the source Java),
 //! and unary/binary calculator operators are only defined for certain operand-kind combinations
-//! — checked here at evaluation time, not statically. See `docs/rust-port-design.md` §1/§6 in
-//! the workspace root.
+//! — checked here at evaluation time, not statically.
 //!
 //! Deliberately partial: the well-understood, clearly-specified core operators (union/subtract/
 //! intersect, domain/range, the hulls, intersect/subtract-range) are implemented against real

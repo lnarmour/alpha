@@ -1,5 +1,4 @@
-//! `isl_set`: the core polyhedral domain type. See `docs/rust-port-design.md` §5/§6 in the
-//! workspace root for the operation inventory this is built from and how it's used by Alpha's
+//! `isl_set`: the core polyhedral domain type, used pervasively by Alpha's
 //! semantic analysis (expression/context domain inference, the well-formedness checks) and
 //! codegen (the AST builder's context set).
 use crate::ctx::{take_c_string, Context, Result};
@@ -11,7 +10,7 @@ pub struct Set {
     pub(crate) ptr: *mut isl_sys::isl_set,
 }
 
-/// `ISL_FORMAT_C` vs `ISL_FORMAT_ISL` — see `docs/rust-port-design.md` §5: isl's own C
+/// `ISL_FORMAT_C` vs `ISL_FORMAT_ISL` — isl's own C
 /// pretty-printer is what codegen leans on for affine/constraint/polynomial-to-C conversion,
 /// rather than a hand-rolled printer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -42,7 +41,8 @@ impl Set {
     }
 
     /// Parses isl's own set syntax (`"{ [i,j] : 0 <= i < N and 0 <= j < N }"`) — this is Alpha's
-    /// actual domain-literal grammar; see `docs/rust-port-design.md` §1/§4.
+    /// actual domain-literal grammar; the text inside `{ ... }` domain literals isn't parsed by
+    /// Alpha's own grammar at all, it's captured as an opaque substring and handed to isl here.
     pub fn read_from_str(ctx: &Context, s: &str) -> Result<Set> {
         let cstr = CString::new(s).expect("isl set text must not contain NUL bytes");
         let ptr = unsafe { isl_sys::isl_set_read_from_str(ctx.as_ptr(), cstr.as_ptr()) };
@@ -149,7 +149,7 @@ impl Set {
 
     /// Simplifies `self` relative to `context` (e.g. dropping constraints implied by an outer
     /// parameter domain) — used pervasively in the source system for producing readable
-    /// diagnostic domains (see `docs/rust-port-design.md` §6).
+    /// diagnostic domains.
     pub fn gist(self, context: Set) -> Result<Set> {
         let ctx = self.ctx.clone();
         let ptr = unsafe { isl_sys::isl_set_gist(self.into_raw(), context.into_raw()) };
@@ -170,9 +170,8 @@ impl Set {
 
     /// Removes `n` dims of type `ty` starting at `first` from the constraints without changing
     /// the set's dimensionality (unlike [`Self::project_out`], which actually removes the dims) —
-    /// `UniquenessAndCompletenessCheck`'s unbounded-reduction check (`docs/rust-port-design.md`
-    /// §6) uses this to test each reduction dimension's boundedness independently of the ones
-    /// already checked.
+    /// `UniquenessAndCompletenessCheck`'s unbounded-reduction check uses this to test each
+    /// reduction dimension's boundedness independently of the ones already checked.
     pub fn eliminate(self, ty: DimType, first: u32, n: u32) -> Result<Set> {
         let ctx = self.ctx.clone();
         let ptr = unsafe { isl_sys::isl_set_eliminate(self.into_raw(), ty.to_raw(), first, n) };
@@ -181,8 +180,8 @@ impl Set {
 
     /// Projects out every set dim, leaving only the parameter constraints — used to render an
     /// "undefined for these parameter values" diagnostic detail purely in terms of parameters
-    /// (`docs/rust-port-design.md` §6: `UniquenessAndCompletenessCheck.inStandardEquation`'s
-    /// `undefDom.params()`).
+    /// (`UniquenessAndCompletenessCheck.inStandardEquation`'s `undefDom.params()` in the source
+    /// Java).
     pub fn params(self) -> Result<Set> {
         let ctx = self.ctx.clone();
         let ptr = unsafe { isl_sys::isl_set_params(self.into_raw()) };

@@ -2,8 +2,7 @@
 //! deliberately closed over the source system's own semantic-analysis catalog; codegen-time
 //! failures are a different concern: an isl operation failing on an already-analyzed tree
 //! shouldn't happen but is still reported, not panicked on, and a handful of documented,
-//! deliberate scope boundaries the source system's own `WriteC` shares or that this port defers —
-//! see `docs/rust-port-design.md` §7).
+//! deliberate scope boundaries the source system's own `WriteC` shares or that this port defers.
 
 use std::fmt;
 
@@ -12,7 +11,7 @@ pub enum CodegenError {
     Isl(isl::IslError),
     /// A construct this port's `WriteC` doesn't generate code for. Carries a short description of
     /// what and, where useful, why — e.g. `UseEquation` (no codegen backend in the source system
-    /// either, `docs/rust-port-design.md` §7), `Select`/`IndexPolynomial` (relation-based
+    /// either), `Select`/`IndexPolynomial` (relation-based
     /// reindexing / piecewise-polynomial index values — real but rare in the fixture corpus, not
     /// implemented this session), `ArgReduce` (unseen across the whole 82-fixture corpus).
     Unsupported(String),

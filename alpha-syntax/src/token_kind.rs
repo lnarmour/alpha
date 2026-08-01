@@ -1,5 +1,5 @@
 //! The lexer's token kinds, derived from `Alpha.xtext`'s terminal rules and implicit keyword
-//! literals (see `docs/rust-port-design.md` §4 in the workspace root).
+//! literals.
 //!
 //! Deliberately lexer-only: `logos::Logos` requires every variant to be reachable by a
 //! `#[token]`/`#[regex]` pattern, so node kinds (added once the parser/CST land) live in a
