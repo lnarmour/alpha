@@ -69,12 +69,6 @@ still runs — with reduced coverage — without the sibling checkout.
 ## Running `alphac`
 
 ```
-make run ARGS="path/to/file.alpha -o path/to/file.c"
-```
-
-or directly:
-
-```
 cargo run -p alphac -- path/to/file.alpha -o path/to/file.c
 ```
 
@@ -86,24 +80,25 @@ Without `-o`, generated C is printed to stdout.
 make check    # cargo check --workspace
 make clippy   # cargo clippy --workspace --all-targets
 make fmt      # cargo fmt --all
-make lint     # uvx prek run --all-files (all pre-commit hooks)
+make lint     # uv run prek run --all-files (all pre-commit hooks)
 make clean    # cargo clean
 ```
 
 ## Pre-commit hooks
 
 This repo uses [`prek`](https://github.com/j178/prek) (a fast, Rust-based reimplementation of
-`pre-commit`) to run formatting and lint checks before each commit. Run it via `uv` — no separate
-install needed:
+`pre-commit`) to run formatting and lint checks before each commit, managed as a `uv` dev
+dependency (see [`pyproject.toml`](pyproject.toml)):
 
 ```
-uvx prek install     # one-time: installs the git hook
+uv sync               # one-time: creates .venv, installs prek
+uv run prek install   # one-time: installs the git hook
 ```
 
 Hooks then run automatically on `git commit`. To run them manually against all files:
 
 ```
-uvx prek run --all-files
+make lint              # or: uv run prek run --all-files
 ```
 
 Configured hooks: `cargo fmt --check`, `cargo clippy --workspace --all-targets -- -D warnings`,
