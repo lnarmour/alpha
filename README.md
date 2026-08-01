@@ -11,6 +11,11 @@ For the full design rationale (why isl via FFI, workspace layout, licensing, sco
 
 ## Dependencies
 
+- **[uv](https://docs.astral.sh/uv/)**, to run `prek` for pre-commit hooks (see
+  [Pre-commit hooks](#pre-commit-hooks) below):
+  ```
+  curl -LsSf https://astral.sh/uv/install.sh | sh
+  ```
 - **Rust**, via [rustup](https://rustup.rs/) (not a system package manager):
   ```
   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
@@ -27,8 +32,7 @@ For the full design rationale (why isl via FFI, workspace layout, licensing, sco
 - **Barvinok**: not required. `barvinok`/`barvinok-sys` are stub crates gated behind the
   off-by-default `barvinok` Cargo feature.
 
-Linux/macOS only — no Windows support (isl depends on GMP, which complicates static linking on
-Windows).
+Linux/macOS only — no Windows support (isl depends on GMP, which complicates static linking on Windows).
 
 ## Building
 
@@ -82,8 +86,29 @@ Without `-o`, generated C is printed to stdout.
 make check    # cargo check --workspace
 make clippy   # cargo clippy --workspace --all-targets
 make fmt      # cargo fmt --all
+make lint     # uvx prek run --all-files (all pre-commit hooks)
 make clean    # cargo clean
 ```
+
+## Pre-commit hooks
+
+This repo uses [`prek`](https://github.com/j178/prek) (a fast, Rust-based reimplementation of
+`pre-commit`) to run formatting and lint checks before each commit. Run it via `uv` — no separate
+install needed:
+
+```
+uvx prek install     # one-time: installs the git hook
+```
+
+Hooks then run automatically on `git commit`. To run them manually against all files:
+
+```
+uvx prek run --all-files
+```
+
+Configured hooks: `cargo fmt --check`, `cargo clippy --workspace --all-targets -- -D warnings`,
+`cargo check --workspace`, plus standard whitespace/YAML/TOML hygiene checks. See
+[`.pre-commit-config.yaml`](.pre-commit-config.yaml).
 
 ## License
 

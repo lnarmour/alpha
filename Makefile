@@ -5,7 +5,7 @@ export PATH := /opt/homebrew/bin:$(PATH)
 CARGO ?= cargo
 ARGS ?=
 
-.PHONY: all build release test check clippy fmt clean run
+.PHONY: all build release test check clippy fmt lint clean run
 
 all: build
 
@@ -26,6 +26,9 @@ clippy:
 
 fmt:
 	$(CARGO) fmt --all
+
+lint:
+	uvx prek run --all-files
 
 clean:
 	$(CARGO) clean
