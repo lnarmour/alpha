@@ -48,7 +48,8 @@ Every boundary below raises a named `CodegenError::Unsupported`, never a panic:
   not implemented. The whole 82-fixture corpus has zero `argreduce` uses and only a handful of
   `select`/`val{...}` uses.
 - A `case`'s `auto` branch whose true domain isn't independently bounded once combined with only
-  the enclosing reduce/equation's own ambient context — a real, rare tree shape (see `TODO.md`'s
+  the enclosing reduce/equation's own ambient context — a real, rare tree shape (see
+  `docs/progress.md`'s
   bug #14), not a crash to hide.
 
 ## Status

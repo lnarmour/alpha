@@ -40,5 +40,5 @@ ships.
 
 Done for scope: CLI wiring is complete and manually verified against the three
 `alpha.codegen.tests` reference fixtures (see `alpha-codegen`'s README). No dedicated crate-level
-test yet — see `TODO.md` in the workspace root's "immediate next steps" for what that would need
+test yet — see `docs/progress.md`'s "immediate next steps" for what that would need
 (a C compiler on the test machine to actually compile the generated output).

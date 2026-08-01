@@ -1,7 +1,8 @@
 # Progress notes — Rust port of alpha-language
 
 Status as of this pause — the *where things actually stand* companion to the root
-[`README.md`](README.md), meant to let a new session pick up cold.
+[`README.md`](../README.md) (and [`docs/design.md`](design.md) for the *why*), meant to let a new
+session pick up cold.
 
 ## TL;DR
 
@@ -26,14 +27,15 @@ sibling Java system's own `*-wrapper.c`/`*_verify.c` files, **passes real numeri
 against the original AlphaZ-generated output across a range of `N`; (2) a corpus-wide fixture test
 runs the whole pipeline over all 82 fixtures and asserts every system either generates successfully
 or hits one of this session's documented, named scope boundaries — zero unexpected failures. The
-VS Code extension is the one remaining piece with nothing built yet beyond a design (§8).
+VS Code extension is the one remaining piece with nothing built yet beyond a design (see
+`docs/design.md`).
 
 Whole workspace builds clean, clippy clean, zero test failures, as of this pause.
 
 ## Environment setup (do this first in a fresh session/machine)
 
-Full prerequisites and build/test commands now live in the root [`README.md`](README.md) — read
-that first. Gotchas specific to working in this repo across sessions, not covered there:
+Full prerequisites and build/test commands now live in the root [`README.md`](../README.md) —
+read that first. Gotchas specific to working in this repo across sessions, not covered there:
 
 - **Working directory matters**: this repo (`~/git/poly/alpha-rs`) is *not* nested under the
   `alpha-language`/`alphaz` Java repos — it's a sibling directory, its own git repo. Cargo
@@ -448,7 +450,8 @@ backend would be new work beyond what the source system itself does.
 
 ## Where to look for more context
 
-- `README.md` (workspace root) — setup, build/test, usage, workspace layout, licensing.
+- `README.md` (workspace root) — what this is, dependencies, build/test/run instructions.
+- `docs/design.md` — workspace layout, licensing, and the fuller design rationale.
 - Each crate's own `README.md` — module-level design rationale, status, and scope boundaries
   specific to that crate. Read those for *why*, not just *what*.
 - `~/.claude/projects/-Users-anna-git-poly/memory/` — cross-session memory (currently just one

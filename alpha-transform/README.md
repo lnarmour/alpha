@@ -54,5 +54,5 @@ Both silent-wrong-answer bugs, not compile errors:
    `Expr::new(other, saved_domain, saved_context)` using the operand's own already-correct fields,
    captured before the match moved `kind` out.
 
-See `TODO.md` in the workspace root for further detail and the fixture programs that exposed each
+See `docs/progress.md` in the workspace root for further detail and the fixture programs that exposed each
 bug.

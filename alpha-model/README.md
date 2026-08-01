@@ -46,7 +46,7 @@ left deliberately open rather than guessed at:
 `check_use_equation_outputs` (`completeness.rs`) is a faithful port but stays **dormant** until the
 `UseEquation` context-domain gap above closes.
 
-See each module's own doc comment, and `TODO.md` in the workspace root, for the full rationale and
+See each module's own doc comment, and `docs/progress.md` in the workspace root, for the full rationale and
 the fixture programs that motivated each rule.
 
 ## Status

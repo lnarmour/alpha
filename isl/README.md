@@ -50,7 +50,7 @@ code.
   [`barvinok`](../barvinok) crate, feature-gated in `alpha-codegen`, precisely so this crate can
   stay MIT-only.
 - `AstBuild::expr_from_set` (etc.) renders using **the build's own context set's dim names**,
-  positionally — the set argument's own dim names are ignored. See `TODO.md` in the workspace
+  positionally — the set argument's own dim names are ignored. See `docs/progress.md` in the workspace
   root (bug #12) if you're relying on this: callers construct a small "universe" context set with
   the exact names they want to render, rather than trying to get dim names to agree between sets
   before printing.

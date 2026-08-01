@@ -69,4 +69,4 @@ all implemented and fixture-tested against the full 82-file `.alpha` corpus in t
    bound-list, so a naive "all IDENT children" collection also picks up identifiers used *inside*
    the constraint/bound text.
 
-See `TODO.md` in the workspace root for more detail on these and other hard-won findings.
+See `docs/progress.md` in the workspace root for more detail on these and other hard-won findings.
