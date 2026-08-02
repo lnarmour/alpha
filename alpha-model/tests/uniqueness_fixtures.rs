@@ -10,7 +10,7 @@ use alpha_syntax::ast::{self};
 use std::path::{Path, PathBuf};
 
 fn fixtures_root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../alpha-language/tests")
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/alpha-language-fixtures")
 }
 
 fn all_alpha_files(dir: &Path, out: &mut Vec<PathBuf>) {
@@ -43,7 +43,7 @@ fn all_systems(root: &ast::Root) -> Vec<ast::System> {
 fn no_real_fixture_has_duplicate_names() {
     let root = fixtures_root();
     if !root.exists() {
-        eprintln!("skipping: {root:?} not found (expected sibling alpha-language checkout)");
+        eprintln!("skipping: {root:?} not found (bundled fixtures missing)");
         return;
     }
     let mut files = Vec::new();

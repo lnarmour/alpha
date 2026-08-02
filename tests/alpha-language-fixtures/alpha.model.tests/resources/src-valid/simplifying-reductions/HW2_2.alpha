@@ -1,0 +1,10 @@
+package tests.SR {
+	affine HW2_2 [N] -> { : N>1}
+		inputs
+			A : [N,N]
+		outputs
+			X : [N-1]
+		let
+			X[i] = reduce(max, [j,k], {:0<=j and 0<=k && j+k<N}: A[i+j,i+k]);
+	.
+}

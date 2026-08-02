@@ -1,0 +1,10 @@
+package tests.SR {
+	affine segmentSum [N,W] -> { : N>0 and W>0 and N>W}
+		inputs
+			A : [N]
+		outputs
+			C : [N]
+		let
+			C[i] = reduce(+, [j], {:i-W<=j<=i} : A[j]);
+	.
+}

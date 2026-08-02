@@ -1,0 +1,5 @@
+affine CopyInput [N]->{:N>0}
+	inputs  X: [N]
+	outputs Y: [N]
+	let Y = X;
+.

@@ -1,0 +1,69 @@
+//CNN forward pass based on
+// http://cs231n.github.io/convolutional-networks/
+package tests.basic.CNN {
+
+	affine CNN [W,H,D,X,F]->{:W>X and H>X and D>0 and F>0 and X>0}
+		inputs
+			image : [W,H,D]
+			weights : [X,X,D,F]
+		locals
+			feature:[W-X,H-X,F]
+		let
+			(feature) = CONVLayer[W,H,D,F,X](image, weights);
+	.
+
+	//CONV layer that takes:
+	// W : width of the image
+	// H : height of the image
+	// D : depth of the image (color)
+	// F : number of filters in this layer
+	// X : size of the convolution kernel
+	affine CONVLayer [W,H,D,F,X]->{:W>X and H>X and D>0 and F>0 and X>0}
+		inputs
+			image : [W,H,D]
+			weights : [X,X,D,F]
+		outputs
+			out : [W-X,H-X,F]
+		let
+			//out[i,j,k] = conv({[x,y,z]: -X<=x<=X and -Y<=y<=Y and 0<=z<D}, weights[x,y,z,k], image[i+x,j+y,k+z]);
+			out[i,j,k] = conv( [X,X,D] as [x,y,z], weights[x,y,z,k], image[i+x,j+y,z]);
+	.
+
+
+	//RELU layer that just applies the activation function
+	//(RELU comes from REcitified Linear Unit or max(0,x))
+	external activation(1)
+	affine RELULayer [W,H,D]->{:}
+		inputs
+			image : [W,H,D]
+		outputs
+			out : [W,H,D]
+		let
+		out = activation(image);
+	.
+
+	//Sampling layer
+	// Sampling factor must be a constant to stay polyhedral
+	constant factor=2
+	affine POOLLayer [W,H,D,WW,HH]->{:factor*WW=W and factor*HH=H}
+		inputs
+			image : [W,H,D]
+		outputs
+			out : [WW,HH,D]
+		let
+			out[i,j,k] = reduce(max, [x,y], {:factor*i<=x<factor*(i+1) and factor*j<=y<factor*(j+1)} : image[x,y,k]);
+	.
+
+	//Fully connected layer
+	// same thing as an ANNForwardLayer, except for the dimensionality of the input data
+	affine FCLayer [W,H,D,O]-> {:W>0 && H>0 && D>0 && O>0}
+		inputs
+			image : [W,H,D]
+			weights : [W,H,D,O]
+		outputs
+			out : [O]
+		let
+			out[x] = reduce(+, [i,j,k], weights[i,j,k,x]*image[i,j,k]);
+	.
+
+}

@@ -51,8 +51,8 @@ the fixture programs that motivated each rule.
 
 ## Status
 
-Done for all six phases. Fixture-tested against all 82 `.alpha` fixtures from the sibling
-`alpha-language` repo:
+Done for all six phases. Fixture-tested against all 82 `.alpha` fixtures bundled in this repo (originally from the
+`alpha-language` repo):
 
 - `resolve_fixtures` — 271 systems / 665 variables resolve
 - `function_fixtures` — 469 dependence/reduce functions resolve

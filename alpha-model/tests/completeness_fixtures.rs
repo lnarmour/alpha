@@ -20,7 +20,7 @@ use isl::Context;
 use std::path::{Path, PathBuf};
 
 fn fixtures_root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../alpha-language/tests")
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/alpha-language-fixtures")
 }
 
 fn all_alpha_files(dir: &Path, out: &mut Vec<PathBuf>) {
@@ -82,7 +82,7 @@ fn check_all(resolver: &mut Resolver, system: &ast::System) -> Vec<Diagnostic> {
 fn every_src_valid_fixture_has_zero_completeness_diagnostics() {
     let root = fixtures_root();
     if !root.exists() {
-        eprintln!("skipping: {root:?} not found (expected sibling alpha-language checkout)");
+        eprintln!("skipping: {root:?} not found (bundled fixtures missing)");
         return;
     }
     let mut files = Vec::new();
@@ -186,7 +186,7 @@ fn parse_fixture(rel: &str) -> ast::Root {
 fn unbounded_reduction_body_is_flagged() {
     let root = fixtures_root();
     if !root.exists() {
-        eprintln!("skipping: sibling alpha-language checkout not found");
+        eprintln!("skipping: bundled fixtures not found");
         return;
     }
     let tree = parse_fixture(
@@ -208,7 +208,7 @@ fn unbounded_reduction_body_is_flagged() {
 fn self_recursive_use_equation_is_flagged() {
     let root = fixtures_root();
     if !root.exists() {
-        eprintln!("skipping: sibling alpha-language checkout not found");
+        eprintln!("skipping: bundled fixtures not found");
         return;
     }
     let tree =
@@ -229,7 +229,7 @@ fn self_recursive_use_equation_is_flagged() {
 fn incomplete_and_empty_system_bodies_are_flagged() {
     let root = fixtures_root();
     if !root.exists() {
-        eprintln!("skipping: sibling alpha-language checkout not found");
+        eprintln!("skipping: bundled fixtures not found");
         return;
     }
     let tree =
@@ -262,7 +262,7 @@ fn incomplete_and_empty_system_bodies_are_flagged() {
 fn undefined_locals_and_outputs_are_flagged() {
     let root = fixtures_root();
     if !root.exists() {
-        eprintln!("skipping: sibling alpha-language checkout not found");
+        eprintln!("skipping: bundled fixtures not found");
         return;
     }
 

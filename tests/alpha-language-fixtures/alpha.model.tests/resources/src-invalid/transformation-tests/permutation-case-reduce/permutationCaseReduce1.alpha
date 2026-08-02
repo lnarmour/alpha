@@ -1,0 +1,59 @@
+/**
+ * Test for PermutationCaseReduce.
+ *
+ * All reductions should not have CaseExpression as its body after the transformation.
+ */
+ package tests.valid.trans.permutationCaseReduce {
+
+affine permutationCaseReduce1a [N] -> { : N>0}
+	inputs
+		Y : {}
+	outputs
+		X : {}
+	let
+		X = reduce(+, [i], case {
+			{:i=0} : 0[];
+			auto : Y[];
+		} );
+.
+
+affine permutationCaseReduce1b [N] -> { : N>0}
+	inputs
+		Y : {}
+	outputs
+		X : {}
+	let
+		X = reduce(+, [i], case {
+			{:i=0} : 0[];
+			{:i=1} : 1[];
+			auto : Y[];
+		} );
+.
+
+affine permutationCaseReduce1c [N] -> { : N>0}
+	inputs
+		Y : {}
+	outputs
+		X : [N]
+	let
+		X[i] = reduce(+, [j], case {
+			{:i<10 and 0<=j<N} : 0[];
+			{:i>=10 and 0<=j<N} : Y[];
+		} );
+.
+
+affine permutationCaseReduce1d [N] -> { : N>0}
+	inputs
+		Y : {}
+	outputs
+		X : [N]
+	let
+		X[i] = reduce(+, [j], case {
+			{:i<20 and 0<=j<10} : 0[];
+			{:i>=10 and 10<=j<N} : 1[];
+			auto : Y[];
+		} );
+.
+
+
+}

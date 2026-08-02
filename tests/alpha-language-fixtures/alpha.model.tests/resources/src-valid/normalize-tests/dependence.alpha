@@ -1,0 +1,132 @@
+/*
+ * Test for normalize involving dependences
+ */
+package tests.normalize.dependence {
+	external testOP(3)
+
+	affine identity [N]->{:N>0}
+		inputs
+			A:[N]
+		outputs
+			B:[N]
+		let
+			//f @ E = E if f = I
+			B = (i->i)@A;
+	.
+
+	affine composition1 [N]->{:N>0}
+		inputs
+			A:[N]
+		outputs
+			B:[N]
+		let
+			// f1 @ f2 @ E -> (f2 o f1) @ E
+			// + identity
+			B = (i->i)@(i->i)@A;
+	.
+
+	affine composition2 [N]->{:N>0}
+		inputs
+			A:[N]
+		outputs
+			B:[N]
+		let
+			// f1 @ f2 @ E -> (f2 o f1) @ E
+			// + identity
+			B = (i->i+1)@(i->i-1)@A;
+	.
+
+	affine composition3 [N]->{:N>0}
+		inputs
+			A:[N]
+		outputs
+			B:[N]
+		let
+			// f1 @ val(f2) -> val(f2 o f1)
+			B = (i->i+1)@val(i->i-1);
+	.
+
+	affine applyDomain [N]->{:N>0}
+		inputs
+			A:[2N]
+		outputs
+			B:[N]
+		let
+			// f @ D : E -> f-1(D) : E
+			B = (i->i+1) @ ({[i]:i>0} : A);
+	.
+
+	affine binaryExpression1 [N]->{:N>0}
+		inputs
+			A:[2N]
+		outputs
+			B:[N]
+		let
+			// f @ D : E -> f-1(D) : E
+			B = (i->i+1) @ (A + A);
+	.
+
+	affine binaryExpression2 [N]->{:N>0}
+		inputs
+			A:[2N]
+		outputs
+			B:[N]
+		let
+			// f @ D : E -> f-1(D) : E
+			// + composition
+			// + identity
+			B = (i->i+1) @ ((i->i-1)@A + (i->i-1)@A);
+	.
+
+	affine unaryExpression [N]->{:N>0}
+		inputs
+			A:[N]
+		outputs
+			B:[N]
+		let
+			//f @ (op E) -> (op f@E)
+			B = (i->i+1)@(- ((i->i-1)@A));
+	.
+
+	affine multiArgExpression1 [N]->{:N>0}
+		inputs
+			A:[4N]
+		outputs
+			B:[N]
+		let
+			//f @ op(E1, E2, ...) -> op(f@E1, f@E2, ...)
+			B = (i->i+1)@max(A, (i->i+1)@A, (i->i+2)@A);
+	.
+
+	affine multiArgExpression2 [N]->{:N>0}
+		inputs
+			A:[4N]
+		outputs
+			B:[N]
+		let
+			//f @ op(E1, E2, ...) -> op(f@E1, f@E2, ...)
+			B = (i->i+1)@testOP(A, (i->i+1)@A, (i->i+2)@A);
+	.
+	affine ifExpression1 [N]->{:N>0}
+		inputs
+			A1:[2N]
+			A2:[2N]
+		outputs
+			B:[N]
+		let
+			// f @ if (E1, E2, E3) -> if (f@E1, f@E2, f@E3)
+			B = (i->i+1) @ (if (A1) then A1 else A2);
+	.
+	affine ifExpression2 [N]->{:N>1}
+		inputs
+			A1:[2N]
+			A2:[2N]
+		outputs
+			B:[N]
+		let
+			// f @ if (E1, E2, E3) -> if (f@E1, f@E2, f@E3)
+			// + composition
+			// + identity
+			B = (i->i+1) @ (if (A1) then (i->i-1)@A1 else (i->i+1)@A2);
+	.
+}

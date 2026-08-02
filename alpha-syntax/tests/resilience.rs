@@ -6,7 +6,7 @@
 use std::path::{Path, PathBuf};
 
 fn fixtures_root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../alpha-language/tests")
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/alpha-language-fixtures")
 }
 
 fn all_alpha_files(dir: &Path, out: &mut Vec<PathBuf>) {
@@ -61,7 +61,7 @@ fn hand_picked_garbage_never_panics() {
 fn truncated_prefixes_of_every_fixture_never_panic() {
     let root = fixtures_root();
     if !root.exists() {
-        eprintln!("skipping: {root:?} not found (expected sibling alpha-language checkout)");
+        eprintln!("skipping: {root:?} not found (bundled fixtures missing)");
         return;
     }
     let mut files = Vec::new();

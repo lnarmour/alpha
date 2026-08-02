@@ -1,4 +1,4 @@
-# alpha
+# alpha-language-rs
 
 A Rust implementation of the [Alpha language](https://github.com/CSU-CS-Melange/alpha-language)
 polyhedral compilation toolchain: parse → semantic analysis → normalize → generate C.
@@ -54,17 +54,9 @@ cargo build --workspace --release
 make test
 ```
 
-or `cargo test --workspace`. Conformance tests read `.alpha` fixtures from a **sibling checkout**
-of the `alpha-language` repo:
-
-```
-git/
-├── alpha-rs/          (this repo)
-└── alpha-language/    (sibling checkout, provides tests/**)
-```
-
-Tests skip gracefully (with an `eprintln!`) if that directory isn't present, so `cargo test`
-still runs — with reduced coverage — without the sibling checkout.
+or `cargo test --workspace`. Conformance tests read `.alpha` fixtures bundled in this repo under
+[`tests/alpha-language-fixtures/`](tests/alpha-language-fixtures/) (copied from the upstream
+[`alpha-language`](https://github.com/CSU-CS-Melange/alpha-language) repo's `tests/**`).
 
 ## Running `alphac`
 

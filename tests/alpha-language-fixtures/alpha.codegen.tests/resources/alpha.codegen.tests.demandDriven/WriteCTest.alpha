@@ -1,0 +1,13 @@
+affine NoParameters []->{:}
+	inputs  X: {[]:}
+	outputs Z: {[]:}
+	locals  Y: {[]:}
+	let Y=X; Z=Y;
+.
+
+affine NoParameterConstraints [N]->{:}
+	inputs  X: {[i]: 0<=i<N}
+	outputs Z: {[i]: 0<=i<N}
+	locals  Y: {[i]: 0<=i<N}
+	let Y=X; Z=Y;
+.

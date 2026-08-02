@@ -10,7 +10,7 @@ use isl::Context;
 use std::path::{Path, PathBuf};
 
 fn fixtures_root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../alpha-language/tests")
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/alpha-language-fixtures")
 }
 
 fn all_alpha_files(dir: &Path, out: &mut Vec<PathBuf>) {
@@ -274,7 +274,7 @@ fn is_expected_invalid_fixture(path: &std::path::Path) -> bool {
 fn dependence_and_reduce_functions_resolve() {
     let root = fixtures_root();
     if !root.exists() {
-        eprintln!("skipping: {root:?} not found (expected sibling alpha-language checkout)");
+        eprintln!("skipping: {root:?} not found (bundled fixtures missing)");
         return;
     }
     let mut files = Vec::new();
