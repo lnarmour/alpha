@@ -3,7 +3,7 @@
  * Show notation
  */
 package tests.syntax.valid {
-	
+
 	affine autoRestrict1a [N]->{:N>0}
 		outputs
 			X : [N]

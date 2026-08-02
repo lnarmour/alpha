@@ -1,10 +1,10 @@
 /**
  * Test for SubstituteByDef.
  *
- * 
+ *
  */
 package tests.valid.trans.substituteByDef {
-	
+
 	affine autoRestrict1a [O,N,M]->{:O>N>M>0}
 		inputs
 			X : [M]
@@ -12,15 +12,15 @@ package tests.valid.trans.substituteByDef {
 			Y : [N]
 			Z : [O]
 		let
-			Y[i] = case { 
+			Y[i] = case {
 					X[i];
 					auto : 0[];
 				};
-				
-			Z[i] = case { 
+
+			Z[i] = case {
 					Y[i];
 					auto : 1[];
 				};
 	.
-	
+
 }

@@ -1,6 +1,6 @@
 package tests.basic.FFT {
 	external twiddle(1)
-	
+
 	affine DFT [N]->{:}
 		inputs
 			x : [N]
@@ -12,7 +12,7 @@ package tests.basic.FFT {
 			T[i,j] = twiddle(val[i]*val[j]);
 			y[i] = reduce(+, [j], T[i,j]*x[j]);
 	.
-	
+
 	affine FFT [N]->{:N>=2}
 		inputs
 			x : [N]
@@ -31,17 +31,17 @@ package tests.basic.FFT {
 				{:k=0} : x[2i];
 				{:k=1} : x[2i+1];
 			};
-			
+
 			//two N/2 FFTs
 			over[2] as [k] with [i] : (q[k,i]) = FFT[N/2](p[k,i]);
-			
+
 			r[k,i] = twiddle(val[i])*q[k,i];
-			
+
 			//N/2, 2 DFTs
 			over[N/2] as [k] with [i] : (s[k,i]) = DFT[2](r[i,k]);
-			
+
 			y[i] = s[floor(i/2),i%2];
-			
+
 		when {:N%2=1} let
 			//odd N is not handled; initial N must be powers of 2
 			(y) = DFT[N](x);

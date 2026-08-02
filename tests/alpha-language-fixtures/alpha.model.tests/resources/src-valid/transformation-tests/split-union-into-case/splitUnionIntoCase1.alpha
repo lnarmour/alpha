@@ -4,7 +4,7 @@
  * All restrict domains should be a single polyhedron after the transformation.
  */
 package tests.valid.trans.splitUnionIntoCase {
-	
+
 affine splitUnionIntoCase1a [N] -> { : N>0}
 	inputs
 		Y : [N]
@@ -13,7 +13,7 @@ affine splitUnionIntoCase1a [N] -> { : N>0}
 	let
 		X[i] = case {
 			{:i=0 or i=N-1} : 0[];
-			{:0<i<N-1} : Y[i-1] + Y[i+1]; 
+			{:0<i<N-1} : Y[i-1] + Y[i+1];
 		};
 .
 
@@ -25,7 +25,7 @@ affine splitUnionIntoCase1b [N] -> { : N>0}
 	let
 		X[i,j] = case {
 			sum(Y[i-1,j-1], Y[i+1,j+1], Y[i+1,j+1], Y[i-1,j+1], Y[i+1,j-1], Y[i-1,j-1]);
-			auto : 0[]; 
+			auto : 0[];
 		};
 .
 

@@ -7,7 +7,7 @@ affine LUDecomposition [N]->{:N>0}
 			{:i=0}: A[i,j];
 			auto:   A[i,j] - reduce(+, [k], L[i,k]*U[k,j]);
 		};
-		
+
 		L[i,j] = case {
 			{:j=0}: A[i,j] / U[j,j];
 			auto:  (A[i,j] - reduce(+, [k], L[i,k-1] * U[k,j])) / U[j,j];

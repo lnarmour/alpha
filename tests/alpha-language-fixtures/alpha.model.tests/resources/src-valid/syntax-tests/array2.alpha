@@ -11,7 +11,7 @@ package tests.syntax.valid {
 		let
 			B[i,j] = A;
 	.
-	
+
 	affine domain2b [N]->{ : }
 		inputs
 			A : [N,N]
@@ -20,7 +20,7 @@ package tests.syntax.valid {
 		let
 			B = (x,y->x,y)@A;
 	.
-	
+
 	affine domain2c [N]->{ : }
 		inputs
 			A : [N,N]
@@ -29,7 +29,7 @@ package tests.syntax.valid {
 		let
 			B[i,j] = A[i,j];
 	.
-	
+
 	affine domain2d [N]->{:}
 		inputs
 			A : [N]

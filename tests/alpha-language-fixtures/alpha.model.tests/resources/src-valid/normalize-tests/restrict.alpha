@@ -8,7 +8,7 @@ package tests.normalize.restrict {
 			// D1 : D2 : E -> (D1 and D2) : E
 			B = reduce(+, [i], {:0<=i<=N} : {:N<=i<2N} : A);
 	.
-	
+
 	affine redundant [N]->{:N>0}
 		inputs
 			A:[N]
@@ -18,7 +18,7 @@ package tests.normalize.restrict {
 			// D : E -> E if context domain of D : E and E are the same (i.e., restrict has no effect)
 			B = {[i]:0<=i<N} : A;
 	.
-	
+
 	affine binaryExpressionL [N]->{:N>0}
 		inputs
 			A:{[i]:0<=i<2N}
@@ -28,7 +28,7 @@ package tests.normalize.restrict {
 			// (D : A op B) -> D : (A op B)
 			B = reduce(+, [i], ({:i<N} : A + A));
 	.
-	
+
 	affine binaryExpressionR [N]->{:N>0}
 		inputs
 			A:{[i]:0<=i<2N}
@@ -38,7 +38,7 @@ package tests.normalize.restrict {
 			// (A op D : B) -> D : (A op B)
 			B = reduce(+, [i], (A + ({:i<N} : A)));
 	.
-	
+
 	affine binaryExpressionLR [N]->{:N>0}
 		inputs
 			A:{[i]:0<=i<3N}
@@ -50,7 +50,7 @@ package tests.normalize.restrict {
 			// (A op D : B) -> D : (A op B)
 			B = reduce(+, [i], (({:i<N} : A) + ({:i<2N} : A)));
 	.
-	
+
 	affine unaryExpression [N]->{:N>0}
 		inputs
 			A:{[i]:0<=i<2N}
@@ -60,8 +60,8 @@ package tests.normalize.restrict {
 			// (op D : E) -> D : (op E)
 			B = reduce(+, [i], -({:i<N} : A));
 	.
-	
-	
+
+
 	affine multiArgExpression [N]->{:N>0}
 		inputs
 			A:{[i]:0<=i<3N}

@@ -10,7 +10,7 @@ package tests.syntax.valid {
 		let
 			X = val [N];
 	.
-	
+
 	affine index2b [N]->{ : }
 		outputs
 			X : [N]

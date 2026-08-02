@@ -9,7 +9,7 @@
  * Before the transformation:
  *  - All equations start with a reduction.
  *
- * After the transformation: 
+ * After the transformation:
  *  - There should be no reduction left, OR
  *  - The reduction has less dimensions.
  */

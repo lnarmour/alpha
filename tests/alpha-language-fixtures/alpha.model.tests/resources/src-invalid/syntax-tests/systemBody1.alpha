@@ -1,6 +1,6 @@
 /*
  * Tests for SystemBodies 1
- * 
+ *
  * All cases are expected to throw AlphaIssues
  */
 package tests.syntax.invalid {
@@ -15,9 +15,9 @@ package tests.syntax.invalid {
 			B = A;
 		let
 			B = A;
-	
+
 	.
-	
+
 	affine systemBody1b [N]->{:N>0}
 		inputs
 			A : [N];
@@ -28,8 +28,8 @@ package tests.syntax.invalid {
 		//empty free body
 		let
 			B = A;
-	. 
-	
+	.
+
 	affine systemBody1c [N]->{:}
 		inputs
 			A : [N];
@@ -40,6 +40,6 @@ package tests.syntax.invalid {
 			B = A;
 		when {:N<0} let
 			B = A;
-	. 
+	.
 
 }

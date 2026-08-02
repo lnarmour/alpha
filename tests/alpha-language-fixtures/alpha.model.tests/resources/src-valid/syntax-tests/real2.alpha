@@ -3,7 +3,7 @@
  * AShow notation
  */
 package tests.syntax.valid {
-	
+
 	affine real2a [N]->{ : }
 		outputs
 			X : [N]

@@ -1,7 +1,7 @@
 /*
  * Tests for ArrayNotation 1
  * 1D arrays + dependences
- * 
+ *
  * All cases are expected to throw AlphaIssues
  */
 package tests.syntax.invalid {
@@ -13,7 +13,7 @@ package tests.syntax.invalid {
 		let
 			B = A[i]; //should fail due to index name not being specified in B, disallowing array notation
 	.
-	
+
 	affine array1b [N]->{:}
 		inputs
 			A : [N]
@@ -22,7 +22,7 @@ package tests.syntax.invalid {
 		let
 			B[i] = (x->x)@A[i]; //cannot use array notation after pure function
 	.
-	
+
 	affine array1c [N]->{:}
 		inputs
 			A : [N]
@@ -31,7 +31,7 @@ package tests.syntax.invalid {
 		let
 			B[i] = select {[x]->[x]:} from A[x]; //select can rename array notation context
 	.
-	
+
 	affine array1d [N]->{:}
 		inputs
 			A : [N]
@@ -40,7 +40,7 @@ package tests.syntax.invalid {
 		let
 			B[i] = select {[x]->[x]:} from A[i]; //should fail due to context being changed by select
 	.
-	
+
 	affine array1e [N]->{ : }
 		inputs
 			A : [N]

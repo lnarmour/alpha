@@ -1,4 +1,4 @@
-//CNN forward pass based on 
+//CNN forward pass based on
 // http://cs231n.github.io/convolutional-networks/
 package tests.basic.CNN {
 

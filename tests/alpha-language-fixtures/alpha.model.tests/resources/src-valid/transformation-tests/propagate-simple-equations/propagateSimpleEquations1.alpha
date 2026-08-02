@@ -4,7 +4,7 @@
  * There should be a single equation after the transformation.
  */
  package tests.valid.trans.propagateSimpleEquations {
-	
+
 	affine propagateSimpleEquations1a [N] -> { : N>0}
 		inputs
 			Y : {}
@@ -16,7 +16,7 @@
 			X = E;
 			E = 0;
 	.
-	
+
 	affine propagateSimpleEquations1b [N] -> { : N>0}
 		inputs
 			Y : {}
@@ -28,7 +28,7 @@
 			X = E;
 			E = Y;
 	.
-	
+
 	affine propagateSimpleEquations1c [N] -> { : N>0}
 		inputs
 			Y : {}
@@ -40,7 +40,7 @@
 			X = E;
 			E = val(->N);
 	.
-	
+
 	affine propagateSimpleEquations1d [N] -> { : N>0}
 		inputs
 			Y : [N]
@@ -52,7 +52,7 @@
 			X[i] = E[i];
 			E[i] = Y[i];
 	.
-	
+
 	affine propagateSimpleEquations1e [N] -> { : N>0}
 		inputs
 			Y : [N]

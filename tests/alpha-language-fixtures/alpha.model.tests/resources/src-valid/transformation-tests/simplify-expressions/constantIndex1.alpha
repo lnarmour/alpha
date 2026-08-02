@@ -12,7 +12,7 @@
 		let
 			X = val[0];
 	.
-	
+
 	affine contantIndex1b [N] -> { : N>0}
 		inputs
 			Y : {}
@@ -21,7 +21,7 @@
 		let
 			X = val[1];
 	.
-	
+
 	affine contantIndex1c [N] -> { : N>0}
 		inputs
 			Y : {}
@@ -30,7 +30,7 @@
 		let
 			X = val[-1];
 	.
-	
+
 	affine contantIndex1d [N] -> { : N>0}
 		inputs
 			Y : {}

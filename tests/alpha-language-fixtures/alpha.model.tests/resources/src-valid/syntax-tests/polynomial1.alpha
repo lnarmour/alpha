@@ -3,7 +3,7 @@
  * Show notation
  */
 package tests.syntax.valid {
-	
+
 	affine polynomial1a [N]->{:N>0}
 		outputs
 			X : {}
@@ -17,14 +17,14 @@ package tests.syntax.valid {
 		let
 			X = val { N^2+N };
 	.
-	
+
 	affine polynomial1c [N]->{:N>0}
 		outputs
 			X : [N]
 		let
 			X = val { [i]->N^2+1/2*i };
 	.
-	
+
 	affine polynomial1d [N]->{:N>0}
 		outputs
 			X : [N]

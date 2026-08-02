@@ -8,7 +8,7 @@ package tests.normalize.deep {
 		B = case {
 			{[i]:2i<N} : case named {
 				{[i]:4i<N} : A;
-				auto : A;		
+				auto : A;
 			};
 			{[i]:2i>=N} : A;
 		};

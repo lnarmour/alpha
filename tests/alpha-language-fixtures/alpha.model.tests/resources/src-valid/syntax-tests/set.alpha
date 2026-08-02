@@ -8,7 +8,7 @@ package tests.syntax.valid {
 		let
 			B = case {
 				A;
-				{[i]:i>=2N; [i]:i<N} : 0[];	
+				{[i]:i>=2N; [i]:i<N} : 0[];
 			};
 	.
 	//same as above with array notation
@@ -20,7 +20,7 @@ package tests.syntax.valid {
 		let
 			B[i] = case {
 				A;
-				{:i>=2N or i<N} : 0[];	
+				{:i>=2N or i<N} : 0[];
 			};
 	.
 }

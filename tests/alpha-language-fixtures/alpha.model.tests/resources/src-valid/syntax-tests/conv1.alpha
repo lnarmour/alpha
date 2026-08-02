@@ -15,7 +15,7 @@ package tests.syntax.valid {
 			//1D convolution, forward only
 			B[i] = conv([2] as [x], W[x], A[i+x]);
 	.
-	
+
 	affine conv1b [N]->{:N>0}
 		inputs
 			A : [N]
@@ -26,7 +26,7 @@ package tests.syntax.valid {
 			//1D convolution, both directions
 			B[i] = conv([-2:2] as [x], W[x], A[i+x]);
 	.
-	
+
 	affine conv1c [N,X]->{:N>0 and X>0}
 		inputs
 			A : [N]
@@ -37,7 +37,7 @@ package tests.syntax.valid {
 			//1D convolution, forward only, parametric weights
 			B[i] = conv([X] as [x], W[x], A[i+x]);
 	.
-	
+
 	affine conv1d [N,X,Y]->{:N>2X and X,Y>0}
 		inputs
 			A : [N]

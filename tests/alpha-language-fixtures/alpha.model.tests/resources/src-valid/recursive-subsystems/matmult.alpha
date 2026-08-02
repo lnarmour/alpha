@@ -3,7 +3,7 @@ package tests.syntax.valid {
 affine matmult [N]->{:N>0}
 	inputs
 		A : [N,N]
-		B : [N,N] 
+		B : [N,N]
 	outputs
 		C : [N,N]
 	when {: N>10 and N%2=0} let
@@ -15,4 +15,3 @@ affine matmult [N]->{:N>0}
 		C[i,j] = reduce(+, [k], A[i,k]*B[k,j]);
 .
 }
-

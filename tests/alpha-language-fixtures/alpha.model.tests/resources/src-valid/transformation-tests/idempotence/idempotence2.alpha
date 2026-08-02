@@ -1,12 +1,12 @@
 /**
  * Test for Idempotence.
- * In contrast to the test 1, reductions 
+ * In contrast to the test 1, reductions
  * in these tests have bounded domains.
  *
  * Before the transformation:
  *  - All equations start with a reduction.
  *
- * After the transformation: 
+ * After the transformation:
  *  - There should be no reduction left, OR
  *  - The reduction has less dimensions.
  */

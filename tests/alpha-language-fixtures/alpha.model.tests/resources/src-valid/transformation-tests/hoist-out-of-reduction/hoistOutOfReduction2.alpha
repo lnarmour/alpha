@@ -5,7 +5,7 @@
  * All reductions should not have BinaryExpression or MultiArgExpression as its content after the transformation.
  */
  package tests.valid.trans.hoistOutOfReduction {
-	
+
 affine hoistOutOfReduction2a [N] -> { : N>0}
 	inputs
 		Y : {}

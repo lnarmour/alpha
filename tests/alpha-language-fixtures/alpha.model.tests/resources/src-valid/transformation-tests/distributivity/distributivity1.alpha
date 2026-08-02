@@ -4,11 +4,11 @@
  * Before the transformation:
  *  - All equations start with a reduction.
  *
- * After the transformation: 
- *  - There should be no BinaryExpression or MultiArgExpression within reductions. 
+ * After the transformation:
+ *  - There should be no BinaryExpression or MultiArgExpression within reductions.
  */
  package tests.valid.trans.distributivity {
-	
+
 affine distributivity1a [N] -> { : N>0}
 	inputs
 		Y : [N]
