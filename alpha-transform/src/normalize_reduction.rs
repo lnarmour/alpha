@@ -157,7 +157,15 @@ fn extract_top_level(
             then_branch,
             else_branch,
         } => {
-            extract_top_level(cond, index_names, enclosing_domain, existing_names, new_equations, new_locals, extracted);
+            extract_top_level(
+                cond,
+                index_names,
+                enclosing_domain,
+                existing_names,
+                new_equations,
+                new_locals,
+                extracted,
+            );
             extract_top_level(
                 then_branch,
                 index_names,
@@ -179,7 +187,15 @@ fn extract_top_level(
         }
         ExprKind::Case { branches, .. } => {
             for b in branches.iter_mut() {
-                extract_top_level(b, index_names, enclosing_domain, existing_names, new_equations, new_locals, extracted);
+                extract_top_level(
+                    b,
+                    index_names,
+                    enclosing_domain,
+                    existing_names,
+                    new_equations,
+                    new_locals,
+                    extracted,
+                );
             }
         }
         ExprKind::Convolution {
@@ -208,12 +224,36 @@ fn extract_top_level(
         }
         ExprKind::MultiArg { args, .. } => {
             for a in args.iter_mut() {
-                extract_top_level(a, index_names, enclosing_domain, existing_names, new_equations, new_locals, extracted);
+                extract_top_level(
+                    a,
+                    index_names,
+                    enclosing_domain,
+                    existing_names,
+                    new_equations,
+                    new_locals,
+                    extracted,
+                );
             }
         }
         ExprKind::Binary { lhs, rhs, .. } => {
-            extract_top_level(lhs, index_names, enclosing_domain, existing_names, new_equations, new_locals, extracted);
-            extract_top_level(rhs, index_names, enclosing_domain, existing_names, new_equations, new_locals, extracted);
+            extract_top_level(
+                lhs,
+                index_names,
+                enclosing_domain,
+                existing_names,
+                new_equations,
+                new_locals,
+                extracted,
+            );
+            extract_top_level(
+                rhs,
+                index_names,
+                enclosing_domain,
+                existing_names,
+                new_equations,
+                new_locals,
+                extracted,
+            );
         }
         ExprKind::Variable(_)
         | ExprKind::Bool(_)

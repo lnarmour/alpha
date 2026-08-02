@@ -122,11 +122,8 @@ pub fn generate_system(system: &ir::System) -> Result<String> {
         externs: BTreeSet::new(),
     };
 
-    let ordered_vars: Vec<&ir::Variable> = system
-        .outputs
-        .iter()
-        .chain(system.locals.iter())
-        .collect();
+    let ordered_vars: Vec<&ir::Variable> =
+        system.outputs.iter().chain(system.locals.iter()).collect();
     let mut eval_fns = Vec::new();
     for v in &ordered_vars {
         let Some(eqs) = equations_by_var.get(v.name.as_str()) else {
@@ -144,7 +141,11 @@ fn param_names_of(domain: &Set) -> Vec<String> {
     let space = domain.space();
     let n = space.dim(DimType::Param);
     (0..n)
-        .map(|d| space.dim_name(DimType::Param, d).unwrap_or_else(|| format!("P{d}")))
+        .map(|d| {
+            space
+                .dim_name(DimType::Param, d)
+                .unwrap_or_else(|| format!("P{d}"))
+        })
         .collect()
 }
 
@@ -165,7 +166,11 @@ fn ambient_build(g: &Gen, names: &[String]) -> Result<AstBuild> {
     let text = if names.is_empty() {
         format!("{}{{: }}", space_prefix(&g.param_names))
     } else {
-        format!("{}{{[{}]: }}", space_prefix(&g.param_names), names.join(","))
+        format!(
+            "{}{{[{}]: }}",
+            space_prefix(&g.param_names),
+            names.join(",")
+        )
     };
     let universe = Set::read_from_str(&g.ctx, &text)?;
     Ok(AstBuild::from_context(universe)?)
@@ -184,8 +189,22 @@ fn is_valid_c_ident(s: &str) -> bool {
     }
     !matches!(
         s,
-        "int" | "float" | "double" | "return" | "if" | "else" | "for" | "while" | "long"
-            | "char" | "void" | "static" | "struct" | "const" | "break" | "continue"
+        "int"
+            | "float"
+            | "double"
+            | "return"
+            | "if"
+            | "else"
+            | "for"
+            | "while"
+            | "long"
+            | "char"
+            | "void"
+            | "static"
+            | "struct"
+            | "const"
+            | "break"
+            | "continue"
     )
 }
 
@@ -262,10 +281,16 @@ fn gen_value(g: &mut Gen, names: &[String], e: &ir::Expr) -> Result<CExpr> {
             "internal error: bare Variable('{name}') reached codegen outside a Dependence — \
              Normalize should have wrapped every Variable in an identity Dependence"
         ))),
-        ir::ExprKind::Bool(b) => Ok(CExpr::Raw(if *b { "1.0f".to_string() } else { "0.0f".to_string() })),
+        ir::ExprKind::Bool(b) => Ok(CExpr::Raw(if *b {
+            "1.0f".to_string()
+        } else {
+            "0.0f".to_string()
+        })),
         ir::ExprKind::Int(s) => Ok(CExpr::Raw(format!("((float)({s}))"))),
         ir::ExprKind::Real(s) => Ok(CExpr::Raw(format!("((float)({s}))"))),
-        ir::ExprKind::Dependence { function, operand } => gen_dependence(g, names, function, operand),
+        ir::ExprKind::Dependence { function, operand } => {
+            gen_dependence(g, names, function, operand)
+        }
         ir::ExprKind::IndexFunction { function } => gen_index_function(names, function),
         ir::ExprKind::IndexPolynomial { .. } => Err(CodegenError::Unsupported(
             "val{...} (polynomial-valued index expression) codegen not implemented this session"
@@ -402,7 +427,9 @@ fn gen_index_function(names: &[String], function: &MultiAff) -> Result<CExpr> {
 
 fn gen_case(g: &mut Gen, names: &[String], branches: &[ir::Expr]) -> Result<CExpr> {
     let Some((last, rest)) = branches.split_last() else {
-        return Err(CodegenError::Unsupported("case with zero branches".to_string()));
+        return Err(CodegenError::Unsupported(
+            "case with zero branches".to_string(),
+        ));
     };
     let mut result = gen_value(g, names, last)?;
     if rest.is_empty() {
@@ -451,7 +478,9 @@ fn gen_unary(g: &mut Gen, names: &[String], operator: &str, operand: &ir::Expr) 
     match operator {
         "-" => Ok(CExpr::Raw(format!("(-({v}))"))),
         "not" => Ok(CExpr::Raw(format!("(!({v}))"))),
-        _ => Err(CodegenError::Unsupported(format!("unknown unary operator '{operator}'"))),
+        _ => Err(CodegenError::Unsupported(format!(
+            "unknown unary operator '{operator}'"
+        ))),
     }
 }
 
@@ -478,7 +507,9 @@ fn gen_multi_arg(
             // `sum`/`prod` are `MultiArgExpression`'s own N-ary spellings of `+`/`*` (see
             // `alpha-syntax`'s `MultiArgExpr::named_operator`) — not reduce-operator tokens here.
             match op.as_str() {
-                "min" | "max" => Ok(iter.fold(first, |acc, v| CExpr::Call(op.clone(), vec![acc, v]))),
+                "min" | "max" => {
+                    Ok(iter.fold(first, |acc, v| CExpr::Call(op.clone(), vec![acc, v])))
+                }
                 "xor" => Ok(iter.fold(first, |acc, v| {
                     CExpr::Raw(format!("((({acc}) != 0) != (({v}) != 0))"))
                 })),
@@ -532,7 +563,9 @@ fn gen_reduce(
     }
     let b = total - a;
     if b == 0 {
-        return Err(CodegenError::Unsupported("reduce with no new index dims".to_string()));
+        return Err(CodegenError::Unsupported(
+            "reduce with no new index dims".to_string(),
+        ));
     }
     let primed: Vec<String> = names.iter().map(|n| format!("{n}p")).collect();
     let new_hint: Vec<String> = if body_context_hint.len() as u32 == total {
@@ -637,8 +670,11 @@ fn gen_reduce(
     let fn_name = format!("reduce{}", g.reduce_counter);
     g.reduce_counter += 1;
 
-    let mut params: Vec<(CType, String)> =
-        g.param_names.iter().map(|p| (CType::Long, p.clone())).collect();
+    let mut params: Vec<(CType, String)> = g
+        .param_names
+        .iter()
+        .map(|p| (CType::Long, p.clone()))
+        .collect();
     for p in &primed {
         params.push((CType::Long, p.clone()));
     }
@@ -704,8 +740,7 @@ fn gen_eval_function(
     let ndims = v.domain.dim(DimType::OutOrSet);
     let hint = &eqs[0].1.index_names;
     let names = pick_names(hint, ndims);
-    let params: Vec<(CType, String)> =
-        names.iter().map(|n| (CType::Long, n.clone())).collect();
+    let params: Vec<(CType, String)> = names.iter().map(|n| (CType::Long, n.clone())).collect();
 
     let value_expr = if eqs.len() == 1 {
         gen_value(g, &names, &eqs[0].1.expr)?
@@ -776,7 +811,9 @@ fn gen_eval_function(
 fn union_of_body_domains(system: &ir::System) -> Result<Set> {
     let mut iter = system.bodies.iter();
     let Some(first) = iter.next() else {
-        return Err(CodegenError::Unsupported("system has no bodies".to_string()));
+        return Err(CodegenError::Unsupported(
+            "system has no bodies".to_string(),
+        ));
     };
     let mut acc = first.domain.clone();
     for b in iter {
@@ -797,7 +834,9 @@ fn flat_alloc_stmts(name: &str, ndims: u32, domain: &Set, elem_ctype: &str) -> R
     let total = layout::flat_total_size_expr(name, ndims);
     stmts.push(Stmt::Assign {
         target: CExpr::Raw(name.to_string()),
-        value: CExpr::Raw(format!("({elem_ctype}*)(malloc((sizeof({elem_ctype})) * ({total})))")),
+        value: CExpr::Raw(format!(
+            "({elem_ctype}*)(malloc((sizeof({elem_ctype})) * ({total})))"
+        )),
     });
     stmts.push(Stmt::Raw(format!("mallocCheck({name},\"{name}\");")));
     Ok(stmts)
@@ -819,9 +858,12 @@ fn gen_eval_loop(v: &ir::Variable) -> Result<Vec<Stmt>> {
     let ident = MultiAff::identity_on_domain_space(v.domain.space())?
         .into_map()?
         .intersect_domain(v.domain.clone())?;
-    let ast = build
-        .generate(UnionMap::from_map(ident))
-        .map_err(|e| isl_bound_err(&format!("generating the driver's loop over '{}'", v.name), e))?;
+    let ast = build.generate(UnionMap::from_map(ident)).map_err(|e| {
+        isl_bound_err(
+            &format!("generating the driver's loop over '{}'", v.name),
+            e,
+        )
+    })?;
 
     let mut headers = Vec::new();
     let mut node = ast;
@@ -887,14 +929,18 @@ fn gen_driver(g: &mut Gen, system: &ir::System) -> Result<Function> {
     });
 
     body.push(Stmt::Raw(String::new()));
-    body.push(Stmt::Raw("// Allocate memory for local storage.".to_string()));
+    body.push(Stmt::Raw(
+        "// Allocate memory for local storage.".to_string(),
+    ));
     for v in &system.locals {
         let ndims = v.domain.dim(DimType::OutOrSet);
         body.extend(flat_alloc_stmts(&v.name, ndims, &v.domain, "float")?);
     }
 
     body.push(Stmt::Raw(String::new()));
-    body.push(Stmt::Raw("// Allocate and initialize flag variables.".to_string()));
+    body.push(Stmt::Raw(
+        "// Allocate and initialize flag variables.".to_string(),
+    ));
     for v in system.outputs.iter().chain(system.locals.iter()) {
         let flag = format!("_flag_{}", v.name);
         let ndims = v.domain.dim(DimType::OutOrSet);
@@ -942,7 +988,9 @@ fn gen_driver(g: &mut Gen, system: &ir::System) -> Result<Function> {
         })
         .collect();
     full_body.push(Stmt::Raw(String::new()));
-    full_body.push(Stmt::Raw("// Copy arguments to the global variables.".to_string()));
+    full_body.push(Stmt::Raw(
+        "// Copy arguments to the global variables.".to_string(),
+    ));
     full_body.extend(body);
 
     Ok(Function {
@@ -954,17 +1002,36 @@ fn gen_driver(g: &mut Gen, system: &ir::System) -> Result<Function> {
     })
 }
 
-fn render_program(system: &ir::System, g: &Gen, eval_fns: &[Function], driver: &Function) -> String {
+fn render_program(
+    system: &ir::System,
+    g: &Gen,
+    eval_fns: &[Function],
+    driver: &Function,
+) -> String {
     let mut out = String::new();
     let _ = writeln!(out, "// This code was auto-generated by alphac (alpha-rs).");
     let _ = writeln!(out);
-    for inc in ["float.h", "limits.h", "math.h", "stdbool.h", "stdio.h", "stdlib.h", "string.h"] {
+    for inc in [
+        "float.h",
+        "limits.h",
+        "math.h",
+        "stdbool.h",
+        "stdio.h",
+        "stdlib.h",
+        "string.h",
+    ] {
         let _ = writeln!(out, "#include <{inc}>");
     }
     let _ = writeln!(out);
     let _ = writeln!(out, "// Function Macros");
-    let _ = writeln!(out, "#define ceild(n,d) ((int)ceil(((double)(n))/((double)(d))))");
-    let _ = writeln!(out, "#define floord(n,d) ((int)floor(((double)(n))/((double)(d))))");
+    let _ = writeln!(
+        out,
+        "#define ceild(n,d) ((int)ceil(((double)(n))/((double)(d))))"
+    );
+    let _ = writeln!(
+        out,
+        "#define floord(n,d) ((int)floor(((double)(n))/((double)(d))))"
+    );
     let _ = writeln!(out, "#define div(a,b) (ceild((a),(b)))");
     let _ = writeln!(out, "#define max(a,b) (((a)>(b))?(a):(b))");
     let _ = writeln!(out, "#define min(a,b) (((a)<(b))?(a):(b))");

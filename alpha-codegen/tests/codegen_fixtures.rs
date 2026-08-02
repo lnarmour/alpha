@@ -104,7 +104,9 @@ fn generates_or_reports_a_known_scope_boundary_across_fixture_corpus() {
 
             match alpha_codegen::generate_system(&normalized) {
                 Ok(_) => n_generated += 1,
-                Err(alpha_codegen::CodegenError::Unsupported(msg)) if is_known_scope_boundary(&msg) => {
+                Err(alpha_codegen::CodegenError::Unsupported(msg))
+                    if is_known_scope_boundary(&msg) =>
+                {
                     n_known_scope_boundary += 1;
                 }
                 Err(e) => unexpected_failures.push((path.clone(), e.to_string())),
