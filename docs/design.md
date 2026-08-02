@@ -91,19 +91,12 @@ cargo test --workspace
 
 ### Fixture corpus
 
-Every conformance test reads `.alpha` fixtures directly from a **sibling checkout** of the
-`alpha-language` repo, via a relative path (`../../alpha-language/tests` from each crate's
-`CARGO_MANIFEST_DIR`):
+Every conformance test reads `.alpha` fixtures bundled in this repo under
+[`tests/alpha-language-fixtures/`](../tests/alpha-language-fixtures/) (copied from the upstream
+`alpha-language` repo's `tests/**`), via a relative path (`../tests/alpha-language-fixtures` from
+each crate's `CARGO_MANIFEST_DIR`).
 
-```
-git/
-├── alpha-rs/          (this repo)
-└── alpha-language/    (sibling checkout, provides tests/**)
-```
-
-82 `.alpha` fixtures total, across both `src-valid` and `src-invalid` subtrees. Tests skip
-gracefully (with an `eprintln!`) if that directory isn't present, so `cargo test` still runs — with
-reduced coverage — without the sibling checkout.
+82 `.alpha` fixtures total, across both `src-valid` and `src-invalid` subtrees.
 
 One finding worth knowing: despite one subdirectory being named `src-invalid/syntax-tests`,
 *every* fixture in the corpus is syntactically well-formed Alpha, including that one — they all

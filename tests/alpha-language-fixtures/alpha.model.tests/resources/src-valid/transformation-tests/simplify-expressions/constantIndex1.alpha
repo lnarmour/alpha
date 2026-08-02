@@ -1,0 +1,42 @@
+/**
+ * Test for SimplifyExpressions: removal of unnecessary IndexExpressions
+ *
+ * There should be no IndexExpression after SimplifyExpressions
+ */
+ package tests.valid.trans.simplify.expressions {
+	affine constantIndex1a [N] -> { : N>0}
+		inputs
+			Y : {}
+		outputs
+			X : {}
+		let
+			X = val[0];
+	.
+	
+	affine contantIndex1b [N] -> { : N>0}
+		inputs
+			Y : {}
+		outputs
+			X : {}
+		let
+			X = val[1];
+	.
+	
+	affine contantIndex1c [N] -> { : N>0}
+		inputs
+			Y : {}
+		outputs
+			X : {}
+		let
+			X = val[-1];
+	.
+	
+	affine contantIndex1d [N] -> { : N>0}
+		inputs
+			Y : {}
+		outputs
+			X : {}
+		let
+			X = val[3+2-1+0];
+	.
+}

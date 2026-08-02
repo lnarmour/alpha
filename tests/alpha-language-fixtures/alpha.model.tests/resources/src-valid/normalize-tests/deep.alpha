@@ -1,0 +1,16 @@
+package tests.normalize.deep {
+	affine namedCase [N]->{:N>0}
+	inputs
+		A : [N]
+	outputs
+		B : [N]
+	let
+		B = case {
+			{[i]:2i<N} : case named {
+				{[i]:4i<N} : A;
+				auto : A;		
+			};
+			{[i]:2i>=N} : A;
+		};
+	.
+}

@@ -1,0 +1,149 @@
+package tests.normalize.caseExpr {
+	affine dependence [N]->{:N>0}
+		inputs
+			A1 : [N]
+			A2 : [N]
+		outputs
+			B : {[i]:1<=i<=2N}
+		let
+			//f @ case {E1; E2; ...} -> case {f@E1; f@E2; ...}
+			B = (i->i-1)@case {
+				{[i]:i<N}  : A1; 
+				{[i]:i>=N} : (i->i-N)@A2;
+			};
+			
+	.
+	
+	affine restrict [N]->{:N>0}
+		inputs
+			A1 : {[i]:0<=i<=2N}
+			A2 : {[i]:0<=i<=2N}
+		outputs
+			B : [N]
+		let
+			// D : case { E1; E2; ... } -> case { D:E1; D:E2; ... }
+			B = {[i]:0<=i<2N} : case {
+				{:i<N} : A1;
+				{:i>=N} :A2;
+			};
+			
+	.
+	
+	affine unaryExpression [N]->{:N>0}
+		inputs
+			A1 : [N]
+			A2 : [N]
+		outputs
+			B : [N]
+		let
+	
+			//op case { E1; E2; ... }-> case { op E1; op E2; ... }
+			B = - case {
+				{[i]:2i<N}  : A1; 
+				{[i]:2i>=N} : A2;
+			};
+			
+	.
+	
+	affine binaryExpressionL [N]->{:N>0}
+		inputs
+			A1 : [N]
+			A2 : [N]
+			A3 : [N]
+		outputs
+			B : [N]
+		let
+	
+			// E op case { E1; E2; ... } -> case { E op E1; E op E2; ... }
+			B = A3 - case {
+				{[i]:2i<N}  : A1; 
+				{[i]:2i>=N} : A2;
+			};
+	.
+	
+	affine binaryExpressionR [N]->{:N>0}
+		inputs
+			A1 : [N]
+			A2 : [N]
+			A3 : [N]
+		outputs
+			B : [N]
+		let
+	
+			// case { E1; E2; ... } op E -> case { E1 op E; E2 op E; ... }
+			B = case {
+				{[i]:2i<N}  : A1; 
+				{[i]:2i>=N} : A2;
+			} - A3;
+	.
+	
+	affine binaryExpressionLR [N]->{:N>0}
+		inputs
+			A1 : [N]
+			A2 : [N]
+			A3 : [N]
+		outputs
+			B : [N]
+		let
+	
+			// E op case { E1; E2; ... } -> case { E op E1; E op E2; ... }
+			// and
+			// case { E1; E2; ... } op E -> case { E1 op E; E2 op E; ... }
+			B = A3 + case {
+				{[i]:2i<N}  : A1; 
+				{[i]:2i>=N} : A2;
+			} - A3;
+	.
+	
+	affine multiArgExpression1 [N]->{:N>0}
+		inputs
+			A1 : [N]
+			A2 : [N]
+		outputs
+			B : [N]
+		let
+	
+			//f(op, case { E1; E2; ... }) -> case { f(op, E1); f(op, E2); ...}
+			// single operand
+			B = max (case {
+				{[i]:2i<N}  : A1; 
+				{[i]:2i>=N} : A2;
+			});
+	.
+	
+	affine multiArgExpression2 [N]->{:N>0}
+		inputs
+			A1 : [N]
+			A2 : [N]
+		outputs
+			B : [N]
+		let
+	
+			//f(op, case { E1; E2; ... }) -> case { f(op, E1); f(op, E2); ...}
+			// two operands
+			B = max (case {
+				{[i]:2i<N}  : A1; 
+				{[i]:2i>=N} : A2;
+			}, case {
+				{[i]:3i<N}  : A1; 
+				{[i]:3i>=N} : A2;
+			});
+	.
+	
+	affine nestedCase [N]->{:N>0}
+		inputs
+			A :[N]
+		outputs
+			B : [N]
+		let
+			B = case {
+				{[i]:i>20} : A;
+					{[i]:i<=20} :case {
+						{[i]:i > 10} : A;
+						{[i]:i <= 10} : A;
+					};
+				};
+	.
+	
+	
+}

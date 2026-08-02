@@ -1,0 +1,48 @@
+/**
+ * Test for SameOperatorSimplification.
+ *
+ * Before the transformation:
+ *  - All equations start with a reduction.
+ *
+ * After the transformation: 
+ *  - There should be no BinaryExpression or MultiArgExpression within reductions. 
+ */
+ package tests.valid.trans.sameOperatorSimplification {
+	
+affine sameOperatorSimplification1a [N] -> { : N>0}
+	inputs
+		Y : {}
+	outputs
+		X : {}
+	let
+		X = reduce(+, [i], Y[] + 0[]);
+.
+
+affine sameOperatorSimplification1b [N] -> { : N>0}
+	inputs
+		Y : {}
+	outputs
+		X : {}
+	let
+		X = reduce(+, [i], Y[] + 0[] + 1[]);
+.
+
+affine sameOperatorSimplification1c [N] -> { : N>0}
+	inputs
+		Y : {}
+	outputs
+		X : {}
+	let
+		X = reduce(+, [i], sum(Y[], 0[]));
+.
+
+affine sameOperatorSimplification1d [N] -> { : N>0}
+	inputs
+		Y : {}
+	outputs
+		X : {}
+	let
+		X = reduce(+, [i], sum(Y[], sum(0[], 1[])));
+.
+
+}

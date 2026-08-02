@@ -1,0 +1,79 @@
+/**
+ * Test for HigherOrderOperator.
+ * The reduction body in these tests have unbounded
+ * context domain, producing polynomials evaluating
+ * as infty. These are the same set of tests as
+ * Idempotence with a different operator that
+ * cound work with unbounded domains.
+ *
+ * Before the transformation:
+ *  - All equations start with a reduction.
+ *
+ * After the transformation: 
+ *  - There should be no reduction left, OR
+ *  - The reduction has less dimensions.
+ */
+package tests.valid.trans.higherOrderOperator {
+
+affine higherOrderOperator1a [N] -> { : N>0}
+	inputs
+		Y : {}
+	outputs
+		X : {}
+	let
+		//1D reduction with canonical projection
+		X = reduce(+, [i], Y[]);
+.
+
+affine higherOrderOperator1b [N] -> { : N>1}
+	inputs
+		Y : [N]
+	outputs
+		X : [N]
+	let
+		//1D reduction with non-canonical projection
+		X[i] = reduce(+, (i,j->i+j), Y[i+j]);
+.
+
+affine higherOrderOperator1c [N] -> { : N>0}
+	inputs
+		Y : {}
+	outputs
+		X : {}
+	let
+		//2D canonical projection
+		X = reduce(+, [i,j], Y[]);
+.
+
+affine higherOrderOperator1d [N] -> { : N>0}
+	inputs
+		Y : [N]
+	outputs
+		X : [N]
+	let
+		//2D non-canonical projection
+		X[i] = reduce(+, (i,j,k->i+j), Y[i+j]);
+.
+
+affine higherOrderOperator1e [N] -> { : N>0}
+	inputs
+		Y : {}
+		Z : [N]
+	outputs
+		X : [N]
+	let
+		//2D when reuse(E) != ker(projection)
+		X[i] = reduce(+, [j,k], Y[] + Z[i+k]);
+.
+affine higherOrderOperator1f [N] -> { : N>0}
+	inputs
+		Y : [N]
+		Z : [N,N]
+	outputs
+		X : [N]
+	let
+		//2D when reuse(E) != ker(projection) non-canonical projection
+		X[i] = reduce(+, (i,j,k->i+j), Y[i+j] + Z[i+j, k]);
+.
+
+}

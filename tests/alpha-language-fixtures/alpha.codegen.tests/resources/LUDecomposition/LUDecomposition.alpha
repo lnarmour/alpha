@@ -1,0 +1,15 @@
+affine LUDecomposition [N]->{:N>0}
+	inputs  A: {[i,j]: 0<=i<N and 0<=j<N}
+	outputs L: {[i,j]: 0< i<N and 0<=j<i}
+			U: {[i,j]: 0<=i<N and i<=j<N}
+	let
+		U[i,j] = case {
+			{:i=0}: A[i,j];
+			auto:   A[i,j] - reduce(+, [k], L[i,k]*U[k,j]);
+		};
+		
+		L[i,j] = case {
+			{:j=0}: A[i,j] / U[j,j];
+			auto:  (A[i,j] - reduce(+, [k], L[i,k-1] * U[k,j])) / U[j,j];
+		};
+.

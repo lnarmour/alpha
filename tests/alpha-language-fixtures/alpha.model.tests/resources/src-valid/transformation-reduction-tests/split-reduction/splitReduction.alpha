@@ -1,0 +1,17 @@
+affine ex_2d [N]->{ : 10<N }
+	inputs 
+		X : {[i]: 0<=i<=2N}
+	outputs
+		Y : {[i]: 0<=i<=N }
+	let
+		Y[i] = reduce(max, (i,j->i), {: 0<=j<=i and j<=N-i} : X[j]);
+.
+
+affine ex_3d [N]->{ : 10<N }
+		inputs 
+			X : {[k]: 0<=k<=N}
+		outputs
+			Y : {[i,j] : j>=N-i and j>=-2N+2i and 2j<=2N+i }
+		let
+			Y[i,j] = reduce(min, (i,j,k->i,j), {: 0<=k<=2N-2i+j and k<=2N+i-2j and k<=-N+i+j}: X[k]);
+	.

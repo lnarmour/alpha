@@ -1,0 +1,62 @@
+/**
+ * Test for SimplifyExpressions: removal of BinaryExpressions with identity operand
+ *
+ * There should be no BinaryExpression after SimplifyExpressions
+ */
+package tests.valid.trans.simplify.expressions {
+	affine binaryIdentity1a [N] -> { : N>0}
+		inputs
+			Y : {}
+		outputs
+			X : {}
+		let
+			X = (0 + Y);
+	.
+	
+	affine binaryIdentity1b [N] -> { : N>0}
+		inputs
+			Y : {}
+		outputs
+			X : {}
+		let
+			X = (Y + 0);
+	.
+	
+	affine binaryIdentity1c [N] -> { : N>0}
+		inputs
+			Y : {}
+		outputs
+			X : {}
+		let
+			X = (1 * Y);
+	.
+	
+	affine binaryIdentity1d [N] -> { : N>0}
+		inputs
+			Y : {}
+		outputs
+			X : {}
+		let
+			X = (Y * 1);
+	.
+	
+	affine binaryIdentity1e [N] -> { : N>0}
+		inputs
+			Y : {}
+		outputs
+			X : {}
+		let
+			X = (0 + Y * 1);
+	.
+	
+	affine binaryIdentity1f [N] -> { : N>0}
+		inputs
+			Y : {}
+		outputs
+			X : {}
+		let
+			X = (1 * Y + 0);
+	.
+	
+	
+}

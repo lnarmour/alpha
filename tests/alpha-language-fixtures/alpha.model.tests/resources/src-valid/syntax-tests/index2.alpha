@@ -1,0 +1,20 @@
+/*
+ * Tests for IndexExpressions 2
+ * AShow notation
+ */
+package tests.syntax.valid {
+
+	affine index2a [N]->{ : }
+		outputs
+			X : {}
+		let
+			X = val [N];
+	.
+	
+	affine index2b [N]->{ : }
+		outputs
+			X : [N]
+		let
+			X[i] = val [N+i];
+	.
+}

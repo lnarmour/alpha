@@ -1,0 +1,14 @@
+/*
+ * Tests for Real numbers 2
+ * AShow notation
+ */
+package tests.syntax.valid {
+	
+	affine real2a [N]->{ : }
+		outputs
+			X : [N]
+		let
+			X[i] = -1.9[];
+	.
+
+}

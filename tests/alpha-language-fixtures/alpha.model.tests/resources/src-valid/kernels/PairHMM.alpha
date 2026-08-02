@@ -1,0 +1,7 @@
+affine PairHMM [RL,HL]->{:}
+	inputs
+		read : [RL]
+		haplo : [HL]
+	outputs
+		M : [RL,HL]
+.

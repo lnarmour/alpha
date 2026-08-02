@@ -1,0 +1,76 @@
+/**
+ * Test for HigherOrderOperator.
+ * In contrast to the test 1, reductions 
+ * in these tests have bounded domains.
+ *
+ * Before the transformation:
+ *  - All equations start with a reduction.
+ *
+ * After the transformation: 
+ *  - There should be no reduction left, OR
+ *  - The reduction has less dimensions.
+ */
+package tests.valid.trans.higherOrderOperator {
+
+affine higherOrderOperator2a [N] -> { : N>0}
+	inputs
+		Y : {}
+	outputs
+		X : {}
+	let
+		//1D reduction with canonical projection
+		X = reduce(+, [i], {:0<=i<N} : Y[]);
+.
+
+affine higherOrderOperator2b [N] -> { : N>1}
+	inputs
+		Y : [N]
+	outputs
+		X : [N]
+	let
+		//1D reduction with non-canonical projection
+		X[i] = reduce(+, (i,j->i+j), {:-N<j<N} : Y[i+j]);
+.
+
+affine higherOrderOperator2c [N] -> { : N>0}
+	inputs
+		Y : {}
+	outputs
+		X : {}
+	let
+		//2D canonical projection
+		X = reduce(+, [i,j], {:0<=i<N and 0<=j<N} : Y[]);
+.
+
+affine higherOrderOperator2d [N] -> { : N>0}
+	inputs
+		Y : [N]
+	outputs
+		X : [N]
+	let
+		//2D non-canonical projection
+		X[i] = reduce(+, (i,j,k->i+j), {:-N<j<N and 0<=k<N} : Y[i+j]);
+.
+
+affine higherOrderOperator2e [N] -> { : N>0}
+	inputs
+		Y : {}
+		Z : [N]
+	outputs
+		X : [N]
+	let
+		//2D when reuse(E) != ker(projection)
+		X[i] = reduce(+, [j,k], {:0<=j<N and -N<k<N} : (Y[] + Z[i+k]));
+.
+affine higherOrderOperator2f [N] -> { : N>0}
+	inputs
+		Y : [N]
+		Z : [N,N]
+	outputs
+		X : [N]
+	let
+		//2D when reuse(E) != ker(projection) non-canonical projection
+		X[i] = reduce(+, (i,j,k->i+j), {:-N<j<N and 0<=k<N} : (Y[i+j] + Z[i+j, k]));
+.
+
+}

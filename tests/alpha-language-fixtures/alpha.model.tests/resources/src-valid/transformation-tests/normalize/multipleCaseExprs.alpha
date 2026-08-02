@@ -1,0 +1,15 @@
+affine binExprWithCases [N] -> {: N > 5}
+	inputs
+		X : {[i] : N-3<=i<2N}
+	outputs
+		Y : {[i]: 0<=i<=N}
+	let
+		Y[i] = case {
+			{:0=i  } : 0[];
+			{:0<i<N} : 12[];
+			{:  i=N} : 1[];
+		} + case {
+			{:  i<N-3} : 5[];
+			X[i];
+		};
+.

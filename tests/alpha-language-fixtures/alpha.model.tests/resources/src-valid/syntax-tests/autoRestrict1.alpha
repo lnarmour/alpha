@@ -1,0 +1,16 @@
+/*
+ * Tests for AutoRestrictExpression 1
+ * Show notation
+ */
+package tests.syntax.valid {
+	
+	affine autoRestrict1a [N]->{:N>0}
+		outputs
+			X : [N]
+		let
+			X = case {
+				auto: (x->)@0;
+				{[i]:i=0} : (x->)@1;
+			};
+	.
+}

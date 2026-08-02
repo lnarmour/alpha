@@ -1,0 +1,48 @@
+/*
+ * Tests for SubSystems 1
+ * 
+ * All cases are expected to throw AlphaIssues
+ */
+package tests.syntax.invalid {
+	
+	//base system without error to be used by other systems
+	affine subsystem1test [N] -> { : }
+		inputs
+			A : [N]
+		outputs
+			B : [N]
+		let
+			B = A;
+	.
+	
+	affine subsystem1a [N]->{ : }
+		inputs
+			A : [N]
+		outputs
+			B : [N]
+		let
+		    //two definitions for B
+			(B) = subsystem1test[N](A);
+			(B) = subsystem1test[N](A);
+	.
+	
+	affine subsystem1b [N]->{ : }
+		inputs
+			A : [N]
+		outputs
+			B : [N]
+		let
+			//incomplete definition
+			(B) = subsystem1test[N-1](A);
+	.
+	
+	affine subsystem1c [N]->{ : }
+		inputs
+			A : [N]
+		outputs
+			B : [N]
+		let
+			//recursive definition
+			(B) = subsystem1c[N](A);
+	.
+}

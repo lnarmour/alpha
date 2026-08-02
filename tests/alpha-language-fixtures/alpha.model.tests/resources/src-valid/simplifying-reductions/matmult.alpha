@@ -1,0 +1,13 @@
+package tests.SR {
+	affine matmultCS [N] -> { : N>0}
+		inputs
+			A,B : [N,N]
+		outputs
+			C : [N,N]
+			CS1, CS2 : {}
+		let
+			C[i,j] = reduce(+, [k], A[i,k] * B[k,j]);
+			CS1 = reduce(+, [i,j], C[i,j]);
+			CS2 = reduce(+, [i,j], C[i,j]);
+	.
+}

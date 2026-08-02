@@ -1,0 +1,74 @@
+/**
+ * Test for Idempotence.
+ *
+ * Before the transformation:
+ *  - All equations start with a reduction.
+ *
+ * After the transformation: 
+ *  - There should be no reduction left, OR
+ *  - The reduction has less dimensions.
+ */
+package tests.valid.trans.idempotence {
+
+affine idempotence1a [N] -> { : N>0}
+	inputs
+		Y : {}
+	outputs
+		X : {}
+	let
+		//1D reduction with canonical projection
+		X = reduce(max, [i], Y[]);
+.
+
+affine idempotence1b [N] -> { : N>1}
+	inputs
+		Y : [N]
+	outputs
+		X : [N]
+	let
+		//1D reduction with non-canonical projection
+		X[i] = reduce(max, (i,j->i+j), Y[i+j]);
+.
+
+affine idempotence1c [N] -> { : N>0}
+	inputs
+		Y : {}
+	outputs
+		X : {}
+	let
+		//2D canonical projection
+		X = reduce(max, [i,j], Y[]);
+.
+
+affine idempotence1d [N] -> { : N>0}
+	inputs
+		Y : [N]
+	outputs
+		X : [N]
+	let
+		//2D non-canonical projection
+		X[i] = reduce(max, (i,j,k->i+j), Y[i+j]);
+.
+
+affine idempotence1e [N] -> { : N>0}
+	inputs
+		Y : {}
+		Z : [N]
+	outputs
+		X : [N]
+	let
+		//2D when reuse(E) != ker(projection)
+		X[i] = reduce(max, [j,k], Y[] + Z[i+k]);
+.
+affine idempotence1f [N] -> { : N>0}
+	inputs
+		Y : [N]
+		Z : [N,N]
+	outputs
+		X : [N]
+	let
+		//2D when reuse(E) != ker(projection) non-canonical projection
+		X[i] = reduce(max, (i,j,k->i+j), Y[i+j] + Z[i+j, k]);
+.
+
+}

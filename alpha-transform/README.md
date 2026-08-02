@@ -34,7 +34,7 @@ reduction-simplification search, ...) is explicitly out of scope for this port.
 ## Status
 
 Done for scope. `normalize_fixtures` validates all 428 equations across every fixture that lowers
-(from the sibling `alpha-language` repo's 82-file corpus), asserting every one reaches the source
+(from the bundled `tests/alpha-language-fixtures/` 82-file corpus), asserting every one reaches the source
 system's documented normal form.
 
 ## Hardest-won bugs (read before extending `normalize.rs`)

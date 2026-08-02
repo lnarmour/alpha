@@ -1,0 +1,21 @@
+/*
+ * Tests for Integers 2
+ * AShow notation
+ */
+package tests.syntax.valid {
+	
+	affine integer2a [N]->{ : }
+		outputs
+			X : {}
+		let
+			X = val[-1];
+	.
+	
+	affine integer2b [N]->{ : }
+		outputs
+			X : [N]
+		let
+			X[i] = -1[];
+	.
+
+}

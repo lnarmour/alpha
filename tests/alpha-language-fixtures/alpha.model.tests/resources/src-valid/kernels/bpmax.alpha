@@ -1,0 +1,45 @@
+package tests.kernels.bpmax {
+
+external delta (2)
+
+	affine bpmax [N,M]->{:N>=3 && M>=3 }
+		inputs
+			seq1 : [N]
+			seq2 : [M]
+		outputs
+			FTable : {[i1,j1,i2,j2]:i2>=0 && j1+j2>=i1+i2-1 && M>=j2+1 && j2>=i2-1 && i1>=0 && j1>=i1-1 && N>=j1+1 }
+		locals
+		P1 : {[i,j] : 0<=i<=j<N}
+		P2 : {[i,j] : 0<=i<=j<M}
+	// 	 int P1 {i,j| i>=0 && N>=j+1 && j>=i } ;
+	//
+	// 	 int P2 {i,j| i>=0 && M>=j+1 && j>=i } ;
+		Main : {[i1,j1,i2,j2]: i2>=0 && j1+j2>=i1+i2+1 && M>=j2+1 && j2>=i2 && i1>=0 && j1>=i1 && N>=j1+1}
+	// 	 int Main {i1,j1,i2,j2| i2>=0 && j1+j2>=i1+i2+1 && M>=j2+1 && j2>=i2 && i1>=0 && j1>=i1 && N>=j1+1 } ;
+		let
+			P1[i,j] = case {
+				{ : i>=j-3 } : 0[] ;
+				{ : j>=i+4 } : max (P1[i+1,j-1] + delta (seq1[i],seq1[j]),
+					reduce (max, [k], { : j>=k+1} : P1[i,k] + P1[k+1,j])
+				) ;
+			};
+			P2[i,j] = case {
+				{ : i>=j-3 } : 0[] ;
+				{ : j>=i+4 } : max (P2[i+1,j-1] + delta (seq2[M-i-1],seq2[M-j-1]),reduce (max, [k], { : j>=k+1 } : P2[i,k] + P2[k+1,j])) ;
+			};
+			FTable[i1,j1,i2,j2] = case {
+				{ : j1=i1-1 } : P2[i2,j2] ;
+				{ : j2=i2-1 } : P1[i1,j1] ;
+				{ : j2=i2 && j1=i1 } : delta (seq1[i1],seq2[M-i2-1]) ;
+				{ : j2>=i2 && j1+j2>=i1+i2+1 && j1>=i1 } : max (Main, case {
+					{ : j1>=i1+4 } : FTable[i1+1,j1-1,i2,j2] + delta (seq1[i1],seq1[j1]) ;
+					{ : i1>=j1-3 } : 0[] ;
+				},case {
+					{ : j2>=i2+4 } : FTable[i1,j1,i2+1,j2-1] + delta (seq2[M-i2-1],seq2[M-j2-1]) ;
+					{ : i2>=j2-3 } : 0[] ;
+				}) ;
+			};
+			Main[i1,j1,i2,j2] = reduce (max, [k1,k2], FTable[i1,k1,i2,k2] + FTable[k1+1,j1,k2+1,j2]);
+	.
+
+}

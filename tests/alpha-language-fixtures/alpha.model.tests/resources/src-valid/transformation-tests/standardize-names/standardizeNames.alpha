@@ -1,0 +1,43 @@
+package alpha.model.tests.transformations.standardizeNames {
+	affine useEquationNames_01 [N]->{:N>5}
+		inputs X1, X2: {[i,j]: 0<=i,j<N}
+		outputs Y: {[k,l]: 0<=k,l<N}
+		let Y[p,q] = case {
+			{[r,s]: r >  3}: (t,u->t,u)@X1;
+			{[a,b]: a <= 3}: (c,d->c,d)@X2;
+		};
+	.
+	
+	affine useVariableNames_01 [N]->{:N>5}
+		inputs X1, X2: {[i,j]: 0<=i,j<N}
+		outputs Y: {[k,l]: 0<=k,l<N}
+		let Y = case {
+			{[r,s]: r >  3}: (t,u->t,u)@X1;
+			{[a,b]: a <= 3}: (c,d->c,d)@X2;
+		};
+	.
+	
+	affine useEquationNames_02 [N]->{:N>5}
+		inputs X: {[i]: 0<=i<N}
+		outputs Y: {[j]: 0<=j<N}
+		let Y[k] = val[7];
+	.
+	
+	affine useVariableNames_02 [N]->{:N>5}
+		inputs X: {[i]: 0<=i<N}
+		outputs Y: {[j]: 0<=j<N}
+		let Y = val(k->7);
+	.
+	
+	affine useEquationNames_03 [N]->{:N>5}
+		inputs X: {[i,j]: 0<=i,j<N}
+		outputs Y: {[k]: 0<=k<N}
+		let Y[p] = reduce(+, [q], X);
+	.
+	
+	affine useVariableNames_03 [N]->{:N>5}
+		inputs X: {[i,j]: 0<=i,j<N}
+		outputs Y: {[j]: 0<=j<N}
+		let Y = reduce(+, (p,q->p), X);
+	.
+}

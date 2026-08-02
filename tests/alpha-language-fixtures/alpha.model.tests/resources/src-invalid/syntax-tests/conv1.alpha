@@ -1,0 +1,19 @@
+/*
+ * Tests for Convolution 1
+ * 1D Convolutions
+ */
+package tests.syntax.invalid {
+
+
+	affine conv1a [N]->{:N>0}
+		inputs
+			A : [N]
+			W : [3];
+		outputs
+			B : [N]
+		let
+			//1D convolution, forward only
+			// A and B cannot be the same size with default convolution semantics
+			B[i] = conv([2] as [x], W[x], A[i+x]);
+	.
+}

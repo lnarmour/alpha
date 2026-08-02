@@ -1,0 +1,48 @@
+package reuse.intermediate {
+	
+	/*  This is an implementation of the N^4 MEA algorithm from:
+	 *  https://doi.org/10.1016/j.jpdc.2019.12.007
+	 * 
+	 * 	It appears that there are several N^3 versions
+	 */
+
+	affine MEA [N] -> {: N > 10}
+		inputs
+			Q, Qbp : {[i,j] : 0<=i<=j<N}
+			paired : {[i,j] : 0<=i<=j<N}
+			ERT, delta : {}
+		outputs
+			Pbp, PU : {[i,j]: 0<=i<j<N}
+			M : {[i,j]: 0<=i<=j<N}
+			PUU : {[i]: 0<=i<=N}
+		let
+			Pbp[i,j] = (Q[0,i] * Q[j,N-1] * Qbp[i,j] / Q[0,N-1]) + case {
+				reduce(+, (i,j,p,q->i,j), {:p<i and j<q} : Pbp[p,q] * ERT[] * Q[p+1,i] * Qbp[i,j] * Q[j+1,q-1] / Qbp[p,q]);
+				{:i=0 or N-2<=j} : 0[];
+			};
+			
+			PU[i,j] = (Q[0,i] * Q[j,N-1] / Q[0,N-1]) + case {
+				reduce(+, (i,j,p,q->i,j), {:p<i and j<q} : Pbp[p,q] * ERT[] * Q[p+1,i] * Q[j+1,q-1] / Qbp[p,q]);
+				{:i=0 or N-2<=j} : 0[];
+			};
+			
+			PUU[i] = 1[] - case {
+				reduce(+, (i,k->i), {:k<i} : Pbp[k,i]);
+				{:i=0 or i=N} : 0[];
+			} - case {
+				reduce(+, (i,j->i), {:i<j} : Pbp[i,j]);
+				{:N-1<=i} : 0[];
+			};
+			
+			M[i,j] = case {
+				{:i=j} : 0[];
+				{:i<j<=i+2} : 0[]; 
+				{:i+2<j} : max(
+					M[i,j-1] + PUU[j-1],
+					reduce(max, (i,j,k->i,j), M[i,k+i-1] + M[k+i+1,j-1] + delta[] * Pbp[k+i,j]*paired[k+i,j-1])
+				);
+			};
+	.
+	
+
+}

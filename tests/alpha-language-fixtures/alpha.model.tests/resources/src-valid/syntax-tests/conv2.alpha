@@ -1,0 +1,51 @@
+/*
+ * Tests for Convolution 2
+ * 2D Convolutions
+ */
+package tests.syntax.valid {
+
+
+	affine conv2a [N]->{:N>0}
+		inputs
+			A : [N,N]
+			W : [3,4];
+		outputs
+			B : [N-3,N-4]
+		let
+			//forward only
+			B[i,j] = conv([3,4] as [x,y], W[x,y], A[i+x,j+y]);
+	.
+	
+	affine conv2b [N]->{:N>0}
+		inputs
+			A : [N,N]
+			W : [-4:3,-3:4];
+		outputs
+			B : [4:N-3,3:N-4]
+		let
+			//both directions
+			B[i,j] = conv([-4:3,-3:4] as [x,y], W[x,y], A[i+x,j+y]);
+	.
+	
+	affine conv2c [N,X]->{:N>0 and X>0}
+		inputs
+			A : [N,N]
+			W : [X,X];
+		outputs
+			B : [N-X,N-X]
+		let
+			//forward only, parametric weights
+			B[i,j] = conv([X,X] as [x,y], W[x,y], A[i+x,j+y]);
+	.
+	
+	affine conv2d [N,X,Y]->{:N>2X and X,Y>0}
+		inputs
+			A : [N,N]
+			W : [-X:X,-X:X];
+		outputs
+			B : [X:N-X,X:N-X]
+		let
+			//1D convolution, both directions, parametric weights
+			B[i,j] = conv([-X:X,-X:X] as [x,y], W[x,y], A[i+x,j+y]);
+	.
+}

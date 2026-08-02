@@ -1,0 +1,56 @@
+/*
+ * Tests for Real numbers 1
+ * Show notation
+ */
+package tests.syntax.valid {
+	
+	affine real1a [N]->{ : }
+		outputs
+			X : {}
+		let
+			X = -1.1;
+	.
+	
+	affine real1b [N]->{ : }
+		outputs
+			X : {}
+		let
+			X = -1.2--1.3;
+	.
+	
+	affine real1c [N]->{ : }
+		outputs
+			X : {}
+		let
+			X = -1.4*-1.5;
+	.
+	
+	affine real1d [N]->{ : }
+		outputs
+			X : {}
+		let
+			X = -1.6-1;
+	.
+	
+	affine real1e [N]->{ : }
+		outputs
+			X : {}
+		let
+			X = 1-1.7;
+	.
+	
+	affine real1f [N]->{ : }
+		outputs
+			X : {}
+		let
+			X = 1--1.8;
+	.
+	
+	affine real1g [N]->{ : }
+		outputs
+			X : [N]
+		let
+			X = (i->)@-1.9;
+	.
+
+}

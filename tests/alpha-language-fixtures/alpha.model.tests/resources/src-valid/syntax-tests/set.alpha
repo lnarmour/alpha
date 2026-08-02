@@ -1,0 +1,26 @@
+package tests.syntax.valid {
+	//test for union
+	affine set1 [N]->{:N>0}
+		inputs
+			A : [N:2N]
+		outputs
+			B : [3N]
+		let
+			B = case {
+				A;
+				{[i]:i>=2N; [i]:i<N} : 0[];	
+			};
+	.
+	//same as above with array notation
+	affine set2 [N]->{:N>0}
+		inputs
+			A : [N:2N]
+		outputs
+			B : [3N]
+		let
+			B[i] = case {
+				A;
+				{:i>=2N or i<N} : 0[];	
+			};
+	.
+}

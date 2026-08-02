@@ -1,0 +1,14 @@
+package tests.SR {
+	affine conv2D [R,C,K] -> { :R>0 and C>0 and K>0 and R>2K and C>2K }
+		inputs
+			x : [R+K,C+K]
+			w : [K,K]
+		outputs
+			y : [R,C]
+			c1, c2 : {}
+		let
+			y[r,c] = reduce(+, [i,j], x[r+i,c+j]*w[i,j]);
+			c1 = reduce(+, [r,c], y[r,c]);
+			c2 = reduce(+, [r,c], y[r,c]);
+	.
+}

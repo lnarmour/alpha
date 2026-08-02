@@ -1,0 +1,33 @@
+package tm.test {
+	affine simple1D [N]->{:}
+		outputs 
+			A,B : [N];
+		let
+			A[i] = 0[];
+			B[i] = 1[];
+	.
+	
+	affine simple2D [N]->{:}
+		outputs 
+			A,B : [N,N];
+		let
+			A[i,j] = 0[];
+			B[i,j] = 1[];
+	.
+	
+	affine simple3D [N]->{:}
+		outputs 
+			A,B : [N,N,N];
+		let
+			A[i,j,k] = 0[];
+			B[i,j,k] = 1[];
+	.
+	
+	affine simple4D [N]->{:}
+		outputs 
+			A,B : [N,N,N,N];
+		let
+			A[i,j,k,l] = 0[];
+			B[i,j,k,l] = 1[];
+	.
+}

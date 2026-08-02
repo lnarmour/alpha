@@ -1,0 +1,67 @@
+/**
+ * Test for Distributivity.
+ *
+ * Before the transformation:
+ *  - All equations start with a reduction.
+ *
+ * After the transformation: 
+ *  - There should be no BinaryExpression or MultiArgExpression within reductions. 
+ */
+ package tests.valid.trans.distributivity {
+	
+affine distributivity1a [N] -> { : N>0}
+	inputs
+		Y : [N]
+	outputs
+		X : {}
+	let
+		X = reduce(+, [i], Y[i] * 1[]);
+.
+
+affine distributivity1b [N] -> { : N>0}
+	inputs
+		Y : [N]
+	outputs
+		X : {}
+	let
+		X = reduce(+, [i], Y[i] * 1[] * 2[]);
+.
+
+affine distributivity1c [N] -> { : N>0}
+	inputs
+		Y : [N]
+	outputs
+		X : {}
+	let
+		X = reduce(+, [i], prod(Y[i], 1[]));
+.
+
+affine distributivity1d [N] -> { : N>0}
+	inputs
+		Y : [N]
+	outputs
+		X : {}
+	let
+		X = reduce(+, [i], prod(Y[i], 1[], 2[]));
+.
+
+affine distributivity1e [N] -> { : N>0}
+	inputs
+		Y : [N]
+	outputs
+		X : {}
+	let
+		X = reduce(max, [i], Y[i] + 1[] + 2[]);
+.
+
+
+affine distributivity1f [N] -> { : N>0}
+	inputs
+		Y : [N]
+	outputs
+		X : {}
+	let
+		X = reduce(max, [i], sum(Y[i], 1[], 2[]));
+.
+
+}

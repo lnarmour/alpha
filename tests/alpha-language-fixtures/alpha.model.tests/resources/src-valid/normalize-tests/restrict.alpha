@@ -1,0 +1,74 @@
+package tests.normalize.restrict {
+	affine interesction [N]->{:N>0}
+		inputs
+			A:{[i]:0<=i<2N}
+		outputs
+			B:{}
+		let
+			// D1 : D2 : E -> (D1 and D2) : E
+			B = reduce(+, [i], {:0<=i<=N} : {:N<=i<2N} : A);
+	.
+	
+	affine redundant [N]->{:N>0}
+		inputs
+			A:[N]
+		outputs
+			B:[N]
+		let
+			// D : E -> E if context domain of D : E and E are the same (i.e., restrict has no effect)
+			B = {[i]:0<=i<N} : A;
+	.
+	
+	affine binaryExpressionL [N]->{:N>0}
+		inputs
+			A:{[i]:0<=i<2N}
+		outputs
+			B:{}
+		let
+			// (D : A op B) -> D : (A op B)
+			B = reduce(+, [i], ({:i<N} : A + A));
+	.
+	
+	affine binaryExpressionR [N]->{:N>0}
+		inputs
+			A:{[i]:0<=i<2N}
+		outputs
+			B:{}
+		let
+			// (A op D : B) -> D : (A op B)
+			B = reduce(+, [i], (A + ({:i<N} : A)));
+	.
+	
+	affine binaryExpressionLR [N]->{:N>0}
+		inputs
+			A:{[i]:0<=i<3N}
+		outputs
+			B:{}
+		let
+			// (D : A op B) -> D : (A op B)
+			// and
+			// (A op D : B) -> D : (A op B)
+			B = reduce(+, [i], (({:i<N} : A) + ({:i<2N} : A)));
+	.
+	
+	affine unaryExpression [N]->{:N>0}
+		inputs
+			A:{[i]:0<=i<2N}
+		outputs
+			B:{}
+		let
+			// (op D : E) -> D : (op E)
+			B = reduce(+, [i], -({:i<N} : A));
+	.
+	
+	
+	affine multiArgExpression [N]->{:N>0}
+		inputs
+			A:{[i]:0<=i<3N}
+		outputs
+			B:{}
+		let
+			//  f(op, D1 : E1, D2 : E2) -> (D1 and D2 ...) : f(op, E1, E2, ...)
+			B = reduce(+, [i], max(({:i<N} : A),  ({:i<2N} : A)));
+	.
+}

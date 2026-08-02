@@ -1,0 +1,50 @@
+/*
+ * Tests for ArrayNotation 1
+ * 1D arrays + dependences
+ */
+package tests.syntax.valid {
+	affine array1a [N]->{ : }
+		inputs
+			A : [N]
+		outputs
+			B : [N]
+		let
+			B[i] = A[i];
+	.
+	
+	affine array1b [N]->{ : }
+		inputs
+			A : [N]
+		outputs
+			B : [N]
+		let
+			B = A;
+	.
+	
+	affine array1c [N]->{ : }
+		inputs
+			A : [N]
+		outputs
+			B : [N]
+		let
+			B = (x->x)@A;
+	.
+	
+	affine array1d [N]->{ : }
+		inputs
+			A : [N]
+		outputs
+			B : [N]
+		let
+			B[i] = {:i>=0 } : A[i];
+	.
+	
+	affine array1e [N]->{ : }
+		inputs
+			A : [N]
+		outputs
+			B : [N]
+		let
+			B[i] = {[x]:x>=0 } : A[x];
+	.
+}

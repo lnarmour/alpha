@@ -1,0 +1,18 @@
+package tests.syntax.valid {
+
+affine matmult [N]->{:N>0}
+	inputs
+		A : [N,N]
+		B : [N,N] 
+	outputs
+		C : [N,N]
+	when {: N>10 and N%2=0} let
+		with [i,j] : (C[i,j])         = matmult[N/2](A[i,j], B[i,j]);
+		with [i,j] : (C[i+N/2,j])     = matmult[N/2](A[i+N/2,j], B[i+N/2,j]);
+		with [i,j] : (C[i,j+N/2])     = matmult[N/2](A[i,j+N/2], B[i,j+N/2]);
+		with [i,j] : (C[i+N/2,j+N/2]) = matmult[N/2](A[i+N/2,j+N/2], B[i+N/2,j+N/2]);
+	let
+		C[i,j] = reduce(+, [k], A[i,k]*B[k,j]);
+.
+}
+

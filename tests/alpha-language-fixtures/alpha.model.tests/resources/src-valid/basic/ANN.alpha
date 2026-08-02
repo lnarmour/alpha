@@ -1,0 +1,35 @@
+package tests.basic.ANN {
+	external activation(1)
+
+	//One layer of NN (either hidden or output)
+	// it is just matrix-vector product
+	//N = number of inputs
+	//M = number of nodes
+	//in the full implementation there should be bias added to the weighted sum
+	affine ANNForwardLayer [N,M]->{:N>0 && M>0}
+		inputs
+			in : [N]
+			weights : [M,N]
+		outputs
+		out : [M]
+		let
+			out[i] = activation( reduce(+, [j], weights[i,j] * in[j]));
+	.
+
+	//A single ANN
+	//consists of 1 hidden layer + 1 output layer
+	affine SingleLayerANN [N,M1,O] -> {: N>0 and M1>0}
+		inputs
+			in : [N]
+			w1 : [N,M1]
+			w2 : [M1,O]
+		outputs
+			out : [O]
+		locals
+		h1 : [M1]
+		let
+			(h1)  = ANNForwardLayer[N,M1](in, w1);
+			(out) = ANNForwardLayer[M1,O](h1, w2);
+	.
+
+}

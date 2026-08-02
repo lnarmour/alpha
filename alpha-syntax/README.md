@@ -44,8 +44,8 @@ find the matching brace and capture the span.
 ## Status
 
 Done: lexer, rowan CST, resilient recursive-descent/Pratt parser, and the typed `ast::` layer are
-all implemented and fixture-tested against the full 82-file `.alpha` corpus in the sibling
-`alpha-language` repo (see the workspace root README's "Fixture corpus" section):
+all implemented and fixture-tested against the full 82-file `.alpha` corpus bundled at
+`tests/alpha-language-fixtures/` (see the workspace root README's "Fixture corpus" section):
 
 - `lex_fixtures` — 82 files, 0 lex errors
 - `parse_fixtures` — 82 files, 0 syntax errors

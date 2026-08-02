@@ -1,0 +1,45 @@
+/**
+ * Test for HoistOutOfReduction.
+ *
+ * All reductions should only have one Binary/MultiArgExpression before the transformation to uniquely identify the target.
+ * All reductions should not have BinaryExpression or MultiArgExpression as its content after the transformation.
+ */
+ package tests.valid.trans.hoistOutOfReduction {
+	
+affine hoistOutOfReduction1a [N] -> { : N>0}
+	inputs
+		Y : {}
+	outputs
+		X : {}
+	let
+		X = reduce(+, [i], Y[] + 0[]);
+.
+
+affine hoistOutOfReduction1b [N] -> { : N>0}
+	inputs
+		Y : {}
+	outputs
+		X : {}
+	let
+		X = reduce(+, [i], sum(Y[], 0[], 1[]));
+.
+
+affine hoistOutOfReduction1c [N] -> { : N>0}
+	inputs
+		Y : {}
+	outputs
+		X : {}
+	let
+		X = reduce(*, [i], Y[] * 0[]);
+.
+
+affine hoistOutOfReduction1d [N] -> { : N>0}
+	inputs
+		Y : {}
+	outputs
+		X : {}
+	let
+		X = reduce(*, [i], prod(Y[], 0[], 1[]));
+.
+
+}

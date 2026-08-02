@@ -1,0 +1,5 @@
+affine PrefixScan [N]->{:N>0}
+	inputs  X: [N]
+	outputs Y: [N]
+	let Y[i] = reduce(+, [j], {:j<=i}: X[j]);
+.

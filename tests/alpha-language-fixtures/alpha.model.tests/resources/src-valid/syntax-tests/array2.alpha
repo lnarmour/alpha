@@ -1,0 +1,41 @@
+/*
+ * Tests for ArrayNotation 1
+ * 2D arrays + dependences
+ */
+package tests.syntax.valid {
+	affine domain2a [N]->{ : }
+		inputs
+			A : [N,N]
+		outputs
+			B : [N,N]
+		let
+			B[i,j] = A;
+	.
+	
+	affine domain2b [N]->{ : }
+		inputs
+			A : [N,N]
+		outputs
+			B : [N,N]
+		let
+			B = (x,y->x,y)@A;
+	.
+	
+	affine domain2c [N]->{ : }
+		inputs
+			A : [N,N]
+		outputs
+			B : [N,N]
+		let
+			B[i,j] = A[i,j];
+	.
+	
+	affine domain2d [N]->{:}
+		inputs
+			A : [N]
+		outputs
+			B : [N,N]
+		let
+			B[i,j] = select {[i,j]->[x]:} from A[x];
+	.
+}

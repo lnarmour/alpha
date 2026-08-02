@@ -1,0 +1,189 @@
+package tests.normalize.ifExpr {
+	affine restrictC [N]->{:N>0}
+		define NN = {[i]:0<=i<2N}
+		inputs
+			A1 : NN
+			A2 : NN
+		outputs
+			B : NN
+		let
+			//  if (D : E1, E2, E3) -> D : if (E1, E2, E3)
+			B = case {
+				if ({[i]:i<N} : A1) then A1 else A2;
+				{[i]:i>=N} : A2;
+			};
+	.
+	affine restrictT [N]->{:N>0}
+		define NN = {[i]:0<=i<2N}
+		inputs
+			A1 : NN
+			A2 : NN
+		outputs
+			B : NN
+		let
+			//  if (E1, D : E2, E3) -> D : if (E1, E2, E3)
+			B = case {
+				if (A1) then {[i]:i<N} : A1 else A2;
+				{[i]:i>=N} : A2;
+			};
+	.
+	affine restrictE [N]->{:N>0}
+		define NN = {[i]:0<=i<2N}
+		inputs
+			A1 : NN
+			A2 : NN
+		outputs
+			B : NN
+		let
+			//  if (E1, E2, D : E3) -> D : if (E1, E2, E3) 
+			B = case {
+				if (A1) then A1 else {[i]:i<N} : A2;
+				{[i]:i>=N} : A2;
+			};
+	.
+	affine restrictCT [N]->{:N>0}
+		define NN = {[i]:0<=i<2N}
+		inputs
+			A1 : NN
+			A2 : NN
+		outputs
+			B : NN
+		let
+			//  if (D : E1, E2, E3) -> D : if (E1, E2, E3) and
+			//  if (E1, D : E2, E3) -> D : if (E1, E2, E3)
+			B = case {
+				if ({[i]:i<N} : A1) then {[i]:i<N+2} : A1 else A2;
+				{[i]:i>=N} : A2;
+			};
+	.
+	affine restrictCE [N]->{:N>0}
+		define NN = {[i]:0<=i<2N}
+		inputs
+			A1 : NN
+			A2 : NN
+		outputs
+			B : NN
+		let
+			//  if (D : E1, E2, E3) -> D : if (E1, E2, E3) and
+			//  if (E1, E2, D : E3) -> D : if (E1, E2, E3) 
+			B = case {
+				if ({[i]:i<N} : A1) then A1 else {[i]:i<N+2} : A2;
+				{[i]:i>=N} : A2;
+			};
+	.
+	affine restrictTE [N]->{:N>0}
+		define NN = {[i]:0<=i<2N}
+		inputs
+			A1 : NN
+			A2 : NN
+		outputs
+			B : NN
+		let
+			//  if (E1, D : E2, E3) -> D : if (E1, E2, E3) and
+			//  if (E1, E2, D : E3) -> D : if (E1, E2, E3) 
+			B = case {
+				if (A1) then {[i]:i<N} : A1 else {[i]:i<N+2} : A2;
+				{[i]:i>=N} : A2;
+			};
+	.
+	affine restrictCTE [N]->{:N>0}
+		define NN = {[i]:0<=i<2N}
+		inputs
+			A1 : NN
+			A2 : NN
+		outputs
+			B : NN
+		let
+			//  if (D : E1, E2, E3) -> D : if (E1, E2, E3) and
+			//  if (E1, D : E2, E3) -> D : if (E1, E2, E3) and
+			//  if (E1, E2, D : E3) -> D : if (E1, E2, E3) 
+			B = case {
+				if ({[i]:i<N+1} : A1) then {[i]:i<N} : A1 else {[i]:i<N+2} : A2;
+				{[i]:i>=N} : A2;
+			};
+	.
+	
+	
+	affine caseExpressionC [N]->{:N>0}
+		define NN = {[i]:0<=i<2N}
+		inputs
+			A1 : NN
+			A2 : NN
+		outputs
+			B : NN
+		let
+			//  if (case { E1; E2; ... }, E10, E11) -> case { if (E1, E10, E11); if (E2, E10, E11); ... }
+			B = if case{ {[i]:i<N}:A1; {[i]:i>=N}:A2; } then A1 else A2;
+	.
+	affine caseExpressionT [N]->{:N>0}
+		define NN = {[i]:0<=i<2N}
+		inputs
+			A1 : NN
+			A2 : NN
+		outputs
+			B : NN
+		let
+			//if (E10, case { E1; E2; ... }, E11) -> case { if (E10, E1, E11); if (E10, E2, E11); ... }
+			B = if A1 then case{ {[i]:i<N}:A1; {[i]:i>=N}:A2; } else A2;
+	.
+	affine caseExpressionE [N]->{:N>0}
+		define NN = {[i]:0<=i<2N}
+		inputs
+			A1 : NN
+			A2 : NN
+		outputs
+			B : NN
+		let
+			//if (E10, case { E1; E2; ... }, E11) -> case { if (E10, E1, E11); if (E10, E2, E11); ... }
+			B = if A1 then A1 else case{ {[i]:i<N}:A1; {[i]:i>=N}:A2; };
+	.
+	affine caseExpressionCT [N]->{:N>0}
+		define NN = {[i]:0<=i<2N}
+		inputs
+			A1 : NN
+			A2 : NN
+		outputs
+			B : NN
+		let
+			//  if (case { E1; E2; ... }, E10, E11) -> case { if (E1, E10, E11); if (E2, E10, E11); ... } and
+			//  if (E10, case { E1; E2; ... }, E11) -> case { if (E10, E1, E11); if (E10, E2, E11); ... }
+			B = if case{ {[i]:i<N}:A1; {[i]:i>=N}:A2; } then case{ {[i]:i<N+2}:A1; {[i]:i>=N+2}:A2; } else A2;
+	.
+	affine caseExpressionCE [N]->{:N>0}
+		define NN = {[i]:0<=i<2N}
+		inputs
+			A1 : NN
+			A2 : NN
+		outputs
+			B : NN
+		let
+			//  if (case { E1; E2; ... }, E10, E11) -> case { if (E1, E10, E11); if (E2, E10, E11); ... } and
+			//  if (E10, E11, case { E1; E2; ... }) -> case { if (E10, E11, E1); if (E10, E11, E2); ... }
+			B = if case{ {[i]:i<N}:A1; {[i]:i>=N}:A2; } then A1 else case{ {[i]:i<N+2}:A1; {[i]:i>=N+2}:A2; };
+	.
+	affine caseExpressionTE [N]->{:N>0}
+		define NN = {[i]:0<=i<2N}
+		inputs
+			A1 : NN
+			A2 : NN
+		outputs
+			B : NN
+		let
+			//  if (E10, case { E1; E2; ... }, E11) -> case { if (E10, E1, E11); if (E10, E2, E11); ... } and
+			//  if (E10, E11, case { E1; E2; ... }) -> case { if (E10, E11, E1); if (E10, E11, E2); ... }
+			B = if A1 then case{ {[i]:i<N}:A1; {[i]:i>=N}:A2; } else case{ {[i]:i<N+2}:A1; {[i]:i>=N+2}:A2; };
+	.
+	affine caseExpressionCTE [N]->{:N>0}
+		define NN = {[i]:0<=i<2N}
+		inputs
+			A1 : NN
+			A2 : NN
+		outputs
+			B : NN
+		let
+			//  if (case { E1; E2; ... }, E10, E11) -> case { if (E1, E10, E11); if (E2, E10, E11); ... } and 
+			//  if (E10, case { E1; E2; ... }, E11) -> case { if (E10, E1, E11); if (E10, E2, E11); ... } and
+			//  if (E10, E11, case { E1; E2; ... }) -> case { if (E10, E11, E1); if (E10, E11, E2); ... }
+			B = if case{ {[i]:i<N}:A1; {[i]:i>=N}:A2; } then case{ {[i]:i<N}:A1; {[i]:i>=N}:A2; } else case{ {[i]:i<N+2}:A1; {[i]:i>=N+2}:A2; };
+	.	
+}

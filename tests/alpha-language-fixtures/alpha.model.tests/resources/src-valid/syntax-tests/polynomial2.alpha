@@ -1,0 +1,28 @@
+/*
+ * Tests for PolynomialIndexExpressions 2
+ * AShow notation
+ */
+package tests.syntax.valid {
+	
+	affine polynomial2a [N]->{:N>0}
+		outputs
+			X : [N]
+		let
+			X[i] = val { N^2+1/2*i };
+	.
+	
+	affine polynomial2b [N]->{:N>0}
+		outputs
+			X : [N]
+		let
+			X[i] = val { N^2+1/2*i : N>0};
+	.
+	
+	affine polynomial2c [N]->{:N>0}
+		outputs
+			X : [N]
+		let
+			X[i] = val { N^2+1/2*i : N>1; i : N=0};
+	.
+	
+}
