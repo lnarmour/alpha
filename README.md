@@ -1,4 +1,4 @@
-# alpha
+# alpha-language-rs
 
 A Rust implementation of the [Alpha language](https://github.com/CSU-CS-Melange/alpha-language)
 polyhedral compilation toolchain: parse → semantic analysis → normalize → generate C.
