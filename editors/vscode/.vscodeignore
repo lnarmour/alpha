@@ -1,0 +1,13 @@
+.vscode/**
+src/**
+native/src/**
+native/target/**
+native/node_modules/**
+native/Cargo.toml
+native/Cargo.lock
+native/build.rs
+native/package.json
+native/package-lock.json
+tsconfig.json
+**/*.map
+.gitignore

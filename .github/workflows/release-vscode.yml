@@ -1,0 +1,92 @@
+name: Release VS Code extension
+
+# Scoped to editors/vscode only — kept separate from ci.yml, which stays as the Rust workspace's
+# own build+test gate and is unaffected by this workflow.
+#
+# release-please watches every push to main and maintains a standing release PR for the
+# editors/vscode component (versioned via editors/vscode/package.json, per release-please-config.json
+# at the repo root); when that PR is merged, this same workflow run also creates the GitHub
+# Release/tag and the `build` job below fires to attach platform-specific .vsix files to it.
+#
+# Marketplace publishing itself is intentionally not wired up here yet — see
+# editors/vscode/README.md's "Publishing to the Marketplace" section for the manual steps.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs['editors/vscode--release_created'] }}
+      tag_name: ${{ steps.release.outputs['editors/vscode--tag_name'] }}
+    steps:
+      - id: release
+        uses: googleapis/release-please-action@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  build:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14 # Apple Silicon hosted runner
+            vsce_target: darwin-arm64
+          - os: macos-13 # Intel hosted runner
+            vsce_target: darwin-x64
+          - os: ubuntu-latest
+            vsce_target: linux-x64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install system dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: brew install isl pkg-config
+
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libisl-dev libclang-dev pkg-config
+
+      - name: Install extension dependencies
+        working-directory: editors/vscode
+        run: npm install
+
+      - name: Install native addon dependencies
+        working-directory: editors/vscode/native
+        run: npm install
+
+      - name: Build native addon
+        working-directory: editors/vscode/native
+        run: npm run build
+
+      - name: Compile extension
+        working-directory: editors/vscode
+        run: npm run compile
+
+      - name: Package platform-specific .vsix
+        working-directory: editors/vscode
+        run: npx @vscode/vsce package --target ${{ matrix.vsce_target }} -o alpha-language-${{ matrix.vsce_target }}.vsix
+
+      - name: Attach .vsix to the release
+        working-directory: editors/vscode
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${{ needs.release-please.outputs.tag_name }}" "alpha-language-${{ matrix.vsce_target }}.vsix"

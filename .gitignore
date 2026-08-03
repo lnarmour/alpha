@@ -1,2 +1,10 @@
 /target
 /.venv
+
+# editors/vscode: generated build output, regenerated fresh by CI/local builds, not committed.
+node_modules/
+editors/vscode/out/
+editors/vscode/*.vsix
+editors/vscode/native/*.node
+editors/vscode/native/index.js
+editors/vscode/native/index.d.ts

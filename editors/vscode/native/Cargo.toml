@@ -1,0 +1,19 @@
+[package]
+name = "alpha-vscode-native"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+description = "napi-rs binding exposing alpha-syntax/alpha-model's diagnostics to the VS Code extension, in-process."
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+alpha-model.workspace = true
+alpha-syntax.workspace = true
+napi = { version = "2", default-features = false, features = ["napi4"] }
+napi-derive = "2"
+
+[build-dependencies]
+napi-build = "2"
