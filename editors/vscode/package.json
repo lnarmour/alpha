@@ -2,7 +2,7 @@
   "name": "alpha-language",
   "displayName": "Alpha Language",
   "description": "Syntax highlighting and live diagnostics for the Alpha polyhedral language (.alpha), backed by alpha-rs's alpha-syntax/alpha-model front end.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "lnarmour",
   "license": "MIT",
   "repository": {
@@ -13,15 +13,25 @@
   "engines": {
     "vscode": "^1.85.0"
   },
-  "categories": ["Programming Languages", "Linters"],
-  "activationEvents": ["onLanguage:alpha"],
+  "categories": [
+    "Programming Languages",
+    "Linters"
+  ],
+  "activationEvents": [
+    "onLanguage:alpha"
+  ],
   "main": "./out/extension.js",
   "contributes": {
     "languages": [
       {
         "id": "alpha",
-        "aliases": ["Alpha", "alpha"],
-        "extensions": [".alpha"],
+        "aliases": [
+          "Alpha",
+          "alpha"
+        ],
+        "extensions": [
+          ".alpha"
+        ],
         "configuration": "./language-configuration.json"
       }
     ],
@@ -37,7 +47,9 @@
       "properties": {
         "alpha.nativeLibraryPaths": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "default": [],
           "description": "Extra directories to search for libisl/libgmp shared libraries at runtime, if they aren't found on the default system library search path (e.g. a non-Homebrew/non-apt install). Prepended to DYLD_LIBRARY_PATH (macOS) or LD_LIBRARY_PATH (Linux) before the native analyzer loads. Requires a window reload to take effect."
         }
