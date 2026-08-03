@@ -1,0 +1,16 @@
+/**
+ * Test for SimplifyExpressions: removal of scalar reductions
+ *
+ * There should be no reductions after SimplifyExpressions
+ */
+ package tests.valid.trans.simplify.expressions {
+
+	affine scalarReduction1a [N] -> { : N>0}
+		inputs
+			Y : [N]
+		outputs
+			X : [N]
+		let
+			X[i] = reduce(+, [j], {:i=j} : Y[j]);
+	.
+}

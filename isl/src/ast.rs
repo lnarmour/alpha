@@ -84,8 +84,7 @@ impl AstBuild {
     /// generating its own reduction loop, that dim's "primed" parameter name).
     pub fn set_iterators(self, names: &[&str]) -> Result<AstBuild> {
         let ctx = self.ctx.clone();
-        let mut list_ptr =
-            unsafe { isl_sys::isl_id_list_alloc(ctx.as_ptr(), names.len() as i32) };
+        let mut list_ptr = unsafe { isl_sys::isl_id_list_alloc(ctx.as_ptr(), names.len() as i32) };
         list_ptr = ctx.check(list_ptr)?;
         for name in names {
             let cname = CString::new(*name).expect("iterator name must not contain NUL bytes");

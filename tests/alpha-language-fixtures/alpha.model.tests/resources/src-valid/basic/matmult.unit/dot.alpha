@@ -1,0 +1,10 @@
+package basic {
+	affine dot [N] -> { : N>0}
+		inputs
+			A,B : {[i] : 0<=i<N}
+		outputs
+			C : {}
+		let
+			C = reduce(+, [i], A[i]*B[i]);
+	.
+}

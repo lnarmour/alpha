@@ -1,0 +1,14 @@
+package tests.normalize.conv1 {
+
+	affine conv1a [N]->{:N>0}
+		inputs
+			A : [N]
+			W : [3];
+		outputs
+			B : [2:N]
+		let
+			//1D convolution, forward only
+			//B = (i->i-2)@conv([2], (i,x->x+i,x)@(i,x->x)@W, (i,x->i+x)@A);
+			B = (i->i-2)@conv([2], (i,x->x+i,x)@(i,x->x)@W, (i,x->i+x)@A);
+	.
+}

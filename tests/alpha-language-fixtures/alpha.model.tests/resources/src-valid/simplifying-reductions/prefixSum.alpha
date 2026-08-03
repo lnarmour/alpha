@@ -1,0 +1,10 @@
+package tests.SR {
+	affine prefixSum [N] -> { : N>0}
+		inputs
+			A : [N]
+		outputs
+			C : [N]
+		let
+			C[i] = reduce(+, [j], {:j<=i} : A[j]);
+	.
+}

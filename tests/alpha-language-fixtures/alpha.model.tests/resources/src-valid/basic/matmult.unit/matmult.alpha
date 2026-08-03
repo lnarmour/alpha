@@ -1,0 +1,15 @@
+import basic.*
+
+package basic {
+
+affine matmult [P,Q,R] -> { : P>0 and Q>0 and R>0}
+	inputs
+		A : { [i,j] : 0<=i<P and 0<=j<Q }
+		B : { [i,j] : 0<=i<Q and 0<=j<R }
+	outputs
+		C : { [i,j] : 0<=i<P and 0<=j<R}
+	let
+		over {[i,j]: 0<=i<P and 0<=j<R} with [k] : (C[i,j]) = dot[Q](A[i,k],B[k,j]);
+.
+
+}

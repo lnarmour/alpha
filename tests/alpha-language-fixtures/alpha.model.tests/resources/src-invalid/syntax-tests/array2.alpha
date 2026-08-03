@@ -1,0 +1,34 @@
+ /*
+ * Tests for ArrayNotation 1
+ * 1D arrays + dependences
+ *
+ * All cases are expected to throw AlphaIssues
+ */
+package tests.syntax.invalid {
+	 affine domain2a [N]->{ : }
+		inputs
+			A : [N,N]
+		outputs
+			B : [N,N]
+		let
+			B[i] = A[i]; // incorrect dimensions
+	.
+
+	affine domain2d [N]->{ : }
+		inputs
+			A : [N,N]
+		outputs
+			B : [N,N]
+		let
+			B = A[i,j]; //unnamed indices
+	.
+
+	affine domain4c [N]->{:}
+		inputs
+			A : [N]
+		outputs
+			B : [N,N]
+		let
+			B[i,j] = select {[x]->[x]:} from A[x]; //number of input dims in select relation must match its context
+	.
+}

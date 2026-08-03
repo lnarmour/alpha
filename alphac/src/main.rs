@@ -101,8 +101,14 @@ fn main() -> ExitCode {
         let diagnostics = alpha_model::analyze_system(&mut resolver, system);
         if !diagnostics.is_empty() {
             had_diagnostics = true;
-            let name = system.name().map(|t| t.text().to_string()).unwrap_or_default();
-            eprintln!("alphac: {} diagnostic(s) in system '{name}':", diagnostics.len());
+            let name = system
+                .name()
+                .map(|t| t.text().to_string())
+                .unwrap_or_default();
+            eprintln!(
+                "alphac: {} diagnostic(s) in system '{name}':",
+                diagnostics.len()
+            );
             for d in &diagnostics {
                 eprintln!("  {d}");
             }

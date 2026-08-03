@@ -1,0 +1,62 @@
+/*
+ * Tests for ArrayNotation 1
+ * 1D arrays + dependences
+ *
+ * All cases are expected to throw AlphaIssues
+ */
+package tests.syntax.invalid {
+	affine array1a [N]->{ : }
+		inputs
+			A : [N]
+		outputs
+			B : [N]
+		let
+			B = A[i]; //should fail due to index name not being specified in B, disallowing array notation
+	.
+
+	affine array1b [N]->{:}
+		inputs
+			A : [N]
+		outputs
+			B : [N]
+		let
+			B[i] = (x->x)@A[i]; //cannot use array notation after pure function
+	.
+
+	affine array1c [N]->{:}
+		inputs
+			A : [N]
+		outputs
+			B : [N]
+		let
+			B[i] = select {[x]->[x]:} from A[x]; //select can rename array notation context
+	.
+
+	affine array1d [N]->{:}
+		inputs
+			A : [N]
+		outputs
+			B : [N]
+		let
+			B[i] = select {[x]->[x]:} from A[i]; //should fail due to context being changed by select
+	.
+
+	affine array1e [N]->{ : }
+		inputs
+			A : [N]
+		outputs
+			B : [N]
+		let
+			//context changed by restrict, A[i] should fail
+			B[i] = {[x]:x>=0 } : A[i];
+	.
+	affine array1f [N]->{ : }
+		inputs
+			A : [N,N]
+		outputs
+			B : [N,N]
+		let
+			//restrict domain mismatch
+			B[i,j] = {[x]:x>=0 } : A[x] + A[i,j];
+	.
+}

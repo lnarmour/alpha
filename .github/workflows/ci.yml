@@ -7,6 +7,32 @@ on:
     branches: [main]
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libisl-dev libclang-dev pkg-config
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install uv dependencies
+        run: uv sync
+
+      - name: Run prek
+        run: uv run prek run --all-files
+
   build-and-test:
     runs-on: ubuntu-latest
     steps:
@@ -21,11 +47,18 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libisl-dev libclang-dev pkg-config
 
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install uv dependencies
+        run: uv sync
+
       - name: Build
-        run: cargo build --workspace
+        run: uv run cargo build --workspace
 
       - name: Test
-        run: cargo test --workspace
+        run: uv run cargo test --workspace
 
   pr-title:
     if: github.event_name == 'pull_request'

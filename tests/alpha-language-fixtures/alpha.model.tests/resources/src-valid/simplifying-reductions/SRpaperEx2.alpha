@@ -1,0 +1,10 @@
+package tests.SR {
+	affine SRpaperEx2 [n] -> { : n>1}
+		inputs
+			X : [1:n+1,1:3n]
+		outputs
+			Y : [1:n+1,1:n+1]
+		let
+			Y[i,j] = reduce(+, [k], {:i+1<= k <= i+n && 2k<=3n} : X[j,k]);
+	.
+}
