@@ -2,7 +2,7 @@
   "name": "alpha-language",
   "displayName": "Alpha Language",
   "description": "Syntax highlighting and live diagnostics for the Alpha polyhedral language (.alpha), backed by alpha-rs's alpha-syntax/alpha-model front end.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "publisher": "lnarmour",
   "license": "MIT",
   "repository": {
