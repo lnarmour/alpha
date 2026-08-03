@@ -16,6 +16,7 @@
 //! `UseEquation`-output-completeness check that stays dormant until `domain`'s gap closes).
 
 pub mod analyze;
+pub mod check;
 pub mod completeness;
 pub mod context_names;
 pub mod diagnostic;
@@ -27,6 +28,7 @@ pub mod value;
 pub mod walk;
 
 pub use analyze::{analyze_root, analyze_system};
+pub use check::check_source;
 pub use diagnostic::Diagnostic;
 pub use domain::Domains;
 pub use resolve::Resolver;

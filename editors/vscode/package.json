@@ -1,0 +1,58 @@
+{
+  "name": "alpha-language",
+  "displayName": "Alpha Language",
+  "description": "Syntax highlighting and live diagnostics for the Alpha polyhedral language (.alpha), backed by alpha-rs's alpha-syntax/alpha-model front end.",
+  "version": "0.1.0",
+  "publisher": "lnarmour",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lnarmour/alpha.git",
+    "directory": "editors/vscode"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Programming Languages", "Linters"],
+  "activationEvents": ["onLanguage:alpha"],
+  "main": "./out/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "alpha",
+        "aliases": ["Alpha", "alpha"],
+        "extensions": [".alpha"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "alpha",
+        "scopeName": "source.alpha",
+        "path": "./syntaxes/alpha.tmLanguage.json"
+      }
+    ],
+    "configuration": {
+      "title": "Alpha",
+      "properties": {
+        "alpha.nativeLibraryPaths": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "description": "Extra directories to search for libisl/libgmp shared libraries at runtime, if they aren't found on the default system library search path (e.g. a non-Homebrew/non-apt install). Prepended to DYLD_LIBRARY_PATH (macOS) or LD_LIBRARY_PATH (Linux) before the native analyzer loads. Requires a window reload to take effect."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "build:native": "npm --prefix native install && npm --prefix native run build"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.4.0"
+  }
+}

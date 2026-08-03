@@ -1,0 +1,98 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Alpha",
+  "scopeName": "source.alpha",
+  "fileTypes": ["alpha"],
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#strings" },
+    { "include": "#numbers" },
+    { "include": "#keywords" },
+    { "include": "#word-operators" },
+    { "include": "#booleans" },
+    { "include": "#operators" },
+    { "include": "#identifiers" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.alpha",
+          "match": "//.*$"
+        },
+        {
+          "name": "comment.block.alpha",
+          "begin": "/\\*",
+          "end": "\\*/"
+        }
+      ]
+    },
+    "strings": {
+      "name": "string.quoted.double.alpha",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        {
+          "name": "constant.character.escape.alpha",
+          "match": "\\\\."
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.float.alpha",
+          "match": "\\b[0-9]+\\.[0-9]+\\b"
+        },
+        {
+          "name": "constant.numeric.integer.alpha",
+          "match": "\\b[0-9]+\\b"
+        }
+      ]
+    },
+    "keywords": {
+      "name": "keyword.control.alpha",
+      "match": "\\b(affine|define|inputs|outputs|locals|over|with|while|when|else|let|fuzzy|constant|external|import|package|if|then|val|floor|auto|case|reduce|argreduce|conv|select|from|as)\\b"
+    },
+    "word-operators": {
+      "name": "keyword.operator.word.alpha",
+      "match": "\\b(affine-hull|poly-hull|intersectRange|subtractRange|min|max|prod|sum|and|or|xor|not|domain|range|complement|reverse|cross)\\b"
+    },
+    "booleans": {
+      "name": "constant.language.boolean.alpha",
+      "match": "\\b(true|false)\\b"
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.alpha",
+          "match": "->|<=|>=|!=|\\.\\*|\\[\\[|\\]\\]"
+        },
+        {
+          "name": "keyword.operator.alpha",
+          "match": "[=<>+\\-*/%@&|^]"
+        },
+        {
+          "name": "punctuation.separator.alpha",
+          "match": "[,;:.]"
+        },
+        {
+          "name": "punctuation.bracket.alpha",
+          "match": "[()\\[\\]{}]"
+        }
+      ]
+    },
+    "identifiers": {
+      "patterns": [
+        {
+          "name": "variable.other.alpha",
+          "match": "'[^'\\n]+'"
+        },
+        {
+          "name": "variable.other.alpha",
+          "match": "\\^?[a-zA-Z_][a-zA-Z_0-9]*"
+        }
+      ]
+    }
+  }
+}
