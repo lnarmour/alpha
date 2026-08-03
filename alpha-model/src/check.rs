@@ -14,7 +14,7 @@
 //! the six phases' own panics-vs-`Result` discipline was only ever validated against trees free of
 //! `ERROR`/missing nodes.
 
-use crate::{Diagnostic, analyze_root};
+use crate::{analyze_root, Diagnostic};
 use alpha_syntax::ast;
 
 /// Parses `source` and returns one diagnostic per problem found, each paired with the name of the
@@ -77,7 +77,8 @@ mod tests {
             eprintln!("skipping: {path:?} not found (expected sibling alpha-language checkout)");
             return;
         }
-        let src = std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("reading {path:?}: {e}"));
+        let src =
+            std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("reading {path:?}: {e}"));
         let diags = check_source(&src);
         assert!(diags.is_empty(), "expected zero diagnostics: {diags:#?}");
     }
@@ -90,16 +91,21 @@ mod tests {
             eprintln!("skipping: {path:?} not found (expected sibling alpha-language checkout)");
             return;
         }
-        let src = std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("reading {path:?}: {e}"));
+        let src =
+            std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("reading {path:?}: {e}"));
         let diags = check_source(&src);
         assert!(
-            diags.iter().any(|(system, d)| system.as_deref() == Some("systemBody1b")
-                && matches!(d, Diagnostic::EmptySystemBody { .. })),
+            diags
+                .iter()
+                .any(|(system, d)| system.as_deref() == Some("systemBody1b")
+                    && matches!(d, Diagnostic::EmptySystemBody { .. })),
             "expected EmptySystemBody for systemBody1b: {diags:#?}"
         );
         assert!(
-            diags.iter().any(|(system, d)| system.as_deref() == Some("systemBody1c")
-                && matches!(d, Diagnostic::IncompleteSystem { .. })),
+            diags
+                .iter()
+                .any(|(system, d)| system.as_deref() == Some("systemBody1c")
+                    && matches!(d, Diagnostic::IncompleteSystem { .. })),
             "expected IncompleteSystem for systemBody1c: {diags:#?}"
         );
     }
