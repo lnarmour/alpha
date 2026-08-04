@@ -13,8 +13,8 @@
     ]
   },
   "scripts": {
-    "build": "napi build --platform --release",
-    "build:debug": "napi build --platform"
+    "build": "ISL_STATIC=1 napi build --platform --release",
+    "build:debug": "ISL_STATIC=1 napi build --platform"
   },
   "devDependencies": {
     "@napi-rs/cli": "^2.18.4"

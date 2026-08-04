@@ -41,20 +41,7 @@
         "scopeName": "source.alpha",
         "path": "./syntaxes/alpha.tmLanguage.json"
       }
-    ],
-    "configuration": {
-      "title": "Alpha",
-      "properties": {
-        "alpha.nativeLibraryPaths": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "default": [],
-          "description": "Extra directories to search for libisl/libgmp shared libraries at runtime, if they aren't found on the default system library search path (e.g. a non-Homebrew/non-apt install). Prepended to DYLD_LIBRARY_PATH (macOS) or LD_LIBRARY_PATH (Linux) before the native analyzer loads. Requires a window reload to take effect."
-        }
-      }
-    }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",

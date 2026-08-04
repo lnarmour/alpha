@@ -42,6 +42,15 @@ pkg-config can't find isl, rather than trying to build one from source. A vendor
 from source when pkg-config can't find a system install) is planned but not implemented; add it
 if a target environment without a system isl install actually shows up.
 
+### Static linking
+
+Linking is dynamic by default. Set the `ISL_STATIC` env var (recognized by the underlying
+`pkg-config` crate) to link libisl/libgmp statically instead, producing a binary/cdylib with no
+runtime dependency on them being installed — this is how the VS Code extension's native addon
+(`editors/vscode/native`) builds, since it ships to end users who generally don't have isl/gmp
+installed. If `ISL_STATIC` is set but no static archive (`libisl.a`/`libgmp.a`) can be found,
+`build.rs` fails loudly rather than silently falling back to a dynamic build.
+
 ## Status
 
 Done: the full bounded header set above is bound and builds clean. Covered by one runtime smoke
