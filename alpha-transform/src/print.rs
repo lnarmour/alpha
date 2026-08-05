@@ -31,9 +31,7 @@
 //! unambiguous, and far simpler than threading parent-operator-precedence context through the
 //! recursion.
 
-use crate::ir::{
-    Equation, Expr, ExprKind, Operator, System, SystemBody, UseEquation, Variable,
-};
+use crate::ir::{Equation, Expr, ExprKind, Operator, System, SystemBody, UseEquation, Variable};
 use isl::{Aff, DimType, Map, MultiAff, Set, Val};
 
 // ---------------------------------------------------------------------------------------------
@@ -98,7 +96,10 @@ fn dump_equation(eq: &Equation, out: &mut String, indent: usize) {
             push(
                 out,
                 indent,
-                &format!("StandardEquation {} index_names={:?}", s.variable, s.index_names),
+                &format!(
+                    "StandardEquation {} index_names={:?}",
+                    s.variable, s.index_names
+                ),
             );
             dump_expr(&s.expr, out, indent + 1);
         }
@@ -189,7 +190,11 @@ fn dump_expr(e: &Expr, out: &mut String, indent: usize) {
             body_context,
             body,
         } => {
-            let tag = if *is_arg_reduce { "ArgReduce" } else { "Reduce" };
+            let tag = if *is_arg_reduce {
+                "ArgReduce"
+            } else {
+                "Reduce"
+            };
             push(
                 out,
                 indent,
@@ -228,7 +233,10 @@ fn dump_expr(e: &Expr, out: &mut String, indent: usize) {
             push(
                 out,
                 indent,
-                &format!("MultiArg operator={} exp={exp} ctx={ctx}", operator_text(operator)),
+                &format!(
+                    "MultiArg operator={} exp={exp} ctx={ctx}",
+                    operator_text(operator)
+                ),
             );
             for (i, a) in args.iter().enumerate() {
                 push(out, indent + 1, &format!("arg[{i}]:"));
@@ -365,7 +373,10 @@ fn aff_text(aff: &Aff, in_names: &[String], param_names: &[String]) -> Option<St
     }
     let constant_numer = term_numerator(&aff.constant().ok()?, denom);
     if constant_numer != 0 {
-        terms.push((constant_numer > 0, constant_numer.unsigned_abs().to_string()));
+        terms.push((
+            constant_numer > 0,
+            constant_numer.unsigned_abs().to_string(),
+        ));
     }
     let numerator = if terms.is_empty() {
         "0".to_string()
@@ -382,7 +393,11 @@ fn aff_text(aff: &Aff, in_names: &[String], param_names: &[String]) -> Option<St
 fn multi_aff_param_names(f: &MultiAff) -> Vec<String> {
     let space = f.space();
     (0..f.dim(DimType::Param))
-        .map(|i| space.dim_name(DimType::Param, i).unwrap_or_else(|| format!("p{i}")))
+        .map(|i| {
+            space
+                .dim_name(DimType::Param, i)
+                .unwrap_or_else(|| format!("p{i}"))
+        })
         .collect()
 }
 
@@ -600,7 +615,10 @@ struct ShowPrinter {
 impl ShowPrinter {
     fn print(&self, system: &System) -> String {
         let mut out = String::new();
-        out.push_str(&format!("affine {} {}\n", system.name, system.parameter_domain));
+        out.push_str(&format!(
+            "affine {} {}\n",
+            system.name, system.parameter_domain
+        ));
         self.var_section(&mut out, "inputs", &system.inputs);
         self.var_section(&mut out, "outputs", &system.outputs);
         self.var_section(&mut out, "locals", &system.locals);
@@ -631,7 +649,11 @@ impl ShowPrinter {
         if body.equations.is_empty() {
             return String::new();
         }
-        let guard = if body.domain.is_equal(&system.parameter_domain).unwrap_or(false) {
+        let guard = if body
+            .domain
+            .is_equal(&system.parameter_domain)
+            .unwrap_or(false)
+        {
             String::new()
         } else {
             format!(
@@ -664,7 +686,11 @@ impl ShowPrinter {
     }
 
     fn domain_str(&self, d: &Set, ctx: &[String]) -> String {
-        let d = if self.array_notation { named_set(d, ctx) } else { d.clone() };
+        let d = if self.array_notation {
+            named_set(d, ctx)
+        } else {
+            d.clone()
+        };
         ensure_domain_colon(strip_params_prefix(&d.to_string()))
     }
 
@@ -692,7 +718,11 @@ impl ShowPrinter {
                 self.expr(else_branch, ctx)
             ),
             ExprKind::Restrict { domain, operand } => {
-                format!("{} : {}", self.domain_str(domain, ctx), self.expr(operand, ctx))
+                format!(
+                    "{} : {}",
+                    self.domain_str(domain, ctx),
+                    self.expr(operand, ctx)
+                )
             }
             ExprKind::AutoRestrict { operand } => format!("auto : {}", self.expr(operand, ctx)),
             ExprKind::Case { name, branches } => {
@@ -707,7 +737,11 @@ impl ShowPrinter {
                 body_context,
                 body,
             } => {
-                let kw = if *is_arg_reduce { "argreduce" } else { "reduce" };
+                let kw = if *is_arg_reduce {
+                    "argreduce"
+                } else {
+                    "reduce"
+                };
                 format!(
                     "{kw}({}, {}, {})",
                     operator_text(operator),
@@ -794,7 +828,9 @@ impl ShowPrinter {
             // produced eight *redundant* extra parens on top of that before this fix — enough to
             // trip a real parser bug, `alpha-syntax`'s own "parser stuck without making progress"
             // panic, on top of just being needlessly ugly).
-            ExprKind::If { .. } | ExprKind::Restrict { .. } | ExprKind::AutoRestrict { .. }
+            ExprKind::If { .. }
+            | ExprKind::Restrict { .. }
+            | ExprKind::AutoRestrict { .. }
             | ExprKind::Unary { .. } => format!("({s})"),
             _ => s,
         }
@@ -817,21 +853,31 @@ impl ShowPrinter {
                 }
             }
         }
-        format!("{}@{}", function_str(function, ctx), self.paren_child(operand, ctx))
+        format!(
+            "{}@{}",
+            function_str(function, ctx),
+            self.paren_child(operand, ctx)
+        )
     }
 }
 
 /// Reconstructs Alpha-like source syntax from `system` — ported from `Show.xtend`. A `Dependence`
 /// prints in point-free composition form (`f@X`); see [`ashow`] for array-index notation instead.
 pub fn show(system: &System) -> String {
-    ShowPrinter { array_notation: false }.print(system)
+    ShowPrinter {
+        array_notation: false,
+    }
+    .print(system)
 }
 
 /// Like [`show`], but renders a `Dependence` over a `Variable`/constant in array-index notation
 /// (`X[f]`) and shows each equation's own ambient index names explicitly (`X[i,j] = ...`) — ported
 /// from `AShow.xtend`.
 pub fn ashow(system: &System) -> String {
-    ShowPrinter { array_notation: true }.print(system)
+    ShowPrinter {
+        array_notation: true,
+    }
+    .print(system)
 }
 
 #[cfg(test)]
@@ -890,7 +936,10 @@ mod tests {
         let system = lowered(PREFIX_SCAN);
         let text = show(&system);
         assert!(text.contains("(i,j->j)@X"), "{text}");
-        assert!(!text.contains("-> [(j)]"), "isl map syntax leaked into show() output: {text}");
+        assert!(
+            !text.contains("-> [(j)]"),
+            "isl map syntax leaked into show() output: {text}"
+        );
     }
 
     /// The actual guarantee this fix is about: paste `show`/`ashow`'s output into a fresh file and

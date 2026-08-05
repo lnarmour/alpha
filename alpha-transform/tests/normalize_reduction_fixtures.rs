@@ -33,7 +33,10 @@ fn lower_named_system(name: &str) -> alpha_transform::ir::System {
     let mut resolver = Resolver::new(ctx, &system);
     let (ir_system, diags) =
         lower::lower_system(&mut resolver, &system).expect("lowering '{name}' should succeed");
-    assert!(diags.is_empty(), "unexpected lowering diagnostics: {diags:?}");
+    assert!(
+        diags.is_empty(),
+        "unexpected lowering diagnostics: {diags:?}"
+    );
     ir_system
 }
 
@@ -80,17 +83,21 @@ fn reduce_under_a_dependence_is_still_hoisted() {
 
     let extracted = normalize_reduction::apply(&mut system);
 
-    assert_eq!(extracted, 1, "the dependence-wrapped reduce must be extracted");
-    assert_eq!(system.locals.len(), locals_before + 1, "one new local created");
+    assert_eq!(
+        extracted, 1,
+        "the dependence-wrapped reduce must be extracted"
+    );
+    assert_eq!(
+        system.locals.len(),
+        locals_before + 1,
+        "one new local created"
+    );
     let eq = standard_eq(&system, "X");
     assert!(
         !matches!(&*eq.expr.kind, ExprKind::Reduce { .. }),
         "X's equation should no longer directly be a Reduce"
     );
-    let new_local = system
-        .locals
-        .last()
-        .expect("a new local was just pushed");
+    let new_local = system.locals.last().expect("a new local was just pushed");
     let new_eq = standard_eq(&system, &new_local.name);
     assert!(
         matches!(&*new_eq.expr.kind, ExprKind::Reduce { .. }),
@@ -109,11 +116,17 @@ fn outer_of_a_directly_nested_reduce_pair_is_left_in_place() {
 
     let extracted = normalize_reduction::apply(&mut system);
 
-    assert_eq!(extracted, 0, "no equation-boundary-reachable reduce to hoist");
+    assert_eq!(
+        extracted, 0,
+        "no equation-boundary-reachable reduce to hoist"
+    );
     assert_eq!(system.locals.len(), locals_before);
     let eq = standard_eq(&system, "X");
     let ExprKind::Reduce { body, .. } = &*eq.expr.kind else {
-        panic!("X's equation should still be a bare Reduce, got {:?}", eq.expr.kind);
+        panic!(
+            "X's equation should still be a bare Reduce, got {:?}",
+            eq.expr.kind
+        );
     };
     assert!(
         matches!(&*body.kind, ExprKind::Reduce { .. }),

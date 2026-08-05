@@ -103,7 +103,11 @@ mod tests {
             .tree()
             .syntax()
             .descendants()
-            .find_map(|n| (n.kind() == SyntaxKind::DOMAIN).then(|| ast::Domain::cast(n)).flatten())
+            .find_map(|n| {
+                (n.kind() == SyntaxKind::DOMAIN)
+                    .then(|| ast::Domain::cast(n))
+                    .flatten()
+            })
             .expect("one DOMAIN node in fixture")
     }
 

@@ -319,7 +319,10 @@ mod tests {
         // Every instance maps to the same point — not injective.
         let text = "{ Y__init[i] -> [0, 0, 0]; }";
         let msg = expect_err(build_schedule(&ctx, &stmts, text));
-        assert!(msg.contains("Y__init") && msg.contains("injective"), "{msg}");
+        assert!(
+            msg.contains("Y__init") && msg.contains("injective"),
+            "{msg}"
+        );
     }
 
     #[test]

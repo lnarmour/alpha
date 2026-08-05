@@ -211,7 +211,9 @@ fn extract_ir_system(system: &Bound<'_, PyAny>) -> PyResult<alpha_transform::ir:
 /// a pass did to the tree; see [`show`]/[`ashow`] to read a program back as source.
 #[pyfunction]
 fn print(system: &Bound<'_, PyAny>) -> PyResult<String> {
-    Ok(alpha_transform::print::print_ast(&extract_ir_system(system)?))
+    Ok(alpha_transform::print::print_ast(&extract_ir_system(
+        system,
+    )?))
 }
 
 /// Reconstructs Alpha-like source syntax from `system` — ported from alpha-language's

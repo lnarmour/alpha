@@ -270,9 +270,7 @@ mod tests {
     use super::*;
     use crate::schedule::build_schedule;
     use crate::stmt::statements;
-    use crate::test_util::{
-        normalized_system, PLAIN_COPY, PREFIX_SCAN, PREFIX_SCAN_WITH_CONSUMER,
-    };
+    use crate::test_util::{normalized_system, PLAIN_COPY, PREFIX_SCAN, PREFIX_SCAN_WITH_CONSUMER};
 
     /// The empty/omitted target mapping (§6) gives every statement its own independent identity
     /// schedule, padded to the shared width by appending zeros — but for `Y__init`/`Y__reduce`
@@ -339,7 +337,10 @@ mod tests {
             Ok(()) => panic!("expected __reduce before its own __init to be illegal"),
             Err(e) => e.to_string(),
         };
-        assert!(err.contains("Y__reduce") && err.contains("Y__init"), "{err}");
+        assert!(
+            err.contains("Y__reduce") && err.contains("Y__init"),
+            "{err}"
+        );
     }
 
     #[test]

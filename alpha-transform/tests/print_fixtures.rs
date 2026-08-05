@@ -225,8 +225,20 @@ fn show_and_ashow_output_round_trips_across_fixture_corpus() {
             let mut normalized_ir = ir_system;
             normalize_reduction::apply(&mut normalized_ir);
             let normalized = normalize::apply(normalized_ir, true);
-            round_trip(path, sysname.clone(), "show", print::show(&normalized), &mut failures);
-            round_trip(path, sysname, "ashow", print::ashow(&normalized), &mut failures);
+            round_trip(
+                path,
+                sysname.clone(),
+                "show",
+                print::show(&normalized),
+                &mut failures,
+            );
+            round_trip(
+                path,
+                sysname,
+                "ashow",
+                print::ashow(&normalized),
+                &mut failures,
+            );
         }
     }
 
@@ -244,7 +256,10 @@ fn show_and_ashow_output_round_trips_across_fixture_corpus() {
         );
     }
 
-    assert!(n_checked > 0, "found zero round-trippable systems across the whole corpus");
+    assert!(
+        n_checked > 0,
+        "found zero round-trippable systems across the whole corpus"
+    );
     assert!(
         failures.is_empty(),
         "{} normalized show/ashow outputs failed to round-trip:\n{:#?}",
