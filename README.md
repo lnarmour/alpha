@@ -1,9 +1,7 @@
 # alpha-language-rs
 
 A Rust implementation of the [Alpha language](https://github.com/CSU-CS-Melange/alpha-language)
-polyhedral compilation toolchain: parse → semantic analysis → normalize → generate C.
-
-`alphac` is the CLI this workspace builds: `alphac file.alpha -o file.c`.
+polyhedral compilation toolchain and corresponding python bindings.
 
 For the full design rationale (why isl via FFI, workspace layout, licensing, scope) see
 [`docs/design.md`](docs/design.md). For current status, known bugs, and next steps see
@@ -48,6 +46,43 @@ cargo build --workspace
 cargo build --workspace --release
 ```
 
+## Python bindings (`alpha-py`)
+
+Interactive, scheduled codegen — `parse`/`normalize`/`schedule`/`generate` from Python, plus
+`%%alpha`/`%%schedule` Jupyter cell magics and `print`/`show`/`ashow` pretty-printers. See
+[`alpha-py/README.md`](alpha-py/README.md) for the full API.
+
+All you should need to do is:
+
+```
+uv sync
+. .venv/bin/activate
+jupyter lab alpha-py/notebooks/prefix_scan.ipynb
+```
+
+`uv sync` builds `alpha-py`'s Rust extension (via `maturin`, the workspace's own build backend for
+it) and installs the resulting `alpha` package straight into `.venv` — there's no separate build
+step. `prefix_scan.ipynb` is a real, already-executed, checked-in worked example (also a
+regression fixture — see [`alpha-py/notebooks/README.md`](alpha-py/notebooks/README.md)) that
+walks the whole pipeline: parse → normalize → schedule → generate C.
+
+Or drive the same pipeline from a plain Python script instead of a notebook:
+
+```python
+import alpha
+
+sys = alpha.parse("""
+affine PrefixScan [N]->{:N>0}
+    inputs  X: [N]
+    outputs Y: [N]
+    let Y[i] = reduce(+, [j], {:j<=i}: X[j]);
+.
+""")
+norm = alpha.normalize(sys)
+sched = norm.schedule("{ Y__init[i] -> [i, 0, 0]; Y__reduce[i,j] -> [i, 1, j]; }")
+print(alpha.generate(sched))
+```
+
 ## Testing
 
 ```
@@ -65,33 +100,6 @@ cargo run -p alphac -- path/to/file.alpha -o path/to/file.c
 ```
 
 Without `-o`, generated C is printed to stdout.
-
-## Python bindings (`alpha-py`)
-
-Interactive, scheduled codegen — `parse`/`normalize`/`schedule`/`generate` from Python, plus
-`%%alpha`/`%%schedule` Jupyter cell magics. See [`alpha-py/README.md`](alpha-py/README.md) for
-details; quickstart:
-
-```
-uv sync && source .venv/bin/activate
-```
-
-```python
-import alpha
-
-sys = alpha.parse("""
-affine PrefixScan [N]->{:N>0}
-    inputs  X: [N]
-    outputs Y: [N]
-    let Y[i] = reduce(+, [j], {:j<=i}: X[j]);
-.
-""")
-norm = alpha.normalize(sys)
-sched = norm.schedule(
-    "{ Y_NR__init[i] -> [i, 0, 0]; Y_NR__reduce[i,j] -> [i, 1, j]; Y[i] -> [i, 2, 0]; }"
-)
-print(alpha.generate(sched))
-```
 
 ## Other make targets
 
