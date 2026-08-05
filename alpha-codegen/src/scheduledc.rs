@@ -632,14 +632,14 @@ fn build_driver(system: &ir::System, g: &Gen, body_stmts: Vec<Stmt>) -> Result<F
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_util::{normalized_system, PLAIN_COPY, PREFIX_SCAN};
+    use crate::test_util::{normalized_system, PLAIN_COPY, PREFIX_SUM};
 
     #[test]
-    fn empty_schedule_text_is_rejected_as_illegal_for_prefix_scan() {
+    fn empty_schedule_text_is_rejected_as_illegal_for_prefix_sum() {
         // Confirms end-to-end (not just at the crate::legality unit-test level) that the
         // identity default is illegal for a real reduce dependency (§6, §7) — generation must
         // fail, not silently emit miscompiled code.
-        let system = normalized_system(PREFIX_SCAN);
+        let system = normalized_system(PREFIX_SUM);
         match generate_scheduled_system(&system, "") {
             Err(CodegenError::IllegalSchedule(_)) => {}
             other => panic!("expected an IllegalSchedule error, got {other:?}"),
@@ -655,12 +655,12 @@ mod tests {
     }
 
     #[test]
-    fn prefix_scan_generates_with_explicit_schedule() {
-        let system = normalized_system(PREFIX_SCAN);
+    fn prefix_sum_generates_with_explicit_schedule() {
+        let system = normalized_system(PREFIX_SUM);
         let text = "{ Y__init[i] -> [i, 0, 0]; \
                      Y__reduce[i,j] -> [i, 1, j]; }";
         let code = generate_scheduled_system(&system, text).unwrap();
         assert!(code.contains("Y"));
-        assert!(code.contains("PrefixScan"));
+        assert!(code.contains("PrefixSum"));
     }
 }

@@ -19,15 +19,15 @@ import IPython.testing.globalipapp as globalipapp  # noqa: E402
 def get_ipython():
     return globalipapp.get_ipython()
 
-PREFIX_SCAN_CELL = (
-    "affine PrefixScan [N]->{:N>0}\n"
+PREFIX_SUM_CELL = (
+    "affine PrefixSum [N]->{:N>0}\n"
     "    inputs  X: [N]\n"
     "    outputs Y: [N]\n"
     "    let Y[i] = reduce(+, [j], {:j<=i}: X[j]);\n"
     ".\n"
 )
 
-PREFIX_SCAN_SCHEDULE_CELL = "{ Y__init[i] -> [i, 0, 0]; Y__reduce[i,j] -> [i, 1, j]; }\n"
+PREFIX_SUM_SCHEDULE_CELL = "{ Y__init[i] -> [i, 0, 0]; Y__reduce[i,j] -> [i, 1, j]; }\n"
 
 
 @pytest.fixture
@@ -49,7 +49,7 @@ def ip():
 
 
 def test_percent_alpha_binds_a_system(ip):
-    result = ip.run_cell_magic("alpha", "sys", PREFIX_SCAN_CELL)
+    result = ip.run_cell_magic("alpha", "sys", PREFIX_SUM_CELL)
     assert result is None or not getattr(result, "error_in_exec", None)
     import alpha
 
@@ -63,14 +63,14 @@ def test_percent_alpha_with_bad_source_does_not_bind(ip):
 
 
 def test_percent_alpha_requires_a_variable_name(ip):
-    result = ip.run_cell(f"%%alpha\n{PREFIX_SCAN_CELL}")
+    result = ip.run_cell(f"%%alpha\n{PREFIX_SUM_CELL}")
     assert isinstance(result.error_in_exec, ValueError)
 
 
 def test_percent_schedule_binds_a_scheduled_system(ip):
-    ip.run_cell_magic("alpha", "sys", PREFIX_SCAN_CELL)
+    ip.run_cell_magic("alpha", "sys", PREFIX_SUM_CELL)
     ip.run_cell("norm = alpha.normalize(sys)")
-    result = ip.run_cell(f"%%schedule sched norm\n{PREFIX_SCAN_SCHEDULE_CELL}")
+    result = ip.run_cell(f"%%schedule sched norm\n{PREFIX_SUM_SCHEDULE_CELL}")
     assert result.error_in_exec is None
     import alpha
 
@@ -78,18 +78,18 @@ def test_percent_schedule_binds_a_scheduled_system(ip):
 
 
 def test_percent_schedule_against_wrong_type_raises_type_error(ip):
-    ip.run_cell_magic("alpha", "sys", PREFIX_SCAN_CELL)
-    result = ip.run_cell(f"%%schedule bad sys\n{PREFIX_SCAN_SCHEDULE_CELL}")
+    ip.run_cell_magic("alpha", "sys", PREFIX_SUM_CELL)
+    result = ip.run_cell(f"%%schedule bad sys\n{PREFIX_SUM_SCHEDULE_CELL}")
     assert isinstance(result.error_in_exec, TypeError)
 
 
 def test_percent_schedule_against_undefined_name_raises_name_error(ip):
-    result = ip.run_cell(f"%%schedule bad nope\n{PREFIX_SCAN_SCHEDULE_CELL}")
+    result = ip.run_cell(f"%%schedule bad nope\n{PREFIX_SUM_SCHEDULE_CELL}")
     assert isinstance(result.error_in_exec, NameError)
 
 
 def test_percent_schedule_with_illegal_schedule_raises_schedule_error(ip):
-    ip.run_cell_magic("alpha", "sys", PREFIX_SCAN_CELL)
+    ip.run_cell_magic("alpha", "sys", PREFIX_SUM_CELL)
     ip.run_cell("norm = alpha.normalize(sys)")
     result = ip.run_cell("%%schedule bad norm\n{}\n")
     import alpha
@@ -99,9 +99,9 @@ def test_percent_schedule_with_illegal_schedule_raises_schedule_error(ip):
 
 
 def test_full_pipeline_through_magics_generates_c(ip):
-    ip.run_cell_magic("alpha", "sys", PREFIX_SCAN_CELL)
+    ip.run_cell_magic("alpha", "sys", PREFIX_SUM_CELL)
     ip.run_cell("norm = alpha.normalize(sys)")
-    ip.run_cell(f"%%schedule sched norm\n{PREFIX_SCAN_SCHEDULE_CELL}")
+    ip.run_cell(f"%%schedule sched norm\n{PREFIX_SUM_SCHEDULE_CELL}")
     result = ip.run_cell("code = alpha.generate(sched)")
     assert result.error_in_exec is None
     assert "#include" in ip.user_ns["code"]

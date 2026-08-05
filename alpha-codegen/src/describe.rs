@@ -46,12 +46,12 @@ pub fn describe_normalized_system(system: &ir::System, schedule_text: &str) -> R
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_util::{normalized_system, PREFIX_SCAN};
+    use crate::test_util::{normalized_system, PREFIX_SUM};
     use alpha_model::Resolver;
 
-    fn unnormalized_prefix_scan() -> ir::System {
+    fn unnormalized_prefix_sum() -> ir::System {
         let ctx = isl::Context::new();
-        let parse = alpha_syntax::parse(PREFIX_SCAN);
+        let parse = alpha_syntax::parse(PREFIX_SUM);
         assert!(parse.errors.is_empty());
         let tree = parse.tree();
         let system = tree.systems().next().unwrap();
@@ -66,7 +66,7 @@ mod tests {
 
     #[test]
     fn pre_normalization_skeleton_has_no_reduce_split() {
-        let system = unnormalized_prefix_scan();
+        let system = unnormalized_prefix_sum();
         let text = describe_system(&system).unwrap();
         // Just `Y`, no `Y__init`/`Y__reduce` — the split doesn't exist before normalize_reduction runs.
         assert!(text.contains("Y["), "{text}");
@@ -78,7 +78,7 @@ mod tests {
 
     #[test]
     fn post_normalization_skeleton_has_the_reduce_split() {
-        let system = normalized_system(PREFIX_SCAN);
+        let system = normalized_system(PREFIX_SUM);
         let text = describe_normalized_system(&system, "").unwrap();
         assert!(
             text.contains("Y__init") && text.contains("Y__reduce"),
@@ -88,7 +88,7 @@ mod tests {
 
     #[test]
     fn post_normalization_skeleton_reflects_an_explicit_schedule() {
-        let system = normalized_system(PREFIX_SCAN);
+        let system = normalized_system(PREFIX_SUM);
         let sched_text = "{ Y__init[i] -> [i, 0, 0]; \
                      Y__reduce[i,j] -> [i, 1, j]; }";
         let text = describe_normalized_system(&system, sched_text).unwrap();

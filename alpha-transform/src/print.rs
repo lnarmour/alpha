@@ -886,7 +886,7 @@ mod tests {
     use alpha_model::Resolver;
     use isl::Context;
 
-    const PREFIX_SCAN: &str = "affine PrefixScan [N]->{:N>0}
+    const PREFIX_SUM: &str = "affine PrefixSum [N]->{:N>0}
     inputs  X: [N]
     outputs Y: [N]
     let Y[i] = reduce(+, [j], {:j<=i}: X[j]);
@@ -909,9 +909,9 @@ mod tests {
 
     #[test]
     fn print_ast_shows_every_node_and_its_domains() {
-        let system = lowered(PREFIX_SCAN);
+        let system = lowered(PREFIX_SUM);
         let text = print_ast(&system);
-        assert!(text.contains("System \"PrefixScan\""));
+        assert!(text.contains("System \"PrefixSum\""));
         assert!(text.contains("Reduce operator=+"));
         assert!(text.contains("exp="));
         assert!(text.contains("ctx="));
@@ -919,9 +919,9 @@ mod tests {
 
     #[test]
     fn show_reconstructs_alpha_like_source() {
-        let system = lowered(PREFIX_SCAN);
+        let system = lowered(PREFIX_SUM);
         let text = show(&system);
-        assert!(text.starts_with("affine PrefixScan"));
+        assert!(text.starts_with("affine PrefixSum"));
         assert!(text.contains("inputs"));
         assert!(text.contains("X :"));
         assert!(text.contains("outputs"));
@@ -933,7 +933,7 @@ mod tests {
     #[test]
     fn show_renders_a_dependence_function_as_alpha_function_literal_not_isl_map_syntax() {
         // The whole point of this fix: `(i,j->j)@X`, not isl's own `[N] -> { [i, j] -> [(j)] }@X`.
-        let system = lowered(PREFIX_SCAN);
+        let system = lowered(PREFIX_SUM);
         let text = show(&system);
         assert!(text.contains("(i,j->j)@X"), "{text}");
         assert!(
@@ -949,7 +949,7 @@ mod tests {
     #[test]
     fn show_and_ashow_output_round_trips_through_the_whole_pipeline() {
         const CASES: &[&str] = &[
-            PREFIX_SCAN,
+            PREFIX_SUM,
             "affine Shift [N] -> {:N>10}
     inputs A: [N,N]
     outputs B: {[i,j]: 0<=i and 2*i+3<N and 0<=j<N}
@@ -982,7 +982,7 @@ mod tests {
 
     #[test]
     fn ashow_shows_ambient_index_names_on_the_equation() {
-        let system = lowered(PREFIX_SCAN);
+        let system = lowered(PREFIX_SUM);
         let text = ashow(&system);
         // `Y`'s own declared index binder is `i` (`Y[i] = ...`) — `show` never prints it, `ashow`
         // always does.

@@ -270,7 +270,7 @@ mod tests {
     use super::*;
     use crate::schedule::build_schedule;
     use crate::stmt::statements;
-    use crate::test_util::{normalized_system, PLAIN_COPY, PREFIX_SCAN, PREFIX_SCAN_WITH_CONSUMER};
+    use crate::test_util::{normalized_system, PLAIN_COPY, PREFIX_SUM, PREFIX_SUM_WITH_CONSUMER};
 
     /// The empty/omitted target mapping (§6) gives every statement its own independent identity
     /// schedule, padded to the shared width by appending zeros — but for `Y__init`/`Y__reduce`
@@ -283,12 +283,12 @@ mod tests {
     /// reordering, e.g. `ordinary_copy_is_always_legal` below).
     #[test]
     fn identity_default_schedule_is_illegal_for_a_real_reduce_dependency() {
-        let system = normalized_system(PREFIX_SCAN);
+        let system = normalized_system(PREFIX_SUM);
         let stmts = statements(&system).unwrap();
         let ctx = stmts[0].domain.ctx();
         let schedule = build_schedule(&ctx, &stmts, "").unwrap();
         let err = match check_legality(&stmts, &schedule) {
-            Ok(()) => panic!("expected the identity default to be illegal for PrefixScan"),
+            Ok(()) => panic!("expected the identity default to be illegal for PrefixSum"),
             Err(e) => e.to_string(),
         };
         assert!(err.contains("Y") && err.contains("§7.2"), "{err}");
@@ -296,7 +296,7 @@ mod tests {
 
     #[test]
     fn properly_ordered_explicit_schedule_is_legal() {
-        let system = normalized_system(PREFIX_SCAN);
+        let system = normalized_system(PREFIX_SUM);
         let stmts = statements(&system).unwrap();
         let ctx = stmts[0].domain.ctx();
         let text = "{ Y__init[i] -> [i, 0, 0]; \
@@ -307,7 +307,7 @@ mod tests {
 
     #[test]
     fn consumer_scheduled_before_its_producer_is_illegal() {
-        let system = normalized_system(PREFIX_SCAN_WITH_CONSUMER);
+        let system = normalized_system(PREFIX_SUM_WITH_CONSUMER);
         let stmts = statements(&system).unwrap();
         let ctx = stmts[0].domain.ctx();
         // Z (phase 0) now runs *before* Y__reduce (phase 2) — the read is no longer guaranteed
@@ -325,7 +325,7 @@ mod tests {
 
     #[test]
     fn reduce_scheduled_before_its_own_init_is_illegal() {
-        let system = normalized_system(PREFIX_SCAN);
+        let system = normalized_system(PREFIX_SUM);
         let stmts = statements(&system).unwrap();
         let ctx = stmts[0].domain.ctx();
         // Y__reduce (phase 0) now runs *before* Y__init (phase 1) — violates §4.2's own
@@ -346,7 +346,7 @@ mod tests {
     #[test]
     fn ordinary_copy_with_no_reduce_is_always_legal_even_at_identity() {
         // No reduce, no reordering hazard — a plain `Y[i] = X[i]` copy is legal even at the
-        // trivial identity default, unlike PrefixScan's reduce case above.
+        // trivial identity default, unlike PrefixSum's reduce case above.
         let system = normalized_system(PLAIN_COPY);
         let stmts = statements(&system).unwrap();
         let ctx = stmts[0].domain.ctx();

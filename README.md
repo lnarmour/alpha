@@ -57,12 +57,12 @@ All you should need to do is:
 ```
 uv sync
 . .venv/bin/activate
-jupyter lab alpha-py/notebooks/prefix_scan.ipynb
+jupyter lab alpha-py/notebooks/prefix_sum.ipynb
 ```
 
 `uv sync` builds `alpha-py`'s Rust extension (via `maturin`, the workspace's own build backend for
 it) and installs the resulting `alpha` package straight into `.venv` — there's no separate build
-step. `prefix_scan.ipynb` is a real, already-executed, checked-in worked example (also a
+step. `prefix_sum.ipynb` is a real, already-executed, checked-in worked example (also a
 regression fixture — see [`alpha-py/notebooks/README.md`](alpha-py/notebooks/README.md)) that
 walks the whole pipeline: parse → normalize → schedule → generate C.
 
@@ -72,7 +72,7 @@ Or drive the same pipeline from a plain Python script instead of a notebook:
 import alpha
 
 sys = alpha.parse("""
-affine PrefixScan [N]->{:N>0}
+affine PrefixSum [N]->{:N>0}
     inputs  X: [N]
     outputs Y: [N]
     let Y[i] = reduce(+, [j], {:j<=i}: X[j]);

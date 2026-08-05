@@ -25,7 +25,7 @@ driven entirely through this crate.
   `alpha.magics` in a `try`/`except ImportError` (a no-op outside IPython).
 - **`python/alpha/magics.py`**: `AlphaMagics(Magics)` — the `%%alpha <var>` and
   `%%schedule <var> <source-system-var>` IPython cell magics, self-registering on `import alpha`.
-- **`notebooks/prefix_scan.ipynb`**: a real, executed-and-checked-in worked example (also a
+- **`notebooks/prefix_sum.ipynb`**: a real, executed-and-checked-in worked example (also a
   regression fixture — see its own `notebooks/README.md`).
 
 ## Python API
@@ -59,7 +59,7 @@ uv sync && source .venv/bin/activate   # from the repo root — builds and insta
 import alpha
 
 sys = alpha.parse("""
-affine PrefixScan [N]->{:N>0}
+affine PrefixSum [N]->{:N>0}
     inputs  X: [N]
     outputs Y: [N]
     let Y[i] = reduce(+, [j], {:j<=i}: X[j]);
@@ -73,7 +73,7 @@ print(alpha.generate(sched))
 ```
 
 Or interactively in Jupyter, using the cell magics instead of `parse`/`schedule` strings directly —
-see `notebooks/prefix_scan.ipynb` for the full worked version.
+see `notebooks/prefix_sum.ipynb` for the full worked version.
 
 **After changing Rust code**, `uv sync` alone won't pick it up — it only rebuilds a workspace
 member when it decides a reinstall is warranted, and mtime-only/no-op edits don't trigger that.
@@ -92,7 +92,7 @@ loop since it skips uv's dependency resolution step — but isn't required any m
 
 ```
 pytest alpha-py/tests/                              # 18 tests: plain API + magics
-pytest --nbval alpha-py/notebooks/prefix_scan.ipynb  # 8 more: the notebook fixture
+pytest --nbval alpha-py/notebooks/prefix_sum.ipynb  # 8 more: the notebook fixture
 ```
 
 `tests/test_magics.py` drives a real in-process IPython shell

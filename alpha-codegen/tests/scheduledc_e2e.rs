@@ -1,5 +1,5 @@
 //! End-to-end verification of `ScheduledC` (§8 of `docs/scheduled-codegen-design.md`): generates
-//! real C for `PrefixScan.alpha` (a fixture with a genuine reduce dependency), compiles it with
+//! real C for `PrefixSum.alpha` (a fixture with a genuine reduce dependency), compiles it with
 //! the system's own `cc`, links it against a small driver, runs the resulting binary, and checks
 //! the actual numeric output — not just that generation succeeds. This is the level at which
 //! several real bugs were only actually caught during implementation (an unindexed reduce
@@ -16,27 +16,27 @@ use alpha_model::Resolver;
 use std::path::PathBuf;
 use std::process::Command;
 
-const PREFIX_SCAN_SRC: &str = "affine PrefixScan [N]->{:N>0}
+const PREFIX_SUM_SRC: &str = "affine PrefixSum [N]->{:N>0}
     inputs  X: [N]
     outputs Y: [N]
     let Y[i] = reduce(+, [j], {:j<=i}: X[j]);
 .";
 
 /// `Y[i] = reduce(+, [j], {:j<=i}: X[j])` is an *inclusive* prefix sum (`j<=i`, not `j<i`) — a
-/// driver `main()` that calls the generated `PrefixScan`, computes the same sum directly in C,
+/// driver `main()` that calls the generated `PrefixSum`, computes the same sum directly in C,
 /// and exits non-zero if they disagree by more than a float epsilon.
 const DRIVER_SRC: &str = r#"
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
 
-void PrefixScan(long _local_N, float* _local_X, float* _local_Y);
+void PrefixSum(long _local_N, float* _local_X, float* _local_Y);
 
 int main() {
     long N = 6;
     float X[6] = {1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f};
     float Y[6] = {0};
-    PrefixScan(N, X, Y);
+    PrefixSum(N, X, Y);
 
     float expected[6];
     float running = 0.0f;
@@ -55,9 +55,9 @@ int main() {
 }
 "#;
 
-fn lowered_prefix_scan() -> alpha_transform::ir::System {
+fn lowered_prefix_sum() -> alpha_transform::ir::System {
     let ctx = isl::Context::new();
-    let parse = alpha_syntax::parse(PREFIX_SCAN_SRC);
+    let parse = alpha_syntax::parse(PREFIX_SUM_SRC);
     assert!(parse.errors.is_empty(), "{:?}", parse.errors);
     let tree = parse.tree();
     let system = tree.systems().next().expect("one system in fixture");
@@ -102,8 +102,8 @@ fn compile_and_run(generated_c: &str, tag: &str) -> bool {
 }
 
 #[test]
-fn scheduled_c_prefix_scan_matches_expected_output() {
-    let mut ir_system = lowered_prefix_scan();
+fn scheduled_c_prefix_sum_matches_expected_output() {
+    let mut ir_system = lowered_prefix_sum();
     alpha_transform::normalize_reduction::apply(&mut ir_system);
     let normalized = alpha_transform::normalize::apply(ir_system, true);
 
@@ -114,7 +114,7 @@ fn scheduled_c_prefix_scan_matches_expected_output() {
 
     assert!(
         compile_and_run(&generated, "scheduledc"),
-        "ScheduledC-generated PrefixScan produced incorrect output"
+        "ScheduledC-generated PrefixSum produced incorrect output"
     );
 }
 
@@ -125,7 +125,7 @@ fn scheduled_c_agrees_with_write_c_on_the_same_program() {
     // `ir::System` has no `Clone` (isl objects aren't trivially copyable across two independent
     // owning trees the way this needs), so each backend gets its own fresh lowering from source —
     // simple and cheap enough for a two-statement test fixture.
-    let mut for_scheduled = lowered_prefix_scan();
+    let mut for_scheduled = lowered_prefix_sum();
     alpha_transform::normalize_reduction::apply(&mut for_scheduled);
     let normalized_scheduled = alpha_transform::normalize::apply(for_scheduled, true);
     let text = "{ Y__init[i] -> [i, 0, 0]; \
@@ -136,7 +136,7 @@ fn scheduled_c_agrees_with_write_c_on_the_same_program() {
     // WriteC's own required pass order (§3 of the design) — reduction-hoisting first — happens to
     // be the same order used above, but that's incidental; each backend's own precondition is
     // documented and enforced independently (§1, §5.1).
-    let mut for_write_c = lowered_prefix_scan();
+    let mut for_write_c = lowered_prefix_sum();
     alpha_transform::normalize_reduction::apply(&mut for_write_c);
     let normalized_write_c = alpha_transform::normalize::apply(for_write_c, true);
     let write_c = alpha_codegen::generate_system(&normalized_write_c)

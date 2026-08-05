@@ -179,12 +179,12 @@ fn push_statements_for_variable<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_util::{normalized_system, PLAIN_COPY, PREFIX_SCAN};
+    use crate::test_util::{normalized_system, PLAIN_COPY, PREFIX_SUM};
     use isl::DimType;
 
     #[test]
     fn reduce_equation_splits_into_init_and_reduce_pair() {
-        let system = normalized_system(PREFIX_SCAN);
+        let system = normalized_system(PREFIX_SUM);
         let stmts = statements(&system).unwrap();
         let names: Vec<&str> = stmts.iter().map(|s| s.name.as_str()).collect();
         // `Y[i] = reduce(...)` is already the equation's own topmost node — already normal form,

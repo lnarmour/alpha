@@ -237,11 +237,11 @@ fn param_names_of(map: &Map) -> Vec<String> {
 mod tests {
     use super::*;
     use crate::stmt::statements;
-    use crate::test_util::{normalized_system, PREFIX_SCAN};
+    use crate::test_util::{normalized_system, PREFIX_SUM};
 
     #[test]
     fn empty_text_defaults_every_statement_to_identity_padded_to_shared_width() {
-        let system = normalized_system(PREFIX_SCAN);
+        let system = normalized_system(PREFIX_SUM);
         let stmts = statements(&system).unwrap();
         let ctx = stmts[0].domain.ctx();
         let fused = build_schedule(&ctx, &stmts, "").unwrap();
@@ -264,7 +264,7 @@ mod tests {
 
     #[test]
     fn explicit_uniformly_padded_schedule_builds_the_correct_nesting() {
-        let system = normalized_system(PREFIX_SCAN);
+        let system = normalized_system(PREFIX_SUM);
         let stmts = statements(&system).unwrap();
         let ctx = stmts[0].domain.ctx();
         let text = "{ Y__init[i] -> [i, 0, 0]; \
@@ -293,7 +293,7 @@ mod tests {
 
     #[test]
     fn unknown_statement_name_is_rejected() {
-        let system = normalized_system(PREFIX_SCAN);
+        let system = normalized_system(PREFIX_SUM);
         let stmts = statements(&system).unwrap();
         let ctx = stmts[0].domain.ctx();
         let msg = expect_err(build_schedule(&ctx, &stmts, "{ Bogus[i] -> [i]; }"));
@@ -302,7 +302,7 @@ mod tests {
 
     #[test]
     fn partially_specified_mentioned_statement_is_rejected() {
-        let system = normalized_system(PREFIX_SCAN);
+        let system = normalized_system(PREFIX_SUM);
         let stmts = statements(&system).unwrap();
         let ctx = stmts[0].domain.ctx();
         // Covers only part of Y__init's real domain (0 <= i < N) — missing the i == 0 point.
@@ -313,7 +313,7 @@ mod tests {
 
     #[test]
     fn non_injective_mentioned_statement_is_rejected() {
-        let system = normalized_system(PREFIX_SCAN);
+        let system = normalized_system(PREFIX_SUM);
         let stmts = statements(&system).unwrap();
         let ctx = stmts[0].domain.ctx();
         // Every instance maps to the same point — not injective.
@@ -327,7 +327,7 @@ mod tests {
 
     #[test]
     fn mismatched_explicit_widths_are_rejected() {
-        let system = normalized_system(PREFIX_SCAN);
+        let system = normalized_system(PREFIX_SUM);
         let stmts = statements(&system).unwrap();
         let ctx = stmts[0].domain.ctx();
         // Y__init at width 2, Y__reduce at width 3 — explicit entries disagreeing must be

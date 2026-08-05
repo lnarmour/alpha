@@ -102,7 +102,7 @@ means for tooling.
   `alphac` against a fixture with a reduce genuinely *nested* inside a larger expression (e.g.
   `Z[i] = A[i] + reduce(+, (i,j->i), B[i,j])`): codegen fails with `"internal error: bare
   Variable('Z_NR') reached codegen outside a Dependence"`. (A fixture whose reduce is already the
-  equation's own topmost node, like `PrefixScan.alpha`'s `Y[i] = reduce(...)`, doesn't demonstrate
+  equation's own topmost node, like `PrefixSum.alpha`'s `Y[i] = reduce(...)`, doesn't demonstrate
   this — `normalize_reduction::apply` leaves that one alone regardless of order, since it never
   needed hoisting to begin with; see below.) The mechanism: `normalize_reduction::apply` replaces
   each hoisted `Reduce` with a bare `Variable` placeholder at the call site; only
@@ -685,7 +685,7 @@ Functions/methods, all pure — clone the receiver's underlying Rust value, run 
    self-contained, and `WriteC`-visible-but-harmless (only changes generated internal names, not
    behavior). Does not touch pass order (§3) — `normalize_reduction::apply` still runs before
    `normalize::apply`, everywhere, for both backends. **Done**, including unit tests for the
-   collision-avoidance rule and a confirmed end-to-end regeneration of `PrefixScan.c` — `Y[i] =
+   collision-avoidance rule and a confirmed end-to-end regeneration of `PrefixSum.c` — `Y[i] =
    reduce(...)` is already its equation's own topmost node (§3), so it's never hoisted into a
    synthetic local at all; it becomes `Y__init`/`Y__reduce` directly. The `<targetvar>_NR<n>`-style
    naming (old `R_NR0`-style names, now deterministic) only shows up for a reduce that actually
@@ -724,13 +724,13 @@ Functions/methods, all pure — clone the receiver's underlying Rust value, run 
      Independent per-statement identity schedules have no reason to happen to interleave a
      reduce's accumulation correctly relative to whatever reads its result; a plain
      `Y[i] = X[i]`-style copy with no reduce stays legal at identity (no reordering hazard to
-     violate), but PrefixScan does not. This sharpens §6's own description of the omitted-mapping
+     violate), but PrefixSum does not. This sharpens §6's own description of the omitted-mapping
      default ("a useful reference point in its own right") — useful as a reference point for
      programs *without* a reduce; for anything else, an explicit target mapping isn't optional
      polish, it's required to pass legality at all.
 6. AST walker + statement-body codegen (§8) — the new `scheduledc.rs`. **Done** — verified past the
    "generates without error" level: `alpha-codegen/tests/scheduledc_e2e.rs` compiles the generated
-   C for `PrefixScan.alpha` with a real `cc`, links it against a small driver, runs the binary, and
+   C for `PrefixSum.alpha` with a real `cc`, links it against a small driver, runs the binary, and
    checks the actual numeric output against both a hand-computed expected value and `WriteC`'s own
    independently-generated code for the same program. Several real bugs surfaced only at this
    level — none visible from inspecting generated C by eye, let alone from Rust-level compilation:
@@ -821,11 +821,11 @@ Functions/methods, all pure — clone the receiver's underlying Rust value, run 
        stay plain-text. Nothing functional depends on this either way: the magics (previous bullet)
        work fully regardless, since highlighting is cosmetic, not functional. Revisit only if
        JupyterLab ever grows a real extension point for this (§13).
-   - **Notebook fixture corpus: done.** `alpha-py/notebooks/prefix_scan.ipynb` — §5.2's own worked
+   - **Notebook fixture corpus: done.** `alpha-py/notebooks/prefix_sum.ipynb` — §5.2's own worked
      example (parse → `System.__repr__` → normalize → `NormalizedSystem.__repr__` → schedule →
      `ScheduledSystem.__repr__` → generate, plus the identity-default `ScheduleError` path), executed
      for real against the repo's own `.venv` kernel and checked in with its real outputs, not
-     hand-written illustrative ones. `pytest --nbval alpha-py/notebooks/prefix_scan.ipynb` re-executes
+     hand-written illustrative ones. `pytest --nbval alpha-py/notebooks/prefix_sum.ipynb` re-executes
      and diffs against those outputs — 8/8 passing; confirmed deterministic (no timestamps/addresses
      anywhere in `__repr__` or generated C, so a diff on re-run means a real behavior change, not
      fixture flakiness). Plain `pytest` (no `--nbval`) does not collect `.ipynb` files, so this stays
