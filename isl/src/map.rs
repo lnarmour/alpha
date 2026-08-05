@@ -77,6 +77,19 @@ impl Map {
         Ok(unsafe { Map::from_raw(ctx.clone(), ctx.check(ptr)?) })
     }
 
+    /// Names dim `pos` of type `ty` — `alpha-transform/src/print.rs`'s `Select` printing uses this
+    /// to make a relation's range-side names explicit and queryable before printing (isl's own
+    /// `Display` can show a plausible synthesized name for an unnamed dim that `Space::dim_name`
+    /// still reports as unset — a display-only convenience, not a stored, queryable fact).
+    pub fn set_dim_name(self, ty: DimType, pos: u32, name: &str) -> Result<Map> {
+        let ctx = self.ctx.clone();
+        let cname = CString::new(name).expect("dimension name must not contain NUL bytes");
+        let ptr = unsafe {
+            isl_sys::isl_map_set_dim_name(self.into_raw(), ty.to_raw(), pos, cname.as_ptr())
+        };
+        Ok(unsafe { Map::from_raw(ctx.clone(), ctx.check(ptr)?) })
+    }
+
     pub fn domain(self) -> Result<Set> {
         let ctx = self.ctx.clone();
         let ptr = unsafe { isl_sys::isl_map_domain(self.into_raw()) };
