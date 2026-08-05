@@ -1,55 +1,6 @@
-# Scheduled codegen: design spec (v1)
+# Scheduled codegen: implementation spec
 
-Status: **draft, for iteration**. Not yet implemented. Branch: `louis/scheduled-codegen`.
-
-Revision note: this draft reworks the original version around two changes. First, scheduling is
-only ever defined over the *normalized* IR (§5.1), not the program as parsed — normalization isn't
-optional prep, it's a precondition for a target mapping to name anything correctly. Second, the
-tooling that follows from that precondition is an interactive session covering exactly five stages:
-read, normalize, print, schedule, generate — not a set of one-shot CLI flags round-tripping through
-files.
-
-Second revision note: this draft further reworks what that interactive session *is*. An earlier
-version of §5 built it as a bespoke stdin REPL, `alphac repl`, with its own tiny command language.
-This version replaces that with a Jupyter notebook: a standard Python kernel plus IPython cell
-magics that let Alpha source and target-mapping text be typed directly into cells, syntax-highlighted,
-and bound to notebook variables. The same five pipeline stages survive unchanged as a *concept*
-(§5.2 still walks through read → normalize → print → schedule → generate); what changes is that
-they're now Python-visible, distinctly-typed, immutable values (`System`, `NormalizedSystem`,
-`ScheduledSystem`) produced by a new PyO3 binding crate, rather than commands mutating one session
-object. See §5 and §10.
-
-Third revision note: this draft fixes two overstatements from the previous revision. First,
-decision 2 (§2) now says explicitly what was previously left implicit: a variable/statement name is
-scoped to its containing system, not shared across systems — the same relationship a function
-parameter name has to its enclosing function, not a global identifier. This matters more than it
-used to, because the notebook (§5) can hold several systems in memory side by side in a way the old
-single-session REPL never could. Second, decision 6 and §5.1 previously over-applied the
-normalized-IR precondition to `print`; printing an IR's current state has no such precondition and
-never needed one — only `schedule`/`generate` do (§5.1, §10.1).
-
-Fourth revision note: this draft corrected a framing error from the previous revisions —
-`normalize_reduction` was repeatedly presented as a second, separate pass a caller had to remember to
-invoke alongside `normalize`. The fix went too far in the other direction, though: it claimed
-reduction-hoisting is a phase *of* normalizing, invoked from inside `normalize` when its own
-traversal encounters a `Reduce` node. That claim wasn't checked against the upstream Java system and
-turned out to be wrong — see the fifth revision note.
-
-Fifth revision note: confirmed directly against the upstream `alpha-language` repo
-(`bundles/alpha.model/src/alpha/model/transformation/{Normalize,reduction/NormalizeReduction}.xtend`):
-`Normalize` and `NormalizeReduction` are two entirely separate visitor classes; neither invokes the
-other. They're always run back-to-back by whatever client code needs both — for the demand-driven
-backend this design's `normalize`/`normalize_reduction` are porting, that's `WriteC.xtend`'s
-`preprocess()`: `Normalize.apply(systemBody)` then `NormalizeReduction.apply(systemBody)`, in that
-order. This draft restores the "two separate passes" framing throughout (§1, §2 decisions 5–6, §3,
-§5.1, §5.2, §10, §10.1) — `alpha.normalize()` (§10.1) still bundles them into one Python-visible
-call, which is what actually address the original complaint (nothing downstream needs to remember to
-sequence two calls), but the two Rust-level passes themselves stay genuinely separate, in upstream's
-order (`normalize::apply` then `normalize_reduction::apply`). One loose end this revision does *not*
-resolve: today's `alphac` (`main.rs`) and `alpha-transform/README.md` actually run them in the
-*opposite* order, reduction-hoisting first — the reverse of upstream — with its own stated
-correctness rationale. §3 now flags this explicitly as a discrepancy to reconcile outside this doc,
-rather than silently picking a side.
+Status: ready for implementation. Target branch: `louis/scheduled-codegen`.
 
 ## 1. Goal
 
@@ -70,22 +21,16 @@ just a new flag on `WriteC`.
 `docs/design.md` currently states: *"Out of scope for this port: the `alphaz`/GeCoS scheduling
 search, tiling, memory-mapping, and reduction-simplification machinery. This targets the
 demand-driven `WriteC` codegen path only."* This work is a deliberate, explicit expansion of that
-stated scope — `docs/design.md` should be updated once this lands.
+stated scope; `docs/design.md` must be updated as part of §12's phasing.
 
-One architectural premise threads through everything below, and is worth stating here rather than
-leaving it implicit in pipeline call order: **scheduling is only ever defined over the normalized
-IR.** Normalizing changes the statement graph itself — `normalize` (§10.1) runs `normalize::apply`
-then `normalize_reduction::apply`, two genuinely separate passes (neither invokes the other) run
-back-to-back, in the same order the upstream Java system's own demand-driven backend uses
-(`Normalize.apply` then `NormalizeReduction.apply` in `WriteC.xtend`'s `preprocess()`) — hoisting
-every top-level `Reduce` into its own pair of statements (§4.2) before a target mapping can even name
-every schedulable unit correctly. There is no such thing as "the schedule for the program before
-normalization"; normalization isn't a pass a target mapping schedules around, it's a precondition
-for the target mapping to be well-formed at all. §5 works out what that means for tooling.
+**Scheduling is only ever defined over the normalized IR.** Normalizing hoists every top-level
+`Reduce` into its own pair of statements (§4.2) via two sequential passes — `normalize::apply` then
+`normalize_reduction::apply` (§10.1) — before a target mapping can name every schedulable unit
+correctly. There is no such thing as "the schedule for the program before normalization";
+normalization isn't a pass a target mapping schedules around, it's a precondition for the target
+mapping to be well-formed at all. §5 covers what that means for tooling.
 
-## 2. Decisions already made (recap)
-
-Six forks were resolved before writing this spec:
+## 2. Design decisions
 
 1. **Schedule format: raw ISL union map text.** Not a schedule tree, not a new hand-rolled DSL.
    `isl_ast_build_node_from_schedule_map` — which every loop `WriteC` generates already goes
@@ -98,89 +43,72 @@ Six forks were resolved before writing this spec:
    system.** Matches `WriteC`'s existing per-variable grouping (`equations_by_var` in `writec.rs`)
    — piecewise cases (a variable defined across multiple `SystemBody`s) stay merged into one
    statement via the same ternary selection `gen_eval_function` already does, not split into
-   separate schedulable pieces. **Scoping, stated explicitly**: a variable name is only meaningful
-   relative to the one `ir::System` (§3) that declares it — the same relationship a parameter name
-   has to its enclosing function, not a global identifier. Two systems that each happen to declare a
-   variable named `B` are exactly as unrelated as `foo(int Y)`'s `Y` and `bar(int Y)`'s `Y`; nothing
-   about the string `"B"` carries meaning across that boundary, and no part of this design (§4's
-   statement model, §6's target-mapping tuple names, §5's notebook) should be read as implying
-   otherwise. This was true all along but easy to leave implicit while only one `ir::System` was ever
-   in play at a time; it's worth stating because the notebook (§5) can hold several systems in memory
-   side by side as separate variables, which is exactly the situation where an implicit assumption of
-   a shared namespace would produce a wrong schedule silently instead of a `TypeError` loudly.
+   separate schedulable pieces. A variable name is only meaningful relative to the one `ir::System`
+   (§3) that declares it — the same relationship a parameter name has to its enclosing function, not
+   a global identifier. Two systems that each happen to declare a variable named `B` are exactly as
+   unrelated as `foo(int Y)`'s `Y` and `bar(int Y)`'s `Y`; nothing about the string `"B"` carries
+   meaning across that boundary. This matters because the notebook (§5) can hold several systems in
+   memory side by side as separate variables — implementations must not treat statement names as
+   identifiers in some shared or notebook-wide namespace (§4's statement model, §6's target-mapping
+   tuple names, §5's notebook all depend on this).
 3. **Reduce bodies are independently schedulable.** A `reduce(...)`'s own summation isn't left as
    an isl-auto-ordered internal loop (as `WriteC`'s `gen_reduce` does today) — its iteration order
-   is controlled by the target mapping too. See §4.2 — this turns out to compose cleanly with
-   decision 2 via a change to `normalize_reduction.rs`, not a bolt-on.
+   is controlled by the target mapping too. See §4.2; this composes with decision 2 via a change to
+   `normalize_reduction.rs`.
 4. **Legality is checked, not assumed.** An illegal schedule (one that reorders a real dependence)
-   must be rejected with a diagnostic, not silently miscompiled. See §7 — this turns out to be
-   materially simpler than general polyhedral dependence analysis because Alpha is a pure
-   single-assignment language: the true dependences are already explicit in the IR as `Dependence`
-   nodes, nothing needs to be *inferred* from array-access overlap the way it would in an imperative
-   language.
+   must be rejected with a diagnostic, not silently miscompiled. See §7. This is materially simpler
+   than general polyhedral dependence analysis because Alpha is a pure single-assignment language:
+   the true dependences are already explicit in the IR as `Dependence` nodes, nothing needs to be
+   *inferred* from array-access overlap the way it would in an imperative language.
 5. **Normalization is a hard precondition for scheduling, not an optional earlier stage.**
    `alphac` never accepts a target mapping against a pre-normalization system, and there is no way
    to skip normalizing before scheduled codegen runs — every path that consumes a target mapping
    (§10) normalizes first, unconditionally. Normalizing is two genuinely separate Rust-level passes
-   run in sequence — `normalize::apply` then `normalize_reduction::apply` (§1, matching upstream's
-   `Normalize.apply` then `NormalizeReduction.apply` order) — but the caller only ever sees one
-   conceptual step: `alpha.normalize()` (§10.1) bundles both, so nothing downstream of it has to
-   remember to sequence two calls itself. This resolves what would otherwise be a real ambiguity:
-   since normalizing changes statement identity (hoisting reduces into their own statements, §4.2),
-   "what should the schedule look like before normalization" isn't a well-formed question to design
-   for.
-6. **Tooling is a Jupyter notebook, not a bespoke stdin REPL and not one-shot CLI flags.** The
-   session still exposes exactly the five pipeline stages this design needs a human to see or drive:
-   read, normalize, print, schedule, generate (§5.2) — but as notebook cells, not as commands sent
-   to a custom `alphac repl` session (an earlier version of this decision; see the revision notes at
-   the top of this doc). Two things drove the switch, beyond "it's a more familiar tool":
-   - **Statefulness comes for free and composes with the rest of a normal analysis workflow.**
-     Re-running `schedule`/`generate` against the same normalized IR without reparsing (the whole
-     point of decision 6's original session requirement) is just "re-run this cell using a variable
-     an earlier cell defined" — the thing every notebook already does — rather than a property
-     `alphac repl` would have needed to build and maintain itself.
-   - **The normalized-IR precondition (§5.1) becomes a real type distinction for `schedule`/
-     `generate` — but not for `print`.** A stdin session had one mutable `ir::System` and rejected
-     `schedule`/`generate`/`print` alike at runtime if `normalize` hadn't run yet — but that blanket
-     rule was too strict: printing has no normalization requirement, it just shows whatever the IR
-     currently looks like (§5.1), pre- or post-normalization, so nothing should gate it. The
-     type-level fix is narrower than the old runtime check: `System` (freshly parsed) and
-     `NormalizedSystem` (post-normalization) are distinct Python types (§10), and only `schedule`/
-     `generate` are gated on it — passing a bare `System` to either is a `TypeError` from the
-     binding, not a pipeline diagnostic. `__repr__` is defined on all three types (`System`,
-     `NormalizedSystem`, `ScheduledSystem`) and callable at any time, on whichever value you're
-     holding. This is a partial, practical answer to §13's open question about a phantom-typed
-     `System<Normalized>` marker: the distinction now exists, enforced only where it's actually load-
-     bearing, at the Python-binding boundary, without having to refactor `alpha_transform::ir` itself
-     to get it.
+   run in sequence — `normalize::apply` then `normalize_reduction::apply` (§1, matching the upstream
+   Java system's own order: `Normalize.apply` then `NormalizeReduction.apply` in `WriteC.xtend`'s
+   `preprocess()`) — but the caller only ever sees one conceptual step: `alpha.normalize()` (§10.1)
+   bundles both, so nothing downstream of it has to sequence two calls itself. Since normalizing
+   changes statement identity (hoisting reduces into their own statements, §4.2), "what should the
+   schedule look like before normalization" isn't a well-formed question — there is no such state to
+   design for.
+6. **Tooling is a Jupyter notebook.** A standard Python kernel plus IPython cell magics expose five
+   pipeline stages — read, normalize, print, schedule, generate (§5.2) — as notebook cells, backed
+   by a new PyO3 binding crate (`alpha-py`, §10.1). Two properties this depends on:
+   - **Statefulness comes for free.** Re-running `schedule`/`generate` against the same normalized
+     IR without reparsing is just "re-run this cell using a variable an earlier cell defined" — the
+     thing every notebook already does.
+   - **The normalized-IR precondition (§5.1) is a type distinction for `schedule`/`generate` only —
+     not for `print`.** Printing an IR's current state has no normalization requirement; it just
+     shows whatever the IR looks like right now, pre- or post-normalization. `System` (freshly
+     parsed) and `NormalizedSystem` (post-normalization) are distinct Python types (§10); only
+     `schedule`/`generate` are gated on it — passing a bare `System` to either is a `TypeError` from
+     the binding, before any Rust code runs. `__repr__` is defined on all three types (`System`,
+     `NormalizedSystem`, `ScheduledSystem`) and callable at any time, on whichever value is held.
 
-   This also settles how "rust-like, transformations return new copies" (a project-wide preference,
-   not new to this feature) applies to session state specifically: every pipeline stage is a pure
-   function from one immutable value to a new one (§5.2, §10), not a command that mutates a session
-   object in place — so there's no separate "current schedule" to track or reset, and a rejected
-   `schedule()` call simply never produces a new object rather than needing to roll a session back.
+   Every pipeline stage is a pure function from one immutable value to a new one (§5.2, §10) — not a
+   command that mutates shared state in place. There is no "current schedule" to track or reset: a
+   rejected `schedule()` call simply never produces a new object.
 
-## 3. Current architecture, in the two places this design diverges from it
+## 3. Current architecture, and what this design changes
 
 - **`ir::System`** (`alpha-transform/src/ir.rs`): `inputs`/`outputs`/`locals: Vec<Variable>`, each
   with a `domain: Set`; `bodies: Vec<SystemBody>`, each `{ domain: Set, equations: Vec<Equation> }`.
   A variable can be defined by equations across multiple bodies (piecewise).
-- **`normalize_reduction::apply`** is a separate pass from `normalize::apply` — neither invokes the
-  other (§1, §2 decision 5); today's `alphac` (`main.rs`) runs `normalize_reduction::apply` *before*
-  `normalize::apply`, with `alpha-transform/README.md` giving a specific correctness rationale for
-  that order (a `Dependence` directly wrapping a bare `Reduce` needs somewhere else to live before
-  `normalize`'s own rewriting touches it). **This is the reverse of the upstream Java system's own
-  order** — `WriteC.xtend`'s `preprocess()` runs `Normalize.apply` *then* `NormalizeReduction.apply`
-  — a discrepancy this doc doesn't resolve; §10.1's `alpha.normalize()` is specified to match
-  upstream's order, which means today's `main.rs`/README order needs reconciling with it separately,
-  outside this doc's scope. `normalize_reduction::apply` itself hoists every *top-level* `Reduce`
+- **`normalize::apply` and `normalize_reduction::apply` are two separate passes; neither invokes the
+  other.** The upstream Java system's demand-driven backend (`WriteC.xtend`'s `preprocess()`) runs
+  `Normalize.apply` then `NormalizeReduction.apply`, in that order. **`alphac`'s current `main.rs`
+  runs them in the opposite order** (`normalize_reduction::apply` before `normalize::apply`), and
+  `alpha-transform/README.md` states a correctness rationale for that order (a `Dependence` directly
+  wrapping a bare `Reduce` needs somewhere else to live before `normalize`'s own rewriting touches
+  it). **This work corrects `main.rs` to match upstream's order** as part of its phasing (§12) —
+  `WriteC`'s own fixture corpus must stay green after the fix, verifying the change is output-neutral
+  for the demand-driven path. `normalize_reduction::apply` itself hoists every *top-level* `Reduce`
   (one not nested inside another `Reduce`'s own body) out of its enclosing equation into a fresh
   synthetic local variable + equation (`R_NR0`, `R_NR1`, ... today) whose `expr` is the `Reduce` node
   itself, unwrapped. It recurses through `Case`/`If`/`Dependence`/`Restrict`/`Select`/`MultiArg`/
-  `Binary`/`Unary` looking for the first
-  `Reduce` on each path, so this fires regardless of how deeply the reduce is nested inside
-  conditionals — it only *doesn't* fire for a `Reduce` nested directly inside another `Reduce`'s
-  `body` (an explicitly acknowledged, carried-over limitation; see §11).
+  `Binary`/`Unary` looking for the first `Reduce` on each path, so this fires regardless of how
+  deeply the reduce is nested inside conditionals — it only *doesn't* fire for a `Reduce` nested
+  directly inside another `Reduce`'s `body` (an explicitly acknowledged limitation; see §11).
 - **`isl-sys`** wraps `isl_.*` broadly (bindgen allowlist) over a fixed header subset
   (`wrapper.h`) that already includes `union_map.h`, `set.h`, `map.h`, `space.h`. Every raw FFI
   function this design needs (`isl_union_map_read_from_str`, `isl_union_map_union`,
@@ -235,23 +163,29 @@ field (`(i,j) -> i`), fed into the same lex-order legality check every other dep
 human hand-writing a target mapping needs a name for every reduce statement, and a global counter
 assigned by pass-ordering isn't something they can predict from the `.alpha` source.
 
-Two changes, both required, not optional polish:
+Two changes, both required:
 
-1. **Deterministic naming.** Revert to the upstream Java system's own convention (which the port's
-   doc comment explicitly says it diverged from only because it didn't need to matter yet): name an
-   extracted reduce after its *enclosing equation's target variable* (`B` → `B_NR` / `B_NR0`,
-   `B_NR1`, ... only on an actual same-equation collision), not a whole-system counter. This makes
+1. **Deterministic naming.** Match the upstream Java system's own convention: name an extracted
+   reduce after its *enclosing equation's target variable* (`B` → `B_NR` / `B_NR0`, `B_NR1`, ...
+   only on an actual same-target-variable collision), not a whole-system counter. This makes
    `<targetvar>_NR<n>__init` / `<targetvar>_NR<n>__reduce` derivable by reading the source.
-2. **A way to see the normalized statement set before writing a schedule against it.**
+2. **Collision avoidance against all existing names, not just other reduces.** Alpha's identifier
+   grammar (`\^?[a-zA-Z_][a-zA-Z_0-9]*` in `alpha-syntax/src/token_kind.rs`) permits underscores
+   freely, so a real Alpha variable literally named e.g. `B_NR0__init` is syntactically legal and
+   could collide with a synthesized statement name. The naming rule in point 1 must check the
+   candidate name (`<targetvar>_NR<n>`, and its derived `__init`/`__reduce` forms) against every
+   existing variable/local/statement name in the system — not only other reduces hoisted from the
+   same target variable — and increment `<n>` until the candidate is unique.
+3. **A way to see the normalized statement set before writing a schedule against it.**
    Hand-deriving `R_NR`-style names and exact `(a+b)`-dim reduce domains from source by eye doesn't
    scale past trivial examples — see §5 for the notebook-level equivalent (a `NormalizedSystem`
    value's own `repr`) that does this instead.
 
-Both changes are scoped to one system, consistent with decision 2 (§2): `<targetvar>_NR<n>` naming
-and the identity-or-current-schedule skeleton `repr` shows (§5.2) are computed relative to whichever
-`System`/`NormalizedSystem` produced them, never relative to a notebook-wide namespace. A notebook
-holding two systems that each define a variable `B` gets two independent `B_NR0__init`-style names,
-one per system — never one shared name to collide over.
+All of the above is scoped to one system, consistent with decision 2 (§2): `<targetvar>_NR<n>`
+naming and the identity-or-current-schedule skeleton `repr` shows (§5.2) are computed relative to
+whichever `System`/`NormalizedSystem` produced them, never relative to a notebook-wide namespace. A
+notebook holding two systems that each define a variable `B` gets two independent `B_NR0__init`-style
+names, one per system — never one shared name to collide over.
 
 ## 5. Workflow: a Jupyter notebook
 
@@ -259,24 +193,21 @@ one per system — never one shared name to collide over.
 
 A target mapping is keyed by statement names (§4.3) and shaped by statement domains (§4.2) that
 only exist once normalizing has run both its passes — `normalize::apply` and
-`normalize_reduction::apply` (§1, §2 decision 5) — a reduce isn't one schedulable unit until
+`normalize_reduction::apply` (§1, §2 decision 5). A reduce isn't one schedulable unit until
 normalization has split it into `<name>__init`/`<name>__reduce`, and the `(a+b)`-dim domain of the
 `__reduce` half is an isl set the compiler computes, not something written down anywhere in the
 source `.alpha` file. So a human writing a target mapping by hand is, structurally, always writing
-it against the *output* of normalization, never the input.
+it against the *output* of normalization, never the input. This rules out designing scheduled
+codegen as something layered on top of an otherwise-unmodified pipeline where normalization is "just
+another pass that happens to run before codegen."
 
-This still rules out designing scheduled codegen as something layered on top of an otherwise-
-unmodified pipeline where normalization is "just another pass that happens to run before codegen."
-What's changed from an earlier version of this section is *how* the precondition gets enforced — and
-a correction: the precondition never actually applied to *printing*, only to `schedule`/`generate`,
-which are the two operations that need a well-formed, fully-split statement set (§4.2) to make sense
-against. An earlier version of this section had one mutable session reject `schedule`/`generate`/
-`print` alike at runtime if `normalize` hadn't run ("system not normalized — run `normalize` first")
-— that blanket rule was too strict. `print` isn't consuming a target mapping, it's just displaying
-whatever the loaded IR looks like right now: there's a well-defined pre-normalization skeleton (one
-entry per variable, no reduce splitting — a `Reduce` is still nested inside its enclosing variable's
-own equation) exactly as there's a well-defined post-normalization one (§4.2's `<name>__init`/
-`<name>__reduce` pairs), so nothing should stop printing either one.
+The precondition applies only to `schedule`/`generate`, the two operations that need a well-formed,
+fully-split statement set (§4.2) to make sense against — it does not apply to `print`. `print` isn't
+consuming a target mapping, it's just displaying whatever the loaded IR looks like right now: there
+is a well-defined pre-normalization skeleton (one entry per variable, no reduce splitting — a
+`Reduce` is still nested inside its enclosing variable's own equation) exactly as there's a
+well-defined post-normalization one (§4.2's `<name>__init`/`<name>__reduce` pairs), so nothing stops
+printing either one.
 
 The notebook's Python surface (§10) gives freshly-parsed and post-normalization systems genuinely
 different types — `System` and `NormalizedSystem` — but both (and `ScheduledSystem`) define
@@ -284,37 +215,30 @@ different types — `System` and `NormalizedSystem` — but both (and `Scheduled
 and `generate(...)` are type-gated: `normalize(sys: System) -> NormalizedSystem` is the only function
 that produces a `NormalizedSystem`, and `schedule`/`generate` only accept a `NormalizedSystem` or the
 `ScheduledSystem` it produces — passing a bare `System` to either is a Python `TypeError` raised by
-the binding before any Rust code runs. The precondition is a type error for those two operations
-specifically, not a blanket requirement on the whole session the way it was before. This is a real
-but partial answer to §13's open question about a phantom-typed `System<Normalized>` marker in
-`alpha_transform::ir`: the distinction now exists and is enforced where it actually matters, but at
-the PyO3 binding layer — `PyNormalizedSystem` is a distinct wrapper struct, not a generic parameter —
-so `alpha_transform::ir::System` itself is still one type. Whether it's worth pushing the distinction
-further down is now lower-stakes, and stays open (§13). `alpha_codegen::generate_scheduled_system`
-(§10) still documents the precondition in its own doc comment too, since the Rust API itself has no
-way to see the Python-level type distinction.
+the binding before any Rust code runs. This enforcement lives at the PyO3 binding layer:
+`PyNormalizedSystem` is a distinct wrapper struct, not a generic parameter, so
+`alpha_transform::ir::System` itself remains a single Rust type (§13 covers whether to push the
+distinction further down). `alpha_codegen::generate_scheduled_system` (§10) documents the
+precondition in its own doc comment too, since the Rust API itself has no way to see the
+Python-level type distinction.
 
-One more scoping note, since the notebook makes it easy to hold multiple systems in memory side by
-side: statement names (§4.3) are meaningful only relative to the one `System`/`NormalizedSystem` they
-came from (§2 decision 2). The `%%schedule` magic (§5.2) is explicit about this by construction — its
-magic line names the `NormalizedSystem` the target-mapping text is checked against — but it's worth
-stating plainly: a target mapping written against one system's `B` cannot be reused against a
-different system's `B`, any more than an argument list written for `foo(int Y)` could be reused to
-call `bar(int Y)`. Nothing in this design treats statement names as identifiers in some
-notebook-wide namespace.
+Statement names (§4.3) are meaningful only relative to the one `System`/`NormalizedSystem` they came
+from (§2 decision 2). The `%%schedule` magic (§5.2) is explicit about this by construction — its
+magic line names the `NormalizedSystem` the target-mapping text is checked against. A target mapping
+written against one system's `B` cannot be reused against a different system's `B`, any more than an
+argument list written for `foo(int Y)` could be reused to call `bar(int Y)`.
 
 ### 5.2 The notebook: `%%alpha`, `normalize`, `repr`, `%%schedule`, `generate`
 
-Same five pipeline stages as before — read, normalize, print, schedule, generate — now split across
-two mechanisms rather than five session commands:
+Five pipeline stages — read, normalize, print, schedule, generate — split across two mechanisms:
 
 - **Reading Alpha or target-mapping *source text* happens through IPython cell magics**, because
   that's the part that's its own little language and benefits from syntax highlighting in the
   editor, not from being a Python expression.
 - **Everything else is a plain, typed Python function or method** over immutable values, because
   that's the part that's just "take a value, produce a new one" — no new syntax needed, and it's
-  what makes the rust-like "transformations return new copies" behavior possible to state precisely
-  (§10 gives the exact signatures).
+  what makes the rust-like "transformations return new copies" behavior precise (§10 gives the
+  exact signatures).
 
 ```
 %%alpha sys
@@ -326,9 +250,8 @@ This cell magic parses its body as Alpha source (parse + `alpha_model::analyze_s
 `alpha_transform::lower::lower_system`), and on success binds the result to the notebook variable
 named on the magic line (`sys`, here) as an `alpha.System`. Diagnostics from any of those three
 steps are reported as the cell's error output, IPython's normal mechanism for a failed cell — no
-variable is bound. A later cell can re-run `%%alpha sys` with edited source to get a new `System`
-bound to the same name; nothing about an old `System` value is mutated by doing so, it's simply no
-longer referenced.
+variable is bound. Re-running `%%alpha sys` with edited source binds a new `System` to the same
+name; an old `System` value is never mutated by doing so, it's simply no longer referenced.
 
 ```python
 sys
@@ -353,13 +276,12 @@ norm
 `alpha.normalize` runs `normalize::apply` then `normalize_reduction::apply` (§1) against a *clone* of
 `sys`'s underlying IR — two separate Rust passes, bundled into one Python call so nothing downstream
 has to sequence them itself — and returns a new `alpha.NormalizedSystem`; `sys` itself is untouched
-and still usable. (Cloning an isl `Set`/`Map` is a cheap refcount bump — `isl_set_copy`/`isl_map_copy` —
-not a real memory-duplicating deep copy, so "deep-copy-then-modify-the-copy" as an implementation
-strategy costs about what "mutate in place" would have; see §10.) Trailing-expression display is
-Jupyter's own mechanism for showing a value without an explicit `print`, so a bare `norm` on a
-cell's last line is what replaces the old session's `print` command: `NormalizedSystem.__repr__`
-renders exactly the ISL union-map skeleton §5.2's earlier worked example showed, one entry per
-statement, current or default-identity schedule:
+and still usable. (Cloning an isl `Set`/`Map` is a cheap refcount bump — `isl_set_copy`/
+`isl_map_copy` — not a real memory-duplicating deep copy, so "deep-copy-then-modify-the-copy" as an
+implementation strategy costs about what "mutate in place" would have; see §10.) Trailing-expression
+display is Jupyter's own mechanism for showing a value without an explicit `print`, so a bare `norm`
+on a cell's last line prints it: `NormalizedSystem.__repr__` renders the ISL union-map skeleton, one
+entry per statement, current or default-identity schedule:
 
 ```
 {
@@ -384,11 +306,13 @@ mapping text in the §6 format, typically pasted and hand-edited from a `norm`-c
 output above. It's sugar for `sched = norm.schedule(text)`: `NormalizedSystem.schedule` parses the
 text, validates it (§6), checks legality against `norm`'s dependences (§7), and — only if all of
 that passes — returns a new `alpha.ScheduledSystem`; `norm` is never mutated. A rejected schedule
-raises `alpha.ScheduleError` (diagnostic attached) as the cell's error output and binds nothing,
-which is a simpler story than the old session's "leaves the previous schedule in place": there's no
-"previous schedule" slot to roll back, because nothing was ever mutated in the first place. `sched`
-also has a `repr` showing the same skeleton syntax, now reflecting the schedule that was actually
-loaded — the sanity-check role the old `print`-after-`schedule` had.
+raises `alpha.ScheduleError` (diagnostic attached) as the cell's error output and binds nothing.
+`sched` also has a `repr` showing the same skeleton syntax, reflecting the schedule that was
+actually loaded, as a sanity check.
+
+If the magic line's source-system name doesn't resolve to a `NormalizedSystem` in the notebook
+namespace (wrong type, or undefined), the magic raises a Python `TypeError`/`NameError` before
+attempting to parse the cell body, consistent with every other type-gated operation in §5.1.
 
 ```python
 code = alpha.generate(sched)
@@ -401,21 +325,20 @@ accepts a bare `NormalizedSystem` directly (skipping `%%schedule` entirely) — 
 `generate(norm)` as sugar for `generate(norm.schedule(""))`.
 
 No magics or functions beyond these two cell magics and the handful of Python calls above are
-needed for v1. §5.3 covers what's deliberately left out.
+needed for v1. §5.3 covers what's deliberately out of scope.
 
-### 5.3 What this leaves out, on purpose
+### 5.3 Out of scope for v1
 
 - **Scripting is headless notebook execution, not a separate code path.** `jupyter nbconvert
   --execute` (or `nbclient` directly) runs a `.ipynb` top to bottom outside a live kernel; comparing
   its cell outputs against checked-in expected output is exactly what the `nbval` pytest plugin
-  does. This is v1's non-interactive story and its fixture-test mechanism (§12 step 7) — a small
-  corpus of notebooks, not a separate script format, and not `alphac repl < commands.txt`'s
-  stdin-script format from the earlier version of this design.
-- Not designed here, not ruled out for later: a dedicated Alpha Jupyter *kernel* (as opposed to
-  cell magics on a standard Python kernel), editing a `NormalizedSystem`'s schedule inline without
-  round-tripping through `%%schedule` cell text, LSP/editor integration for the magics beyond basic
-  syntax highlighting, or auto-repair suggestions for a rejected schedule. None of these are needed
-  to get read → normalize → print → schedule → generate working as notebook cells.
+  does. This is v1's non-interactive story and its fixture-test mechanism (§12) — a small corpus of
+  notebooks, not a separate script format.
+- Not designed here: a dedicated Alpha Jupyter *kernel* (as opposed to cell magics on a standard
+  Python kernel), editing a `NormalizedSystem`'s schedule inline without round-tripping through
+  `%%schedule` cell text, LSP/editor integration for the magics beyond basic syntax highlighting, or
+  auto-repair suggestions for a rejected schedule. None of these are needed to get read → normalize
+  → print → schedule → generate working as notebook cells.
 
 ## 6. Target mapping format
 
@@ -442,14 +365,14 @@ with a diagnostic on violation:
 - **Every statement maps into one shared schedule space of fixed width.** All tuples' range
   dimensionality must agree (padding with a constant, as `[i, 2]` above implicitly does relative to
   `[i, 1, j]`, is the normal way to interleave statements of different dimensionality — this is
-  standard practice for map-based schedules, not an isl quirk). Rejected otherwise, rather than
-  silently doing something isl-dependent and hard to predict.
+  standard practice for map-based schedules, not an isl quirk). Mismatched widths are rejected,
+  rather than silently doing something isl-dependent and hard to predict.
 - **A statement absent from the text defaults to its own identity schedule** — `V[i,j,...] ->
   [i,j,...]`, i.e. today's `WriteC` behavior for that one statement — padded to the shared width.
   This lets a target mapping be partial: schedule only the statements you care about, leave the
-  rest at plain lexicographic order. (An empty/omitted target mapping altogether ⇒ every statement
+  rest at plain lexicographic order. An empty/omitted target mapping altogether ⇒ every statement
   gets its identity schedule ⇒ `ScheduledC` degenerates to a flat, unmemoized, lexicographic-order
-  generator — a useful reference point in its own right, distinct from `WriteC`'s recursive one.)
+  generator — a useful reference point in its own right, distinct from `WriteC`'s recursive one.
 - **A statement present in the text must be total and injective on its own domain**: every point of
   `V.domain` needs a schedule value (a partial map for a *mentioned* statement is an error, not a
   silent partial-identity-fallback — falling back only happens at whole-statement granularity), and
@@ -495,8 +418,8 @@ Isl building blocks: `dep_fn` composed with `S_p` via `Map::apply_range` (alread
 `isl/src/map.rs`), a `Map::lex_ge`-style universal ordering relation on the shared schedule space
 (new — `isl_map_lex_ge`, already raw-bound), intersect/`is_empty` (both already exist). A non-empty
 violation set becomes a diagnostic naming both statements; extracting a concrete counterexample
-point (`Set::sample_point` or similar) is a nice-to-have deferred past v1, not required for a useful
-error message.
+point (`Set::sample_point` or similar) is deferred past v1 (§13), not required for a useful error
+message.
 
 ### 7.3 What this does *not* catch
 
@@ -555,15 +478,15 @@ which assumed a single-statement identity schedule and can't handle a real fused
   (once past legality checking, §7) guarantees single-pass causal order, so the entire
   `NOT_EVALUATED`/`IN_PROGRESS`/`EVALUATED` mechanism `WriteC` needs for recursion has no reason to
   exist here. This is a real, intentional loss of a runtime safety net in exchange for compile-time
-  legality checking — flagged explicitly as the tradeoff it is, not a silently dropped feature.
+  legality checking.
 - Storage allocation (`flat_alloc_stmts`, `layout::FlatBounds`) is unchanged — every output/local
   still gets exactly the storage it gets today; `<name>__init`/`<name>__reduce` are two *schedule*
   identities sharing one *storage* identity (`R_NR<n>`'s own array), not two arrays.
 
-**Recommendation**: factor the reused pieces (`gen_value` and everything it calls, `ambient_build`,
-`pick_names*`, the operator tables) out of `writec.rs` into a shared module (e.g.
-`alpha-codegen/src/expr.rs`) both backends depend on, rather than forking ~500 lines. Worth doing as
-its own first step so `writec.rs`'s existing tests keep passing unchanged throughout.
+**Implementation note**: factor the reused pieces (`gen_value` and everything it calls,
+`ambient_build`, `pick_names*`, the operator tables) out of `writec.rs` into a shared module (e.g.
+`alpha-codegen/src/expr.rs`) both backends depend on, rather than forking ~500 lines. Do this as the
+first phasing step (§12) so `writec.rs`'s existing tests keep passing unchanged throughout.
 
 ## 9. New `isl` wrapper methods needed
 
@@ -582,21 +505,22 @@ purely new safe methods on existing types.
 `Map::apply_range`, `Set::is_empty`, `Set::union`, `MultiAff::into_map` and everything else this
 design leans on already exist in `isl/src/{map,set,aff}.rs` today.
 
-## 10. Public API / CLI surface
+## 10. Public API / package surface
 
 - New `alpha_codegen::generate_scheduled_system(system: &ir::System, schedule_text: &str) ->
   Result<String>` alongside the existing `generate_system` (unchanged; `WriteC` stays the default,
   unaffected backend). **Precondition, documented on the function itself**: `system` must already be
   the output of both normalizing passes — `normalize::apply` and `normalize_reduction::apply` (§1,
   §5.1) — `alpha_codegen` doesn't normalize itself (that lives in `alpha_transform`), so this is a
-  doc-comment contract at the Rust level, not something the signature enforces (§13) — the Python
-  binding below is what turns this into an enforced type distinction, one layer up.
-- `CodegenError` gains variants for schedule-parse and legality failures (or these route through a
-  new sibling error type — open question, see §13).
-- `alphac`'s existing non-interactive entry point (`alphac file.alpha -o file.c`, `WriteC`) is
-  completely unchanged and untouched by any of this. **No `repl` subcommand and no other new `alphac`
-  CLI surface** — the interactive story (§5) lives entirely in the new Python binding below, not in
-  `alphac` itself.
+  doc-comment contract at the Rust level, not something the signature enforces. The Python binding
+  below turns this into an enforced type distinction, one layer up.
+- `CodegenError` gains variants for schedule-parse and legality failures (exact shape is an
+  implementation-time decision — see §13).
+- `alphac`'s existing non-interactive entry point (`alphac file.alpha -o file.c`, `WriteC`) gets no
+  new CLI surface from this work — no `repl` subcommand, no other new flags. The interactive story
+  (§5) lives entirely in the new Python binding below, not in `alphac` itself. (§3's `main.rs`
+  pass-order fix is the one change this work makes to the existing `WriteC` path, and it is
+  output-neutral.)
 
 ### 10.1 `alpha-py`: a new PyO3 binding crate
 
@@ -605,7 +529,9 @@ crate (a napi-rs binding exposing `alpha-syntax`/`alpha-model` diagnostics to th
 in-process) — same pattern, different host language: `pyo3` instead of `napi`, built into a wheel
 with `maturin` instead of a `cdylib` napi module. Where `editors/vscode/native` only needs to expose
 parse/analyze diagnostics, `alpha-py` needs the full read → normalize → schedule → generate surface,
-so it depends on `alpha-syntax`, `alpha-model`, `alpha-transform`, and `alpha-codegen`.
+so it depends on `alpha-syntax`, `alpha-model`, `alpha-transform`, and `alpha-codegen`. The Python
+package/import name is **`alpha`** (`import alpha`, `pip install alpha`) — check for a PyPI name
+collision before any public (non-internal) release.
 
 Three PyO3-wrapped types, each an immutable value wrapping a cloned `alpha_transform::ir::System`
 (or, for `ScheduledSystem`, the system plus its validated `isl::UnionMap` schedule) — deliberately
@@ -623,7 +549,10 @@ Functions/methods, all pure — clone the receiver's underlying Rust value, run 
 
 - `alpha.read(path: str) -> System` — same three steps as `%%alpha`, for loading a `.alpha` file
   from disk instead of inline cell text (useful outside a notebook, e.g. from a plain script).
-- `alpha.normalize(sys: System) -> NormalizedSystem`.
+- `alpha.normalize(sys: System) -> NormalizedSystem` — always runs *deep* normalization (`normalize`'s
+  `deep: bool` parameter is `true`, matching `alphac/main.rs`'s existing call), since scheduled
+  codegen has no use for the shallow, readability-oriented form (polyhedral-object shorthand, named
+  cases, auto-restrict) that shallow normalization preserves.
 - `NormalizedSystem.schedule(text: str) -> ScheduledSystem` — raises `alpha.ScheduleError` (carrying
   the §6/§7 diagnostic) on a parse, validation, or legality failure; raises nothing into `norm`
   itself, since there's nothing in it to roll back.
@@ -642,15 +571,15 @@ Functions/methods, all pure — clone the receiver's underlying Rust value, run 
 - Two IPython cell magics, `%%alpha <var>` and `%%schedule <var> <source-system-var>` (§5.2),
   registered by an `IPython.core.magic.Magics` subclass that ships in the `alpha` Python package and
   self-registers on `import alpha` (the standard `%load_ext`-free pattern most magic-providing
-  packages use once imported once in a session).
+  packages use).
 - Syntax highlighting reuses the TextMate grammar the VS Code extension already ships
   (`editors/vscode/syntaxes/alpha.tmLanguage.json`) rather than hand-writing a second grammar.
   JupyterLab 4's editor is CodeMirror 6, which can consume a TextMate grammar through a bridge
   package (e.g. `codemirror-textmate`); a small JupyterLab extension maps the `%%alpha`/`%%schedule`
   magic-line regex to that grammar, the same "magic prefix → language mode" technique `%%html`/
   `%%latex`/`ipython-sql` already use for their own cell magics. The target-mapping half
-  (`%%schedule`) is small enough (§6) that it can ship with no dedicated grammar at first — plain
-  text is an acceptable starting point, upgraded later if it's worth a second, smaller grammar.
+  (`%%schedule`) ships with no dedicated grammar at first (plain text) — §13 covers whether it's
+  worth a second, smaller grammar later.
 
 ## 11. Explicit non-goals
 
@@ -665,64 +594,56 @@ Functions/methods, all pure — clone the receiver's underlying Rust value, run 
 - **A `Reduce` nested directly inside another `Reduce`'s body** stays opaque to both scheduling and
   legality checking, inheriting `normalize_reduction.rs`'s existing single-pass limitation.
 - **Counterexample extraction for a legality violation** (a concrete violating index tuple, not just
-  "these two statements conflict") is deferred.
-- **`UseEquation`** (subsystem calls) stays unsupported, matching `WriteC` and the source system's
-  own `WriteC`.
+  "these two statements conflict") is out of scope for v1.
+- **`UseEquation`** (subsystem calls) stays unsupported, matching `WriteC`.
 - **A dedicated Alpha Jupyter kernel, inline schedule editing, LSP/editor integration beyond basic
   syntax highlighting, auto-repair suggestions** (§5.3) — the notebook (§5.2) is deliberately two
-  cell magics plus a handful of plain Python calls, nothing more, to start.
+  cell magics plus a handful of plain Python calls, nothing more, for v1.
+- **A phantom-typed `System<Normalized>`/`System<Raw>` distinction inside `alpha_transform::ir`
+  itself** is out of scope. §5.1/§10.1's PyO3-layer type distinction (`System` vs `NormalizedSystem`)
+  already enforces the precondition where it matters (the Python API surface); pushing the same
+  distinction into the Rust type itself would be a larger refactor with no v1 caller that needs it.
 
-## 12. Suggested phasing
+## 12. Implementation phasing
 
 1. Extract shared expression-codegen (`gen_value` and friends) out of `writec.rs` into a module both
    backends use, with no behavior change — a pure refactor, verified by the existing `WriteC` test
    suite staying green.
-2. `isl` wrapper additions (§9) + smoke tests against real isl, independent of the rest.
-3. Deterministic reduce naming in `normalize_reduction.rs` (§4.3) — small, self-contained, and
-   `WriteC`-visible-but-harmless (only changes generated internal names, not behavior).
-4. Statement model + target-mapping parsing/validation (§4, §6) — produces a validated, fully
+2. Fix `alphac/main.rs`'s `WriteC` preprocessing to run `normalize::apply` then
+   `normalize_reduction::apply`, matching upstream's order (§3) — verify against `WriteC`'s existing
+   fixture corpus that generated output is unchanged.
+3. `isl` wrapper additions (§9) + smoke tests against real isl, independent of the rest.
+4. Deterministic reduce naming + collision avoidance in `normalize_reduction.rs` (§4.3) — small,
+   self-contained, and `WriteC`-visible-but-harmless (only changes generated internal names, not
+   behavior).
+5. Statement model + target-mapping parsing/validation (§4, §6) — produces a validated, fully
    fused `UnionMap` plus diagnostics; no codegen yet.
-5. Legality checker (§7) — built and tested against step 4's output independently of codegen.
-6. AST walker + statement-body codegen (§8) — the new `scheduledc.rs`.
-7. `alpha-py` (§10) — the PyO3 binding crate: `System`/`NormalizedSystem`/`ScheduledSystem` plus
-   `read`/`normalize`/`schedule`/`generate`, a thin wrapper over steps 1–6 plus the existing
+6. Legality checker (§7) — built and tested against step 5's output independently of codegen.
+7. AST walker + statement-body codegen (§8) — the new `scheduledc.rs`.
+8. `alpha-py` (§10) — the PyO3 binding crate: `System`/`NormalizedSystem`/`ScheduledSystem` plus
+   `read`/`normalize`/`schedule`/`generate`, a thin wrapper over steps 1–7 plus the existing
    `parse`/`analyze_system`/`lower_system` calls `main.rs` already makes — no new compiler logic, no
    parallel code path.
-8. The `%%alpha`/`%%schedule` IPython magics and JupyterLab syntax highlighting (§5.2, §10.2) —
-   depends on step 7's Python types existing. Plus a fixture corpus of notebooks + `nbval`-checked
-   expected output (§5.3), and the `docs/design.md` update.
+9. The `%%alpha`/`%%schedule` IPython magics and JupyterLab syntax highlighting (§5.2, §10.2) —
+   depends on step 8's Python types existing. Plus a fixture corpus of notebooks + `nbval`-checked
+   expected output (§5.3), and the `docs/design.md` update (§1).
 
-## 13. Open questions for the next iteration
+## 13. Deferred beyond v1
 
-- Exact error-type shape for schedule-parse vs. legality-violation vs. isl failures (new enum? new
-  variants on `CodegenError`? and how that Rust-level error maps to `alpha.ScheduleError`'s fields on
-  the Python side).
-- Whether `<name>__init`/`<name>__reduce`'s `__` separator is likely to collide with real Alpha
-  identifiers (Alpha's own identifier grammar — worth a quick check before settling on it).
-- Whether the shared-schedule-space-width rule (§6) should auto-pad shorter tuples instead of
-  rejecting width mismatches outright — rejecting is simpler and more predictable to start with, but
-  worth revisiting once real target mappings get written by hand.
-- Whether the normalized-IR precondition (§5.1) is worth enforcing *below* the Python binding too —
-  e.g. a phantom-typed `System<Normalized>` / `System<Raw>` distinction in `alpha_transform::ir`
-  itself, so `generate_scheduled_system` could require `System<Normalized>` at compile time instead
-  of documenting the precondition in prose at the Rust layer. Lower-stakes than in the earlier
-  version of this design now that `alpha-py`'s `System`/`NormalizedSystem` types already give
-  notebook users the enforcement (§5.1, §10.1); a bigger refactor than this design's other pieces
-  touch regardless, deliberately not committed to for v1.
-- **New, from this revision**: `alpha-py` packaging and distribution — whether the wheel is built
-  and published via `maturin` as part of this repo's existing `uv`-based Python tooling (`pyproject.toml`
-  at the repo root today only declares dev-tooling deps, not a real package) or lives in its own
-  subdirectory with its own `pyproject.toml`; whether notebook users need a Rust toolchain locally or
-  only a prebuilt wheel; and what the importable package/module name should be (`alpha` risks
-  colliding with an unrelated PyPI package of the same name — not a blocker for the design, but worth
-  checking before publishing anywhere beyond internal use).
-- **New, from this revision**: whether the `codemirror-textmate`-style bridge is the actual mechanism
-  to use for JupyterLab 4 syntax highlighting, or whether a native CodeMirror 6/Lezer grammar ends up
-  more maintainable long-term — the TextMate grammar (`editors/vscode/syntaxes/alpha.tmLanguage.json`)
-  is real and reusable in principle (§10.2), but no prototype has confirmed the bridge works smoothly
-  for this specific grammar.
-- **New, from this revision**: whether a dedicated Alpha Jupyter kernel (cells are Alpha source
-  directly, no Python/magics layer) is worth revisiting later — ruled out for v1 in favor of cell
-  magics on a standard Python kernel (§5.3) because it needs its own statefulness model instead of
-  reusing Python's, but the tradeoff is worth re-examining once real usage shows whether the
-  `%%alpha`/`%%schedule` magic split feels natural or like friction.
+These are decided deferrals, not open questions blocking implementation:
+
+- **Exact error-type shape** for schedule-parse vs. legality-violation vs. isl failures (new enum?
+  new variants on `CodegenError`? how the Rust-level error maps to `alpha.ScheduleError`'s fields on
+  the Python side) is an implementation-time decision within §10's stated constraints, not something
+  this spec needs to pin down further.
+- **Counterexample extraction** for a legality violation (§7.2, §11).
+- **Auto-padding shorter tuples** in the shared schedule space (§6) instead of rejecting width
+  mismatches — rejecting is v1's behavior; revisit once real target mappings get written by hand.
+- **A phantom-typed `System<Normalized>` marker inside `alpha_transform::ir`** (§11) — the PyO3-layer
+  type distinction already covers v1's needs.
+- **A native CodeMirror 6/Lezer grammar** for JupyterLab syntax highlighting, if the TextMate bridge
+  (§10.2) proves not to be a good long-term fit — plain-text `%%schedule` cells, and confirming the
+  TextMate bridge works for `%%alpha`, are both first-implementation tasks, not blocking design
+  questions.
+- **A dedicated Alpha Jupyter kernel** (§5.3, §11) — revisit once real usage shows whether the
+  `%%alpha`/`%%schedule` magic split on a standard Python kernel feels natural or like friction.
