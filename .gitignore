@@ -8,3 +8,9 @@ editors/vscode/*.vsix
 editors/vscode/native/*.node
 editors/vscode/native/index.js
 editors/vscode/native/index.d.ts
+
+# alpha-py: maturin/pytest build artifacts, regenerated fresh by `maturin develop`.
+__pycache__/
+*.py[cod]
+alpha-py/python/alpha/*.so
+alpha-py/python/alpha/*.pyd

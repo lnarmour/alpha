@@ -6,9 +6,20 @@
 //! Pipeline, per system found in the input file: parse (once, for the whole file) → analyze (all
 //! six `alpha_model` phases, via `alpha_model::analyze_system`, the consolidated "run all of
 //! alpha-model" entry point) → if clean, lower → `NormalizeReduction` → `Normalize`
-//! → `alpha_codegen::generate_system` → print. A file with more than one system (nested
-//! `AlphaPackage`s included) gets one self-contained generated-C block per system, concatenated —
-//! see the module doc on why each block carries its own preamble rather than sharing one.
+//! → `alpha_codegen::generate_system` → print. This order is *required* by this port's own
+//! `gen_value` (`alpha-codegen/src/expr.rs`), which hard-errors on a bare `Variable` node instead
+//! of tolerating it as an implicit identity read the way upstream's `ExprConverter` does
+//! (`convertExpr(VariableExpression)` in `ExprConverter.xtend`) — `NormalizeReduction` replaces
+//! each hoisted `Reduce` with a bare `Variable` placeholder that only `Normalize`'s own
+//! `ensure_variable_wrapped` step (run during its single top-down/bottom-up tree walk) will wrap
+//! in an identity `Dependence`; running `Normalize` first would leave that placeholder unwrapped
+//! forever. Confirmed by direct testing: swapping the order breaks codegen on every equation
+//! containing a reduce (e.g. `PrefixScan.alpha`) with "internal error: bare Variable(...) reached
+//! codegen outside a Dependence". Do not reorder this without also relaxing `gen_value`'s
+//! Variable-arm to match upstream's more permissive handling. A file with more than one system
+//! (nested `AlphaPackage`s included) gets one self-contained generated-C block per system,
+//! concatenated — see the module doc on why each block carries its own preamble rather than
+//! sharing one.
 
 use alpha_syntax::ast;
 use isl::Context;

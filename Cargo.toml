@@ -9,6 +9,7 @@ members = [
     "alpha-model",
     "alpha-transform",
     "alpha-codegen",
+    "alpha-py",
     "alphac",
     "editors/vscode/native",
 ]

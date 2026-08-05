@@ -4,47 +4,9 @@
 //! its keep, and exactly what
 //! `alpha-codegen`'s `WriteC` demand-driven generator uses instead of hand-rolling one.
 use crate::ctx::{take_c_string, Context, Result};
-use crate::map::Map;
 use crate::set::{Format, Set};
+use crate::union_map::UnionMap;
 use std::ffi::CString;
-
-/// `isl_union_map`: minimal for now — just enough to hand a schedule (built from a plain `Map`)
-/// to [`AstBuild::generate`]. Full union-set/union-map algebra is scheduling-tree territory,
-/// out of scope for this port (see the root README's scope note).
-pub struct UnionMap {
-    pub(crate) ctx: Context,
-    pub(crate) ptr: *mut isl_sys::isl_union_map,
-}
-
-impl UnionMap {
-    pub(crate) fn into_raw(self) -> *mut isl_sys::isl_union_map {
-        let ptr = self.ptr;
-        std::mem::forget(self);
-        ptr
-    }
-
-    pub fn from_map(map: Map) -> UnionMap {
-        let ctx = map.ctx.clone();
-        let ptr = unsafe { isl_sys::isl_union_map_from_map(map.into_raw()) };
-        UnionMap { ctx, ptr }
-    }
-}
-
-impl Clone for UnionMap {
-    fn clone(&self) -> UnionMap {
-        let ptr = unsafe { isl_sys::isl_union_map_copy(self.ptr) };
-        UnionMap {
-            ctx: self.ctx.clone(),
-            ptr,
-        }
-    }
-}
-
-impl Drop for UnionMap {
-    fn drop(&mut self) {
-        unsafe { isl_sys::isl_union_map_free(self.ptr) };
-    }
-}
 
 pub struct AstBuild {
     ctx: Context,

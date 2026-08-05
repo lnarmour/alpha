@@ -301,11 +301,13 @@ impl std::fmt::Debug for ExprKind {
     }
 }
 
+#[derive(Clone)]
 pub struct Variable {
     pub name: String,
     pub domain: Set,
 }
 
+#[derive(Clone)]
 pub enum Equation {
     Standard(StandardEquation),
     /// `UseEquation`s are carried through unchanged apart from normalizing their input/output
@@ -316,6 +318,7 @@ pub enum Equation {
     Use(UseEquation),
 }
 
+#[derive(Clone)]
 pub struct StandardEquation {
     pub variable: String,
     /// The equation's own declared ambient index-binder names (e.g. `i`/`j` in `U[i,j] = ...`),
@@ -325,12 +328,14 @@ pub struct StandardEquation {
     pub expr: Expr,
 }
 
+#[derive(Clone)]
 pub struct UseEquation {
     pub callee: String,
     pub output_exprs: Vec<Expr>,
     pub input_exprs: Vec<Expr>,
 }
 
+#[derive(Clone)]
 pub struct SystemBody {
     pub domain: Set,
     pub equations: Vec<Equation>,
@@ -338,6 +343,15 @@ pub struct SystemBody {
 
 /// A whole system, lowered and ready for `Normalize`/`NormalizeReduction`. `NormalizeReduction`
 /// needs `locals` to be mutable (it adds a fresh local + equation per extracted reduction).
+///
+/// `Clone` is a cheap, deep-in-value-but-shallow-in-isl-refcount copy (every isl `Set`/`Map`/
+/// `MultiAff` field clones via its own `_copy` — a refcount bump, not a real memory-duplicating
+/// deep copy, per every `isl` wrapper type's own `Clone` impl) — this is exactly what
+/// `alpha-py`'s "transformations return a new copy, never mutate the input" contract (§5.2 of
+/// `docs/scheduled-codegen-design.md`) needs: `alpha.normalize(sys)` clones `sys`'s underlying
+/// `System` before running `normalize_reduction::apply`/`normalize::apply` on the clone, leaving
+/// the original untouched.
+#[derive(Clone)]
 pub struct System {
     pub name: String,
     pub inputs: Vec<Variable>,

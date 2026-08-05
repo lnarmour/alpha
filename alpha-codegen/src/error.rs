@@ -15,6 +15,15 @@ pub enum CodegenError {
     /// reindexing / piecewise-polynomial index values — real but rare in the fixture corpus, not
     /// implemented this session), `ArgReduce` (unseen across the whole 82-fixture corpus).
     Unsupported(String),
+    /// A target mapping (`docs/scheduled-codegen-design.md` §6) failed to parse, or failed one of
+    /// §6's validation rules (unknown tuple name, non-total/non-injective schedule, mismatched
+    /// shared-schedule-space width) — distinct from [`Self::Isl`] (an isl operation failing on
+    /// already-validated input, which shouldn't happen) and [`Self::Unsupported`] (a construct
+    /// with no codegen backend at all). Carries a diagnostic naming the offending statement/rule.
+    InvalidSchedule(String),
+    /// A target mapping parsed and validated (§6) but reorders a real dependence — §7's legality
+    /// check. Carries a diagnostic naming the two statements and the dependence between them.
+    IllegalSchedule(String),
 }
 
 impl fmt::Display for CodegenError {
@@ -22,6 +31,8 @@ impl fmt::Display for CodegenError {
         match self {
             CodegenError::Isl(e) => write!(f, "isl error: {e}"),
             CodegenError::Unsupported(msg) => write!(f, "unsupported: {msg}"),
+            CodegenError::InvalidSchedule(msg) => write!(f, "invalid target mapping: {msg}"),
+            CodegenError::IllegalSchedule(msg) => write!(f, "illegal schedule: {msg}"),
         }
     }
 }

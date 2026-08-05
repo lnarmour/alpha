@@ -60,6 +60,17 @@ impl Context {
         }
     }
 
+    /// Same idea as [`Self::check`]/[`Self::check_bool`], for isl's `isl_stat` return convention
+    /// (`isl_stat_ok`/`isl_stat_error`) — used by `foreach`-style calls whose callback can itself
+    /// signal failure back through the C call by returning `isl_stat_error`.
+    pub(crate) fn check_stat(&self, stat: isl_sys::isl_stat::Type) -> Result<()> {
+        if stat == isl_sys::isl_stat::isl_stat_ok {
+            Ok(())
+        } else {
+            Err(self.last_error())
+        }
+    }
+
     fn last_error(&self) -> IslError {
         let ctx = self.as_ptr();
         let message = unsafe {

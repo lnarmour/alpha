@@ -11,8 +11,15 @@ reimplementing polyhedral algebra in Rust — isl's own textual parser, set/map 
 builder are what the source system actually depends on for correctness, and every serious
 polyhedral tool (Polly/LLVM, PPCG, Pluto's ISL mode) makes the same call.
 
-**Out of scope for this port**: the `alphaz`/GeCoS scheduling search, tiling, memory-mapping, and
-reduction-simplification machinery. This targets the demand-driven `WriteC` codegen path only.
+**Out of scope for this port**: the `alphaz`/GeCoS automatic scheduling *search*, tiling, and
+memory-mapping. `alpha-codegen` now has two backends: `WriteC`, the original demand-driven
+generator (loop order falls out of memoized recursive calls, no explicit schedule), and
+`ScheduledC` (`docs/scheduled-codegen-design.md`), which takes an explicit, user-supplied target
+mapping and emits a flat loop nest in exactly the order it specifies — real polyhedral codegen
+*given* a schedule, still not a scheduler that derives one. `alpha-py`, a PyO3 binding crate, and
+an interactive Jupyter notebook workflow (`%%alpha`/`%%schedule` cell magics, `read`/`normalize`/
+`schedule`/`generate` as plain Python calls) are what actually drive `ScheduledC` day to day; see
+`docs/scheduled-codegen-design.md` for the full design and implementation-phasing history.
 
 ## Pipeline
 
@@ -27,12 +34,14 @@ analyzed AST + diagnostics
   │  alpha-transform (Normalize, NormalizeReduction)
   ▼
 normalized IR
-  │  alpha-codegen  (simpleC model, WriteC demand-driven generator)
+  │  alpha-codegen  (simpleC model; WriteC demand-driven generator, or ScheduledC + a target mapping)
   ▼
 generated C
 ```
 
-`alphac` is the CLI that wires all four stages together: `alphac file.alpha -o file.c`.
+`alphac` is the CLI that wires the `WriteC` path together end to end: `alphac file.alpha -o file.c`.
+`ScheduledC` has no CLI of its own — it's driven interactively through `alpha-py` (see
+`docs/scheduled-codegen-design.md` §5, §10).
 
 ## Workspace layout
 
@@ -45,17 +54,24 @@ generated C
 | [`alpha-syntax`](../alpha-syntax) | Lexer, CST, parser, typed AST | Done |
 | [`alpha-model`](../alpha-model) | Semantic model, six-phase checker | Done (documented scope boundaries) |
 | [`alpha-transform`](../alpha-transform) | `Normalize`, `NormalizeReduction` | Done for scope |
-| [`alpha-codegen`](../alpha-codegen) | `simpleC` model + `WriteC` generator | Done for scope |
-| [`alphac`](../alphac) | CLI driver | Done for scope |
+| [`alpha-codegen`](../alpha-codegen) | `simpleC` model + `WriteC`/`ScheduledC` generators | Done for scope |
+| [`alphac`](../alphac) | CLI driver (`WriteC` only) | Done for scope |
+| [`alpha-py`](../alpha-py) | PyO3 bindings + IPython magics for the `ScheduledC` notebook workflow | Done for scope |
 
 Each crate has its own README with module-level detail. See [`docs/progress.md`](progress.md) for the
 detailed, up-to-date crate-by-crate status, known bugs found and fixed, and next steps, meant to
 let a new session pick up cold.
 
-**Not yet built**: a VS Code extension. The plan is a native addon (`napi-rs`, compiling
-`alpha-syntax` + `alpha-model` into an in-process `cdylib` the extension host calls directly,
-rather than a generic LSP server) plus a static TextMate grammar for first-paint syntax
-highlighting. This is the one piece of the original phased roadmap with nothing implemented yet.
+**Editor support**: a VS Code extension (`editors/vscode`, native addon via `napi-rs` — `alpha-syntax`
++ `alpha-model` compiled into an in-process `cdylib` the extension host calls directly, rather than
+a generic LSP server — plus a static TextMate grammar, `editors/vscode/syntaxes/alpha.tmLanguage.json`,
+for syntax highlighting) is built and released. No JupyterLab syntax highlighting — a prototype was
+built and then deliberately dropped; see `docs/scheduled-codegen-design.md` §10.2/§12 step 8 for why
+(JupyterLab 4 has no extension point mapping a cell-magic prefix to a highlighted language, so even
+working it would only ever have covered standalone `.alpha` files, not notebook cells — not worth a
+JS/TypeScript toolchain for that). The interactive notebook workflow itself (`%%alpha`/`%%schedule`
+cell magics, `read`/`normalize`/`schedule`/`generate`) is unaffected — it's plain Python, via
+`alpha-py`, and stays plain-text-highlighted in a notebook.
 
 ## Prerequisites
 

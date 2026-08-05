@@ -110,6 +110,12 @@ pub enum Stmt {
     /// A single already-formatted line, emitted verbatim (blank lines, comments, `#define`/`#undef`
     /// pairs that bracket a loop nest with reduce-loop macros — see [`crate::writec`]).
     Raw(String),
+    /// A bare `{ ... }` scope with no header of its own — needed wherever two sibling statements
+    /// each need their own same-named local without redeclaring it in one shared scope (e.g.
+    /// `crate::scheduledc`: two `User` nodes emitted back-to-back in the same enclosing block can
+    /// each bind an index to a local named after the same source identifier, since each is its
+    /// own statement's own naming choice, independent of any sibling's).
+    Block(Vec<Stmt>),
 }
 
 pub struct Function {
@@ -195,6 +201,11 @@ fn write_stmt(out: &mut String, stmt: &Stmt, depth: usize) {
         Stmt::Return(None) => out.push_str(&format!("{pad}return;\n")),
         Stmt::Return(Some(e)) => out.push_str(&format!("{pad}return {e};\n")),
         Stmt::Expr(e) => out.push_str(&format!("{pad}{e};\n")),
+        Stmt::Block(stmts) => {
+            out.push_str(&format!("{pad}{{\n"));
+            write_stmts(out, stmts, depth + 1);
+            out.push_str(&format!("{pad}}}\n"));
+        }
         Stmt::Raw(s) => {
             if s.is_empty() {
                 out.push('\n');

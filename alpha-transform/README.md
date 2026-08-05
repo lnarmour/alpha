@@ -27,9 +27,16 @@ reduction-simplification search, ...) is explicitly out of scope for this port.
   since a couple of rules need it fresh.
 - **`normalize_reduction`**: `NormalizeReduction` — extracts every *top-level* `Reduce` in a
   `StandardEquation` into a fresh local + equation (skips `UseEquation`s and nested reductions,
-  matching the source exactly). Run this **before** `Normalize` in the real pipeline — a
-  `Dependence` directly wrapping a bare `Reduce` only reaches normal form once the reduction has
-  somewhere else to live.
+  matching the source exactly). Run this **before** `Normalize` in the real pipeline — it replaces
+  each hoisted `Reduce` with a bare `Variable` placeholder, and only `Normalize`'s own
+  `ensure_variable_wrapped` step (part of its single tree walk, not re-run afterward) wraps a bare
+  `Variable` in an identity `Dependence`. This is a real ordering requirement, not upstream's own:
+  the upstream Java system actually runs `Normalize` *before* `NormalizeReduction`
+  (`WriteC.xtend`'s `preprocess()`), which is safe there only because its codegen
+  (`ExprConverter.convertExpr(VariableExpression)`) tolerates a bare `VariableExpression` directly
+  as an implicit identity read — this port's `gen_value` (`alpha-codegen/src/expr.rs`) doesn't; it
+  hard-errors instead. Confirmed by direct testing: running `Normalize` first breaks codegen on
+  every equation containing a reduce (e.g. `PrefixScan.alpha`).
 
 ## Status
 
