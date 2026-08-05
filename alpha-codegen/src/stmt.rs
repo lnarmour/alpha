@@ -187,31 +187,28 @@ mod tests {
         let system = normalized_system(PREFIX_SCAN);
         let stmts = statements(&system).unwrap();
         let names: Vec<&str> = stmts.iter().map(|s| s.name.as_str()).collect();
-        // `Y[i] = reduce(...)` gets hoisted into a fresh local `Y_NR` by `normalize_reduction`
-        // (§4.3) — the *original* `Y` equation becomes an ordinary copy-out statement
-        // (`Y[i] = Y_NR[i]`), and `Y_NR` itself becomes the `__init`/`__reduce` pair (§4.2).
-        // Outputs are enumerated before locals (matches `WriteC`'s own `ordered_vars`), so `Y`
-        // comes first.
-        assert_eq!(names, vec!["Y", "Y_NR__init", "Y_NR__reduce"]);
+        // `Y[i] = reduce(...)` is already the equation's own topmost node — already normal form,
+        // so `normalize_reduction` (§4.3) leaves it in place rather than hoisting it behind a
+        // pointless `Y = Y_NR` copy. `Y` itself becomes the `__init`/`__reduce` pair (§4.2).
+        assert_eq!(names, vec!["Y__init", "Y__reduce"]);
 
-        assert!(matches!(stmts[0].kind, StatementKind::Ordinary { .. }));
         assert!(matches!(
-            stmts[1].kind,
+            stmts[0].kind,
             StatementKind::ReduceInit {
-                reduce_local: "Y_NR",
+                reduce_local: "Y",
                 ..
             }
         ));
         assert!(matches!(
-            stmts[2].kind,
+            stmts[1].kind,
             StatementKind::ReduceStep {
-                reduce_local: "Y_NR",
+                reduce_local: "Y",
                 ..
             }
         ));
         // __init's domain is 1-d (just `i`); __reduce's is 2-d (`i` and the reduce's own `j`).
-        assert_eq!(stmts[1].domain.dim(DimType::OutOrSet), 1);
-        assert_eq!(stmts[2].domain.dim(DimType::OutOrSet), 2);
+        assert_eq!(stmts[0].domain.dim(DimType::OutOrSet), 1);
+        assert_eq!(stmts[1].domain.dim(DimType::OutOrSet), 2);
     }
 
     #[test]

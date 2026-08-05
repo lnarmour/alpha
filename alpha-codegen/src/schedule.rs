@@ -246,8 +246,8 @@ mod tests {
         let ctx = stmts[0].domain.ctx();
         let fused = build_schedule(&ctx, &stmts, "").unwrap();
 
-        // Y and Y_NR__init are naturally 1-d; Y_NR__reduce is naturally 2-d — every fragment in
-        // the fused result must come out 2-d (the shared width), not left heterogeneous.
+        // Y__init is naturally 1-d; Y__reduce is naturally 2-d — every fragment in the fused
+        // result must come out 2-d (the shared width), not left heterogeneous.
         let mut widths = std::collections::BTreeMap::new();
         fused
             .for_each_map(|m| {
@@ -258,7 +258,7 @@ mod tests {
                 );
             })
             .unwrap();
-        assert_eq!(widths.len(), 3);
+        assert_eq!(widths.len(), 2);
         assert!(widths.values().all(|&w| w == 2), "{widths:?}");
     }
 
@@ -267,20 +267,18 @@ mod tests {
         let system = normalized_system(PREFIX_SCAN);
         let stmts = statements(&system).unwrap();
         let ctx = stmts[0].domain.ctx();
-        let text = "{ Y_NR__init[i] -> [i, 0, 0]; \
-                     Y_NR__reduce[i,j] -> [i, 1, j]; \
-                     Y[i] -> [i, 2, 0]; }";
+        let text = "{ Y__init[i] -> [i, 0, 0]; \
+                     Y__reduce[i,j] -> [i, 1, j]; }";
         let fused = build_schedule(&ctx, &stmts, text).unwrap();
 
         let context = isl::Set::read_from_str(&ctx, "[N] -> { : N > 0 }").unwrap();
         let build = isl::AstBuild::from_context(context).unwrap();
         let printed = build.generate(fused).unwrap().to_string_fmt(isl::Format::C);
-        let init_pos = printed.find("Y_NR__init(").unwrap();
-        let reduce_pos = printed.find("Y_NR__reduce(").unwrap();
-        let copy_pos = printed.find("Y(").unwrap();
+        let init_pos = printed.find("Y__init(").unwrap();
+        let reduce_pos = printed.find("Y__reduce(").unwrap();
         assert!(
-            init_pos < reduce_pos && reduce_pos < copy_pos,
-            "expected init, then reduce, then copy-out, fully nested: {printed}"
+            init_pos < reduce_pos,
+            "expected init, then reduce, fully nested: {printed}"
         );
     }
 
@@ -307,10 +305,10 @@ mod tests {
         let system = normalized_system(PREFIX_SCAN);
         let stmts = statements(&system).unwrap();
         let ctx = stmts[0].domain.ctx();
-        // Covers only part of Y_NR__init's real domain (0 <= i < N) — missing the i == 0 point.
-        let text = "{ Y_NR__init[i] -> [i, 0, 0] : 1 <= i; }";
+        // Covers only part of Y__init's real domain (0 <= i < N) — missing the i == 0 point.
+        let text = "{ Y__init[i] -> [i, 0, 0] : 1 <= i; }";
         let msg = expect_err(build_schedule(&ctx, &stmts, text));
-        assert!(msg.contains("Y_NR__init") && msg.contains("cover"), "{msg}");
+        assert!(msg.contains("Y__init") && msg.contains("cover"), "{msg}");
     }
 
     #[test]
@@ -319,12 +317,9 @@ mod tests {
         let stmts = statements(&system).unwrap();
         let ctx = stmts[0].domain.ctx();
         // Every instance maps to the same point — not injective.
-        let text = "{ Y_NR__init[i] -> [0, 0, 0]; }";
+        let text = "{ Y__init[i] -> [0, 0, 0]; }";
         let msg = expect_err(build_schedule(&ctx, &stmts, text));
-        assert!(
-            msg.contains("Y_NR__init") && msg.contains("injective"),
-            "{msg}"
-        );
+        assert!(msg.contains("Y__init") && msg.contains("injective"), "{msg}");
     }
 
     #[test]
@@ -332,9 +327,10 @@ mod tests {
         let system = normalized_system(PREFIX_SCAN);
         let stmts = statements(&system).unwrap();
         let ctx = stmts[0].domain.ctx();
-        // Y at width 2, Y_NR__init at width 3 — explicit entries disagreeing must be rejected,
-        // not silently auto-padded (§13: auto-padding mismatched explicit entries is deferred).
-        let text = "{ Y[i] -> [i, 2]; Y_NR__init[i] -> [i, 0, 0]; }";
+        // Y__init at width 2, Y__reduce at width 3 — explicit entries disagreeing must be
+        // rejected, not silently auto-padded (§13: auto-padding mismatched explicit entries is
+        // deferred).
+        let text = "{ Y__init[i] -> [i, 2]; Y__reduce[i,j] -> [i, 0, j]; }";
         let msg = expect_err(build_schedule(&ctx, &stmts, text));
         assert!(msg.contains("width"), "{msg}");
     }

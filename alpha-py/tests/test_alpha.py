@@ -15,9 +15,7 @@ PREFIX_SCAN = """affine PrefixScan [N]->{:N>0}
     let Y[i] = reduce(+, [j], {:j<=i}: X[j]);
 ."""
 
-PREFIX_SCAN_SCHEDULE = (
-    "{ Y_NR__init[i] -> [i, 0, 0]; Y_NR__reduce[i,j] -> [i, 1, j]; Y[i] -> [i, 2, 0]; }"
-)
+PREFIX_SCAN_SCHEDULE = "{ Y__init[i] -> [i, 0, 0]; Y__reduce[i,j] -> [i, 1, j]; }"
 
 
 def test_parse_returns_a_system():
@@ -26,13 +24,13 @@ def test_parse_returns_a_system():
     assert "Y[" in repr(sys)
 
 
-def test_normalize_splits_the_hoisted_reduce():
+def test_normalize_splits_the_top_level_reduce():
     sys = alpha.parse(PREFIX_SCAN)
     norm = alpha.normalize(sys)
     assert isinstance(norm, alpha.NormalizedSystem)
     text = repr(norm)
-    assert "Y_NR__init" in text
-    assert "Y_NR__reduce" in text
+    assert "Y__init" in text
+    assert "Y__reduce" in text
 
 
 def test_normalize_does_not_mutate_its_input():

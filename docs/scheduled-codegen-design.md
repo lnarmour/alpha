@@ -23,12 +23,14 @@ search, tiling, memory-mapping, and reduction-simplification machinery. This tar
 demand-driven `WriteC` codegen path only."* This work is a deliberate, explicit expansion of that
 stated scope; `docs/design.md` must be updated as part of §12's phasing.
 
-**Scheduling is only ever defined over the normalized IR.** Normalizing hoists every top-level
-`Reduce` into its own pair of statements (§4.2) via two sequential passes — `normalize_reduction::apply`
-then `normalize::apply` (§10.1) — before a target mapping can name every schedulable unit
-correctly. There is no such thing as "the schedule for the program before normalization";
-normalization isn't a pass a target mapping schedules around, it's a precondition for the target
-mapping to be well-formed at all. §5 covers what that means for tooling.
+**Scheduling is only ever defined over the normalized IR.** Normalizing puts every `Reduce` at the
+topmost node of its own equation — leaving one already there alone, hoisting a nested one into a
+fresh equation of its own — and turns every such equation into its own pair of statements (§4.2)
+via two sequential passes — `normalize_reduction::apply` then `normalize::apply` (§10.1) — before a
+target mapping can name every schedulable unit correctly. There is no such thing as "the schedule
+for the program before normalization"; normalization isn't a pass a target mapping schedules
+around, it's a precondition for the target mapping to be well-formed at all. §5 covers what that
+means for tooling.
 
 ## 2. Design decisions
 
@@ -97,11 +99,15 @@ mapping to be well-formed at all. §5 covers what that means for tooling.
 - **`normalize::apply` and `normalize_reduction::apply` are two separate passes; neither invokes the
   other.** `alphac`'s `main.rs` runs `normalize_reduction::apply` *before* `normalize::apply`, and
   this order is **required, not a style choice** — confirmed by directly reversing it and running
-  `alphac` against `PrefixScan.alpha` (a fixture with a top-level reduce): codegen fails with
-  `"internal error: bare Variable('R_NR0') reached codegen outside a Dependence"`. The mechanism:
-  `normalize_reduction::apply` replaces each hoisted `Reduce` with a bare `Variable` placeholder at
-  the call site; only `normalize::apply`'s own `ensure_variable_wrapped` step — run once, during its
-  single top-down/bottom-up tree walk — wraps a bare `Variable` in an identity `Dependence`. Run
+  `alphac` against a fixture with a reduce genuinely *nested* inside a larger expression (e.g.
+  `Z[i] = A[i] + reduce(+, (i,j->i), B[i,j])`): codegen fails with `"internal error: bare
+  Variable('Z_NR') reached codegen outside a Dependence"`. (A fixture whose reduce is already the
+  equation's own topmost node, like `PrefixScan.alpha`'s `Y[i] = reduce(...)`, doesn't demonstrate
+  this — `normalize_reduction::apply` leaves that one alone regardless of order, since it never
+  needed hoisting to begin with; see below.) The mechanism: `normalize_reduction::apply` replaces
+  each hoisted `Reduce` with a bare `Variable` placeholder at the call site; only
+  `normalize::apply`'s own `ensure_variable_wrapped` step — run once, during its single
+  top-down/bottom-up tree walk — wraps a bare `Variable` in an identity `Dependence`. Run
   `normalize::apply` first and that wrapping pass never sees the placeholder `normalize_reduction`
   introduces afterward, leaving it permanently unwrapped. This is *this port's own* requirement, not
   upstream's: the upstream Java system's demand-driven backend (`WriteC.xtend`'s `preprocess()`)
@@ -111,8 +117,15 @@ mapping to be well-formed at all. §5 covers what that means for tooling.
   expr.rs`) doesn't; it hard-errors instead (a deliberate stricter invariant elsewhere in this
   crate, not a bug introduced by this design). Matching upstream's literal pass order would require
   first relaxing `gen_value`'s `Variable` arm to match `ExprConverter`'s tolerance — real, but
-  out of scope here (§13). `normalize_reduction::apply` itself hoists every *top-level* `Reduce`
-  (one not nested inside another `Reduce`'s own body) out of its enclosing equation into a fresh
+  out of scope here (§13).
+
+  `normalize_reduction::apply` itself leaves a `Reduce` alone when it's already the equation's own
+  expression — Hervé's own proof that nested reductions can't be normalized (the inverse of a
+  reduce's projection isn't unique) only forces a reduction to be its tree's topmost node, and one
+  that already is needs no relocation; that's also exactly the shape `alpha-codegen/src/stmt.rs`'s
+  §4.2 split expects, so hoisting it anyway would just leave the original variable a pointless
+  identity copy of a freshly invented local. It hoists a *nested* `Reduce` (one reachable from the
+  equation's own expression only by passing through something else first) out into a fresh
   synthetic local variable + equation (deterministically named after the enclosing equation's
   target variable — §4.3 — with collision-avoidance covering the `__init`/`__reduce` forms this
   design's statement model derives from it) whose `expr` is the `Reduce` node itself, unwrapped. It
@@ -140,17 +153,21 @@ becoming a direct array access instead of an `eval_<name>(...)` call (§8.2).
 
 ### 4.2 Reduction statements — split into a pair
 
-Because reduce bodies are independently schedulable (decision 3), every `R_NR<n>` local produced
-by `normalize_reduction::apply` becomes **two** statements instead of one, sharing `R_NR<n>`'s own
-storage:
+Because reduce bodies are independently schedulable (decision 3), every variable `V` whose own
+equation is directly a `Reduce` — call its name `<name>` — becomes **two** statements instead of
+one, sharing `V`'s own storage. `<name>` is `V`'s own original name when the reduce was already the
+equation's own expression to begin with (nothing to hoist — see §3), or the fresh `R_NR<n>` local
+`normalize_reduction::apply` produced when it had to hoist a *nested* reduce out of a larger
+expression first; either way, by the time this split runs, the statement-shape check is the same
+one test (`eq.expr` is a `Reduce`), not a check for a synthesized name:
 
-- **`<name>__init`**, domain = the reduce's ambient (`a`-dimensional) domain — same as today's
-  `R_NR<n>` domain. Body: `R_NR<n>[i...] = <neutral element for the operator>` (`0` for `+`/`sum`/
+- **`<name>__init`**, domain = the reduce's ambient (`a`-dimensional) domain — same as `V`'s own
+  domain. Body: `V[i...] = <neutral element for the operator>` (`0` for `+`/`sum`/
   `or`, `1` for `*`/`prod`/`and`, `INFINITY`/`-INFINITY` for `min`/`max`, matching `gen_reduce`'s
   existing `init_val` table).
 - **`<name>__reduce`**, domain = the reduce's *full* `(a+b)`-dimensional domain — exactly
   `context_domain ∩ expression_domain` of the reduce's `body` sub-expression, i.e. what
-  `gen_reduce` today calls `full_domain`. Body: `R_NR<n>[i...] = combine(R_NR<n>[i...], <value of
+  `gen_reduce` today calls `full_domain`. Body: `V[i...] = combine(V[i...], <value of
   body at this point>)`, where `combine` is the same operator table `gen_reduce` already has
   (`reduceVar + value`, `min(reduceVar, value)`, an external combiner call, ...).
 
@@ -159,7 +176,7 @@ This eliminates `gen_reduce`'s own internal `isl_ast_build` call entirely for th
 another statement's generated function; it's just more of the *one* whole-program schedule (§8.1),
 with its own entry in the target mapping like any other statement.
 
-**Legality note**: `<name>__reduce` reads-and-writes the same array cell `R_NR<n>[i...]` its own
+**Legality note**: `<name>__reduce` reads-and-writes the same array cell `V[i...]` its own
 `<name>__init` instance (and every other `<name>__reduce` instance sharing the same ambient `i...`)
 also touches. This is a genuine RAW dependence — `<name>__init(i)` must be scheduled before every
 `<name>__reduce(i, j...)` — captured directly by the reduce node's existing `projection: MultiAff`
@@ -180,7 +197,10 @@ tests (`normalize_reduction::tests`):
 1. **Deterministic naming.** Match the upstream Java system's own convention: name an extracted
    reduce after its *enclosing equation's target variable* (`B` → `B_NR` / `B_NR0`, `B_NR1`, ...
    only on an actual same-target-variable collision), not a whole-system counter. This makes
-   `<targetvar>_NR<n>__init` / `<targetvar>_NR<n>__reduce` derivable by reading the source.
+   `<targetvar>_NR<n>__init` / `<targetvar>_NR<n>__reduce` derivable by reading the source. This
+   only applies when hoisting actually happens (§3) — a reduce that was already its equation's own
+   expression keeps that equation's own target-variable name and becomes `<targetvar>__init` /
+   `<targetvar>__reduce` directly, no `_NR<n>` involved.
 2. **Collision avoidance against all existing names, not just other reduces.** Alpha's identifier
    grammar (`\^?[a-zA-Z_][a-zA-Z_0-9]*` in `alpha-syntax/src/token_kind.rs`) permits underscores
    freely, so a real Alpha variable literally named e.g. `B_NR0__init` is syntactically legal and
@@ -297,18 +317,16 @@ entry per statement, current or default-identity schedule:
 
 ```
 {
-  B_NR__init[i]     -> [i, 0, 0];
-  B_NR__reduce[i,j] -> [i, 1, j];
-  B[i]              -> [i, 2, 0];
+  B__init[i]     -> [i, 0, 0];
+  B__reduce[i,j] -> [i, 1, j];
 }
 ```
 
 ```
 %%schedule sched norm
 {
-  B_NR__init[i]     -> [i, 0, 0];
-  B_NR__reduce[i,j] -> [i, 1, j];
-  B[i]              -> [i, 2, 0];
+  B__init[i]     -> [i, 0, 0];
+  B__reduce[i,j] -> [i, 1, j];
 }
 ```
 
@@ -361,29 +379,30 @@ hand, typically starting from a `NormalizedSystem` value's own `repr` output (§
 
 ```
 {
-  B_NR__init[i]     -> [i, 0, 0];
-  B_NR__reduce[i,j] -> [i, 1, j];
-  B[i]              -> [i, 2, 0];
+  B__init[i]     -> [i, 0, 0];
+  B__reduce[i,j] -> [i, 1, j];
 }
 ```
 
 (Worked example: `foo`'s prefix-sum-style system, `B[i] = reduce(+, (i,j->i), {:0<=j<i}: A[j])` —
-this is the sequential, textbook order: for each `i`, initialize, then accumulate over increasing
-`j`, then copy out to `B`. **Every tuple's range is padded to the same width (3) even though
-`B_NR__init`/`B` only have 2 "real" components** — confirmed empirically (`isl/tests/smoke.rs`'s
+`B`'s equation is already directly a `Reduce`, so it's already normal form (§3) and keeps its own
+name rather than being hoisted into a synthetic local; it becomes `B__init`/`B__reduce` with no
+third statement. This is the sequential, textbook order: for each `i`, initialize, then accumulate
+over increasing `j`. **Every tuple's range is padded to the same width (3) even though `B__init`
+only has 2 "real" components** — confirmed empirically (`isl/tests/smoke.rs`'s
 `heterogeneous_width_schedule_does_not_preserve_lex_order`/`uniform_width_schedule_preserves_lex_order_via_full_nesting`)
 that isl's AST builder does *not* reliably preserve cross-statement lexicographic order when
 per-statement widths differ, even though such a union map parses and builds without error — with
-mismatched widths (2, 3, 2) isl generates code that runs every `B_NR__init`/`B` instance for every
-`i` before *any* `B_NR__reduce` instance, silently violating the intended per-`i` interleaving.
-Uniform width isn't a cosmetic convention, it's load-bearing for correctness — see §6's first rule.)
+mismatched widths (2, 3) isl generates code that runs every `B__init` instance for every `i` before
+*any* `B__reduce` instance, silently violating the intended per-`i` interleaving. Uniform width
+isn't a cosmetic convention, it's load-bearing for correctness — see §6's first rule.)
 
 Rules, all checked at load time (`NormalizedSystem.schedule(...)` / the `%%schedule` magic, §5.2)
 with a diagnostic on violation:
 
 - **Every statement maps into one shared schedule space of fixed width, computed as the widest of
   (a) every explicitly-mentioned statement's own range width and (b) every unmentioned statement's
-  own natural (identity) domain width.** Padding with a constant, as `[i, 2, 0]` above does relative
+  own natural (identity) domain width.** Padding with a constant, as `[i, 0, 0]` above does relative
   to `[i, 1, j]`, is the normal way to interleave statements of different dimensionality — standard
   practice for map-based schedules, not an isl quirk. This is not a soft preference — confirmed
   empirically (`isl/tests/smoke.rs`) that `isl_ast_build_node_from_schedule_map` does not reliably
@@ -666,8 +685,11 @@ Functions/methods, all pure — clone the receiver's underlying Rust value, run 
    self-contained, and `WriteC`-visible-but-harmless (only changes generated internal names, not
    behavior). Does not touch pass order (§3) — `normalize_reduction::apply` still runs before
    `normalize::apply`, everywhere, for both backends. **Done**, including unit tests for the
-   collision-avoidance rule and a confirmed end-to-end regeneration of `PrefixScan.c` showing
-   `Y_NR__init`/`Y_NR__reduce` instead of the old `R_NR0`-style names.
+   collision-avoidance rule and a confirmed end-to-end regeneration of `PrefixScan.c` — `Y[i] =
+   reduce(...)` is already its equation's own topmost node (§3), so it's never hoisted into a
+   synthetic local at all; it becomes `Y__init`/`Y__reduce` directly. The `<targetvar>_NR<n>`-style
+   naming (old `R_NR0`-style names, now deterministic) only shows up for a reduce that actually
+   needed hoisting out of a larger expression.
 4. Statement model + target-mapping parsing/validation (§4, §6) — produces a validated, fully
    fused `UnionMap` plus diagnostics; no codegen yet. **Done** — `alpha-codegen/src/stmt.rs` (§4)
    and `alpha-codegen/src/schedule.rs` (§6), 10 unit tests. One load-bearing finding from building

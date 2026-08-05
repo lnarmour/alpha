@@ -1,16 +1,32 @@
-//! `NormalizeReduction`: moves every top-level `Reduce` out of a `StandardEquation`'s expression
+//! `NormalizeReduction`: hoists every *nested* `Reduce` out of a `StandardEquation`'s expression
 //! and into its own fresh local variable + equation — giving later passes (reduction
 //! simplification, out of this port's scope, but also the demand-driven
 //! codegen's own per-variable memoization, and scheduled codegen's own per-statement naming, see
 //! `docs/scheduled-codegen-design.md` §4.3) an equation boundary to work with directly, without
 //! needing to dig a reduction out of an arbitrary surrounding expression.
 //!
-//! Ported from `NormalizeReduction.xtend`. Two things carried over verbatim from the source:
+//! A `Reduce` that is *already* the equation's own expression (`eq.expr`'s own kind, not merely
+//! reachable from it) needs no such boundary — it already has one, the equation itself — and is
+//! left untouched. Hervé's own proof that nested reductions can't be normalized (the inverse of a
+//! reduce's projection isn't unique) only forces the reduction to be the tree's topmost node; a
+//! reduction that already *is* the topmost node satisfies that trivially. Nothing about being a
+//! `Reduce` demands its own separate equation on top of that — this pass exists purely to
+//! *establish* topmost-ness, not to always relocate every reduction it finds. This is also what
+//! `alpha-codegen/src/stmt.rs`'s §4.2 statement split expects: it looks for a variable whose own
+//! `eq.expr.kind` is directly `Reduce` and treats that as the reduce statement pair's shape — an
+//! extraction that fired here unconditionally would leave that variable a pointless identity
+//! copy of a freshly invented `_NR` local instead.
+//!
+//! Ported from `NormalizeReduction.xtend`. Things carried over verbatim from the source:
 //! - `UseEquation`s are skipped outright — the source system's own doc comment says reductions
 //!   aren't expected in `UseEquation` inputs.
-//! - Only *top-level* reductions are extracted: a `Reduce` nested inside another `Reduce`'s body
-//!   is left alone (the source system's own doc: "does not fully normalize nested reductions" on
-//!   one pass — matches `Normalize`'s own similar acknowledged imperfection).
+//! - A `Reduce` directly attached to an equation (`are.eContainer instanceof Equation` in the
+//!   source) is exactly the "nothing to do" case above.
+//! - A `Reduce` nested inside another `Reduce`'s body is left alone even when hoisting a
+//!   different, non-reduce-nested reduction elsewhere in the same equation (the source system's
+//!   own doc: "does not fully normalize nested reductions" on one pass — matches `Normalize`'s
+//!   own similar acknowledged imperfection, and matches `alpha-codegen/src/scheduledc.rs`'s own
+//!   documented gap for a `Reduce` nested directly in another `Reduce`'s body).
 //!
 //! **Naming** (§4.3 of the scheduled-codegen design): an extracted reduce is named after its
 //! *enclosing equation's target variable* — `B` → `B_NR`, with a numeric suffix only on an actual
@@ -71,10 +87,16 @@ pub fn apply(system: &mut System) -> usize {
     extracted
 }
 
-/// Finds the equation's own *top-level* `Reduce` nodes (a `Reduce` reachable without passing
-/// through another `Reduce` first — matches the source system's `visitAbstractReduceExpression`
-/// bailing out of recursion as soon as it collects one) and extracts each into a new local +
-/// equation, replacing it in place with a reference to that new variable.
+/// Finds the equation's own *nested* `Reduce` nodes (a `Reduce` reachable from `eq.expr` without
+/// passing through another `Reduce` first — matches the source system's
+/// `visitAbstractReduceExpression` bailing out of recursion as soon as it collects one) and
+/// extracts each into a new local + equation, replacing it in place with a reference to that new
+/// variable.
+///
+/// If `eq.expr` itself is directly a `Reduce`, it's already the topmost node of its own
+/// equation — already normal form, and exactly the shape `alpha-codegen/src/stmt.rs`'s §4.2
+/// reduce-statement split expects — so this is a no-op (matches the source's own
+/// `are.eContainer instanceof Equation` check short-circuiting before `targetREs.add`).
 fn extract_from_equation(
     eq: &mut StandardEquation,
     target_var: &str,
@@ -84,11 +106,14 @@ fn extract_from_equation(
     new_locals: &mut Vec<Variable>,
     extracted: &mut usize,
 ) {
+    if matches!(&*eq.expr.kind, ExprKind::Reduce { .. }) {
+        return;
+    }
     // The extracted equation's own ambient index names are exactly the original equation's own —
     // `extract_top_level` never descends past a name-changing boundary (it stops at the first
     // `Reduce` found, per the module doc, and doesn't itself know about `Select`/explicit-tuple
     // `Restrict`, the only other name-changing constructs — see `alpha_model::domain`'s module
-    // doc), so no ambient name ever actually changes on the path to a top-level `Reduce`.
+    // doc), so no ambient name ever actually changes on the path to a nested `Reduce`.
     let index_names = eq.index_names.clone();
     extract_top_level(
         &mut eq.expr,

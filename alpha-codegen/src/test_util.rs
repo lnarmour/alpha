@@ -31,3 +31,15 @@ pub(crate) const PLAIN_COPY: &str = "affine Copy [N]->{:N>0}
     outputs Y: [N]
     let Y[i] = X[i];
 .";
+
+/// Like `PREFIX_SCAN`, but with a real downstream consumer (`Z`) reading the reduce's result —
+/// `Y`'s own equation is still directly `reduce(...)`, so it's left as the `Y__init`/`Y__reduce`
+/// pair untouched by `normalize_reduction` (see that module's doc), and `Z` becomes a genuine
+/// third, ordinary statement whose own legality depends on running after `Y__reduce` completes.
+pub(crate) const PREFIX_SCAN_WITH_CONSUMER: &str = "affine PrefixScanConsumer [N]->{:N>0}
+    inputs  X: [N]
+    outputs Z: [N]
+    locals  Y: [N]
+    let Y[i] = reduce(+, [j], {:j<=i}: X[j]);
+        Z[i] = Y[i] + 1[];
+.";

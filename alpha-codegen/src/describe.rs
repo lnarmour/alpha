@@ -68,7 +68,7 @@ mod tests {
     fn pre_normalization_skeleton_has_no_reduce_split() {
         let system = unnormalized_prefix_scan();
         let text = describe_system(&system).unwrap();
-        // Just `Y`, no `Y_NR__init`/`Y_NR__reduce` — the split doesn't exist before normalize_reduction runs.
+        // Just `Y`, no `Y__init`/`Y__reduce` — the split doesn't exist before normalize_reduction runs.
         assert!(text.contains("Y["), "{text}");
         assert!(
             !text.contains("__init") && !text.contains("__reduce"),
@@ -81,7 +81,7 @@ mod tests {
         let system = normalized_system(PREFIX_SCAN);
         let text = describe_normalized_system(&system, "").unwrap();
         assert!(
-            text.contains("Y_NR__init") && text.contains("Y_NR__reduce"),
+            text.contains("Y__init") && text.contains("Y__reduce"),
             "{text}"
         );
     }
@@ -89,13 +89,9 @@ mod tests {
     #[test]
     fn post_normalization_skeleton_reflects_an_explicit_schedule() {
         let system = normalized_system(PREFIX_SCAN);
-        let sched_text = "{ Y_NR__init[i] -> [i, 0, 0]; \
-                     Y_NR__reduce[i,j] -> [i, 1, j]; \
-                     Y[i] -> [i, 2, 0]; }";
+        let sched_text = "{ Y__init[i] -> [i, 0, 0]; \
+                     Y__reduce[i,j] -> [i, 1, j]; }";
         let text = describe_normalized_system(&system, sched_text).unwrap();
-        assert!(
-            text.contains("0") && text.contains("1") && text.contains("2"),
-            "{text}"
-        );
+        assert!(text.contains("0") && text.contains("1"), "{text}");
     }
 }

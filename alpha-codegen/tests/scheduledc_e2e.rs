@@ -107,9 +107,8 @@ fn scheduled_c_prefix_scan_matches_expected_output() {
     alpha_transform::normalize_reduction::apply(&mut ir_system);
     let normalized = alpha_transform::normalize::apply(ir_system, true);
 
-    let text = "{ Y_NR__init[i] -> [i, 0, 0]; \
-                 Y_NR__reduce[i,j] -> [i, 1, j]; \
-                 Y[i] -> [i, 2, 0]; }";
+    let text = "{ Y__init[i] -> [i, 0, 0]; \
+                 Y__reduce[i,j] -> [i, 1, j]; }";
     let generated = alpha_codegen::generate_scheduled_system(&normalized, text)
         .expect("ScheduledC generation should succeed for a properly-padded explicit schedule");
 
@@ -129,9 +128,8 @@ fn scheduled_c_agrees_with_write_c_on_the_same_program() {
     let mut for_scheduled = lowered_prefix_scan();
     alpha_transform::normalize_reduction::apply(&mut for_scheduled);
     let normalized_scheduled = alpha_transform::normalize::apply(for_scheduled, true);
-    let text = "{ Y_NR__init[i] -> [i, 0, 0]; \
-                 Y_NR__reduce[i,j] -> [i, 1, j]; \
-                 Y[i] -> [i, 2, 0]; }";
+    let text = "{ Y__init[i] -> [i, 0, 0]; \
+                 Y__reduce[i,j] -> [i, 1, j]; }";
     let scheduled_c = alpha_codegen::generate_scheduled_system(&normalized_scheduled, text)
         .expect("ScheduledC generation should succeed");
 

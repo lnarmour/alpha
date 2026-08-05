@@ -657,11 +657,10 @@ mod tests {
     #[test]
     fn prefix_scan_generates_with_explicit_schedule() {
         let system = normalized_system(PREFIX_SCAN);
-        let text = "{ Y_NR__init[i] -> [i, 0, 0]; \
-                     Y_NR__reduce[i,j] -> [i, 1, j]; \
-                     Y[i] -> [i, 2, 0]; }";
+        let text = "{ Y__init[i] -> [i, 0, 0]; \
+                     Y__reduce[i,j] -> [i, 1, j]; }";
         let code = generate_scheduled_system(&system, text).unwrap();
-        assert!(code.contains("Y_NR"));
+        assert!(code.contains("Y"));
         assert!(code.contains("PrefixScan"));
     }
 }

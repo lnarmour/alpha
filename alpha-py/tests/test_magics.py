@@ -27,9 +27,7 @@ PREFIX_SCAN_CELL = (
     ".\n"
 )
 
-PREFIX_SCAN_SCHEDULE_CELL = (
-    "{ Y_NR__init[i] -> [i, 0, 0]; Y_NR__reduce[i,j] -> [i, 1, j]; Y[i] -> [i, 2, 0]; }\n"
-)
+PREFIX_SCAN_SCHEDULE_CELL = "{ Y__init[i] -> [i, 0, 0]; Y__reduce[i,j] -> [i, 1, j]; }\n"
 
 
 @pytest.fixture

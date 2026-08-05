@@ -270,16 +270,19 @@ mod tests {
     use super::*;
     use crate::schedule::build_schedule;
     use crate::stmt::statements;
-    use crate::test_util::{normalized_system, PLAIN_COPY, PREFIX_SCAN};
+    use crate::test_util::{
+        normalized_system, PLAIN_COPY, PREFIX_SCAN, PREFIX_SCAN_WITH_CONSUMER,
+    };
 
     /// The empty/omitted target mapping (§6) gives every statement its own independent identity
-    /// schedule — but for a program with a real reduce dependency, there's no reason that trivial
-    /// per-statement ordering happens to respect it: `Y`'s copy-out has no way to "wait for" the
-    /// whole inner `j` loop `Y_NR__reduce` runs, since plain per-variable lexicographic order
-    /// never actually interleaves them. This is a real, expected illegality — not a checker bug —
-    /// and documents exactly when the identity default is usable at all (only when there's no
-    /// cross-statement dependency needing explicit reordering, e.g. `ordinary_copy_is_always_legal`
-    /// below).
+    /// schedule, padded to the shared width by appending zeros — but for `Y__init`/`Y__reduce`
+    /// that collides: `Y__init`'s padded position for a given `i` (`(i, 0)`) lands on the exact
+    /// same schedule-space point as `Y__reduce`'s first instance for that same `i` (`(i, 0)` at
+    /// `j = 0`), leaving their relative order undefined right where `§4.2`'s own synthetic RAW
+    /// dependence requires `__init` to strictly precede every `__reduce` instance. This is a real,
+    /// expected illegality — not a checker bug — and documents exactly when the identity default
+    /// is usable at all (only when there's no cross-statement dependency needing explicit
+    /// reordering, e.g. `ordinary_copy_is_always_legal` below).
     #[test]
     fn identity_default_schedule_is_illegal_for_a_real_reduce_dependency() {
         let system = normalized_system(PREFIX_SCAN);
@@ -298,29 +301,28 @@ mod tests {
         let system = normalized_system(PREFIX_SCAN);
         let stmts = statements(&system).unwrap();
         let ctx = stmts[0].domain.ctx();
-        let text = "{ Y_NR__init[i] -> [i, 0, 0]; \
-                     Y_NR__reduce[i,j] -> [i, 1, j]; \
-                     Y[i] -> [i, 2, 0]; }";
+        let text = "{ Y__init[i] -> [i, 0, 0]; \
+                     Y__reduce[i,j] -> [i, 1, j]; }";
         let schedule = build_schedule(&ctx, &stmts, text).unwrap();
         check_legality(&stmts, &schedule).unwrap();
     }
 
     #[test]
     fn consumer_scheduled_before_its_producer_is_illegal() {
-        let system = normalized_system(PREFIX_SCAN);
+        let system = normalized_system(PREFIX_SCAN_WITH_CONSUMER);
         let stmts = statements(&system).unwrap();
         let ctx = stmts[0].domain.ctx();
-        // Y (phase 0) now runs *before* Y_NR__reduce (phase 2) — the read is no longer guaranteed
+        // Z (phase 0) now runs *before* Y__reduce (phase 2) — the read is no longer guaranteed
         // to see the fully-accumulated value.
-        let text = "{ Y[i] -> [i, 0, 0]; \
-                     Y_NR__init[i] -> [i, 1, 0]; \
-                     Y_NR__reduce[i,j] -> [i, 2, j]; }";
+        let text = "{ Z[i] -> [i, 0, 0]; \
+                     Y__init[i] -> [i, 1, 0]; \
+                     Y__reduce[i,j] -> [i, 2, j]; }";
         let schedule = build_schedule(&ctx, &stmts, text).unwrap();
         let err = match check_legality(&stmts, &schedule) {
             Ok(()) => panic!("expected reading before the producer completes to be illegal"),
             Err(e) => e.to_string(),
         };
-        assert!(err.contains("Y") && err.contains("§7.2"), "{err}");
+        assert!(err.contains("Z") && err.contains("§7.2"), "{err}");
     }
 
     #[test]
@@ -328,20 +330,16 @@ mod tests {
         let system = normalized_system(PREFIX_SCAN);
         let stmts = statements(&system).unwrap();
         let ctx = stmts[0].domain.ctx();
-        // Y_NR__reduce (phase 0) now runs *before* Y_NR__init (phase 1) — violates §4.2's own
+        // Y__reduce (phase 0) now runs *before* Y__init (phase 1) — violates §4.2's own
         // synthetic RAW dependence on the shared array cell.
-        let text = "{ Y_NR__reduce[i,j] -> [i, 0, j]; \
-                     Y_NR__init[i] -> [i, 1, 0]; \
-                     Y[i] -> [i, 2, 0]; }";
+        let text = "{ Y__reduce[i,j] -> [i, 0, j]; \
+                     Y__init[i] -> [i, 1, 0]; }";
         let schedule = build_schedule(&ctx, &stmts, text).unwrap();
         let err = match check_legality(&stmts, &schedule) {
             Ok(()) => panic!("expected __reduce before its own __init to be illegal"),
             Err(e) => e.to_string(),
         };
-        assert!(
-            err.contains("Y_NR__reduce") && err.contains("Y_NR__init"),
-            "{err}"
-        );
+        assert!(err.contains("Y__reduce") && err.contains("Y__init"), "{err}");
     }
 
     #[test]
