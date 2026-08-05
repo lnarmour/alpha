@@ -22,4 +22,8 @@ module-name = "alpha._alpha"
 features = ["pyo3/extension-module"]
 
 [dependency-groups]
-dev = ["pytest", "nbval", "ipython", "jupyterlab"]
+# This crate is built and tested against the repo root's shared `.venv` (its `pyproject.toml`
+# declares the same dev tools) — `uv sync` from the repo root is the actual workflow. This group
+# documents what alpha-py itself needs and covers running `uv sync` from inside this directory
+# standalone.
+dev = ["maturin", "pytest", "nbval", "ipython", "jupyterlab"]

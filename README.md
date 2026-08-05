@@ -73,8 +73,7 @@ Interactive, scheduled codegen — `parse`/`normalize`/`schedule`/`generate` fro
 details; quickstart:
 
 ```
-uv sync && source .venv/bin/activate   # once
-uv pip install maturin                 # once
+uv sync && source .venv/bin/activate
 cd alpha-py && maturin develop
 ```
 

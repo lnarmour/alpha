@@ -49,8 +49,7 @@ from the raise side alone.
 ## Hello world
 
 ```
-uv sync && source .venv/bin/activate   # from the repo root, once
-uv pip install maturin                 # once
+uv sync && source .venv/bin/activate   # from the repo root, once — installs maturin too
 cd alpha-py && maturin develop         # rebuild after any Rust change
 ```
 

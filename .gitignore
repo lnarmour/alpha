@@ -1,5 +1,5 @@
 /target
-/.venv
+.venv/
 
 # editors/vscode: generated build output, regenerated fresh by CI/local builds, not committed.
 node_modules/

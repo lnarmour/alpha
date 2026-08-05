@@ -8,4 +8,4 @@ dependencies = []
 package = false
 
 [dependency-groups]
-dev = ["prek"]
+dev = ["prek", "maturin", "pytest", "nbval", "ipython", "jupyterlab"]
