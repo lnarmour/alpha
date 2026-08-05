@@ -354,6 +354,12 @@ pub struct SystemBody {
 #[derive(Clone)]
 pub struct System {
     pub name: String,
+    /// The system's own declared parameter domain (`[N]->{:N>0}`, or a bare `{:...}`) — see
+    /// [`alpha_model::Resolver::param_domain`]. Carried through only for
+    /// [`crate::print`]'s benefit (`Normalize`/`NormalizeReduction` never inspect it); every
+    /// variable/body domain already has its own resolved constraints baked in independently, so
+    /// nothing else in this crate depends on this field.
+    pub parameter_domain: Set,
     pub inputs: Vec<Variable>,
     pub outputs: Vec<Variable>,
     pub locals: Vec<Variable>,

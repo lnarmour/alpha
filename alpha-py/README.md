@@ -38,6 +38,9 @@ driven entirely through this crate.
 | `norm.schedule(text)` | `ScheduledSystem` | parses + validates (§6) + legality-checks (§7) a target mapping against a clone of `norm`; raises `alpha.ScheduleError` and binds nothing on any failure |
 | `alpha.generate(system)` | `str` | `NormalizedSystem` or `ScheduledSystem`; a bare `NormalizedSystem` is sugar for `generate(norm.schedule(""))` (§6's identity-schedule default) |
 | `repr(sys)` / `repr(norm)` / `repr(sched)` | `str` | the ISL union-map skeleton, no precondition — always safe to print |
+| `alpha.print(system)` | `str` | an indented debug tree dump — every node's own kind plus its `expression_domain`/`context_domain` (ported from alpha-language's `PrintAST`); accepts `System`, `NormalizedSystem`, or `ScheduledSystem` |
+| `alpha.show(system)` | `str` | reconstructs Alpha-like source syntax from the model, `f@X` point-free `Dependence` notation (ported from `Show.xtend`); same three accepted types |
+| `alpha.ashow(system)` | `str` | like `show`, but array-index notation (`X[f]`) for a `Dependence` over a `Variable`/constant, and explicit ambient index names on each equation (ported from `AShow.xtend`) |
 
 `alpha.ScheduleError` is defined via `pyo3::create_exception!`, not a hand-rolled
 `#[pyclass(extends = PyException)]` unit struct — the latter compiles and even raises without
@@ -64,7 +67,7 @@ affine PrefixScan [N]->{:N>0}
 """)
 norm = alpha.normalize(sys)
 sched = norm.schedule(
-    "{ Y_NR__init[i] -> [i, 0, 0]; Y_NR__reduce[i,j] -> [i, 1, j]; Y[i] -> [i, 2, 0]; }"
+    "{ Y__init[i] -> [i, 0, 0]; Y__reduce[i,j] -> [i, 1, j]; }"
 )
 print(alpha.generate(sched))
 ```

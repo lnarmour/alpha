@@ -186,6 +186,50 @@ fn generate(system: &Bound<'_, PyAny>) -> PyResult<String> {
     ))
 }
 
+/// Any of the three pipeline-stage wrapper types share the same underlying `ir::System` — the
+/// three printers below (`print`/`show`/`ashow`) work identically at any stage, unlike
+/// `schedule`/`generate`, which are gated on normalization (§5.1). Clones the same as every other
+/// binding here (§5.2's "every stage is a pure function" contract) even though a printer never
+/// mutates its input — consistent with the rest of this module rather than a special case.
+fn extract_ir_system(system: &Bound<'_, PyAny>) -> PyResult<alpha_transform::ir::System> {
+    if let Ok(s) = system.extract::<PyRef<System>>() {
+        return Ok(s.0.clone());
+    }
+    if let Ok(s) = system.extract::<PyRef<NormalizedSystem>>() {
+        return Ok(s.0.clone());
+    }
+    if let Ok(s) = system.extract::<PyRef<ScheduledSystem>>() {
+        return Ok(s.system.clone());
+    }
+    Err(PyTypeError::new_err(
+        "expected a System, NormalizedSystem, or ScheduledSystem",
+    ))
+}
+
+/// An indented debug tree dump — every node's own kind plus its `expression_domain`/
+/// `context_domain` — ported from alpha-language's `PrintAST.xtend`. For inspecting exactly what
+/// a pass did to the tree; see [`show`]/[`ashow`] to read a program back as source.
+#[pyfunction]
+fn print(system: &Bound<'_, PyAny>) -> PyResult<String> {
+    Ok(alpha_transform::print::print_ast(&extract_ir_system(system)?))
+}
+
+/// Reconstructs Alpha-like source syntax from `system` — ported from alpha-language's
+/// `Show.xtend`. A `Dependence` prints in point-free composition form (`f@X`); see [`ashow`] for
+/// array-index notation (`X[f]`) instead.
+#[pyfunction]
+fn show(system: &Bound<'_, PyAny>) -> PyResult<String> {
+    Ok(alpha_transform::print::show(&extract_ir_system(system)?))
+}
+
+/// Like [`show`], but renders a `Dependence` over a `Variable`/constant in array-index notation
+/// (`X[f]`) and shows each equation's own ambient index names explicitly (`X[i,j] = ...`) —
+/// ported from alpha-language's `AShow.xtend`.
+#[pyfunction]
+fn ashow(system: &Bound<'_, PyAny>) -> PyResult<String> {
+    Ok(alpha_transform::print::ashow(&extract_ir_system(system)?))
+}
+
 #[pymodule]
 fn _alpha(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<System>()?;
@@ -196,5 +240,8 @@ fn _alpha(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(parse, m)?)?;
     m.add_function(wrap_pyfunction!(normalize, m)?)?;
     m.add_function(wrap_pyfunction!(generate, m)?)?;
+    m.add_function(wrap_pyfunction!(print, m)?)?;
+    m.add_function(wrap_pyfunction!(show, m)?)?;
+    m.add_function(wrap_pyfunction!(ashow, m)?)?;
     Ok(())
 }

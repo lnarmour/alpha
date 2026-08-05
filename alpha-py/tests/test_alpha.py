@@ -81,3 +81,41 @@ def test_schedule_error_message_carries_the_diagnostic():
 def test_parse_with_syntax_error_raises_value_error():
     with pytest.raises(ValueError):
         alpha.parse("this is not alpha source")
+
+
+def test_print_dumps_the_tree_with_domains():
+    sys = alpha.parse(PREFIX_SCAN)
+    text = alpha.print(sys)
+    assert "PrefixScan" in text
+    assert "Reduce" in text
+    assert "exp=" in text
+    assert "ctx=" in text
+
+
+def test_show_reconstructs_alpha_like_source():
+    sys = alpha.parse(PREFIX_SCAN)
+    text = alpha.show(sys)
+    assert text.startswith("affine PrefixScan")
+    assert "Y = reduce(+," in text
+    assert text.rstrip().endswith(".")
+
+
+def test_ashow_shows_ambient_index_names():
+    sys = alpha.parse(PREFIX_SCAN)
+    text = alpha.ashow(sys)
+    assert "Y[i] = reduce(+," in text
+    assert "Y[i] =" not in alpha.show(sys)
+
+
+def test_print_show_ashow_accept_any_pipeline_stage():
+    sys = alpha.parse(PREFIX_SCAN)
+    norm = alpha.normalize(sys)
+    sched = norm.schedule(PREFIX_SCAN_SCHEDULE)
+    for renderer in (alpha.print, alpha.show, alpha.ashow):
+        for value in (sys, norm, sched):
+            assert isinstance(renderer(value), str)
+
+
+def test_print_on_non_system_raises_type_error():
+    with pytest.raises(TypeError):
+        alpha.print(42)

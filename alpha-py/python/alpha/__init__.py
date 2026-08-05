@@ -5,8 +5,15 @@ text* happens through IPython cell magics (``%%alpha``, ``%%schedule`` — regis
 ``alpha.magics``); everything else — ``normalize``/``schedule``/``generate`` — is a plain, typed
 Python function or method over immutable values, each cloning its input rather than mutating it.
 
+``print``/``show``/``ashow`` are read-only renderings of a ``System``/``NormalizedSystem``/
+``ScheduledSystem`` at any pipeline stage (ported from alpha-language's own
+``PrintAST``/``Show``/``AShow``): ``print`` is an indented debug tree dump, ``show`` reconstructs
+Alpha-like source syntax, ``ashow`` is ``show`` in array-index notation (``X[i+1,j]`` instead of
+``show``'s point-free ``f@X``).
+
     >>> import alpha
     >>> sys = alpha.read("foo.alpha")
+    >>> print(alpha.show(sys))
     >>> norm = alpha.normalize(sys)
     >>> sched = norm.schedule("{ ... }")
     >>> code = alpha.generate(sched)
@@ -17,10 +24,13 @@ from ._alpha import (
     ScheduledSystem,
     ScheduleError,
     System,
+    ashow,
     generate,
     normalize,
     parse,
+    print,
     read,
+    show,
 )
 
 __all__ = [
@@ -32,6 +42,9 @@ __all__ = [
     "parse",
     "normalize",
     "generate",
+    "print",
+    "show",
+    "ashow",
 ]
 
 # Registers the %%alpha/%%schedule cell magics (§5.2, §10.2) if running inside IPython — a no-op

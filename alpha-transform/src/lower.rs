@@ -129,9 +129,11 @@ pub fn lower_system(
         .name()
         .map(|t| t.text().to_string())
         .unwrap_or_default();
+    let parameter_domain = resolver.param_domain()?;
     Ok((
         ir::System {
             name,
+            parameter_domain,
             inputs,
             outputs,
             locals,
