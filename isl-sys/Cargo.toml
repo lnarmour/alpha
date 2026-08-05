@@ -12,3 +12,10 @@ libc = "0.2"
 [build-dependencies]
 bindgen = "0.70"
 pkg-config = "0.3"
+
+[features]
+# Link libisl/libgmp statically instead of dynamically, so the final binary/cdylib has no runtime
+# dependency on them being installed on the system. Off by default (dynamic linking is what most
+# consumers of this crate want — smaller binaries, shared system updates); the VS Code extension's
+# native addon (editors/vscode/native) turns this on so its .node file is fully self-contained.
+static = []
