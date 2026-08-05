@@ -8,10 +8,23 @@ resolution-markers = [
     "python_full_version < '3.10'",
 ]
 
+[manifest]
+members = [
+    "alpha",
+    "alpha-rs",
+]
+
 [[package]]
-name = "alpha-rs"
-version = "0.0.0"
-source = { virtual = "." }
+name = "alpha"
+version = "0.1.0"
+source = { editable = "alpha-py" }
+
+[package.optional-dependencies]
+notebook = [
+    { name = "ipython", version = "8.18.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "ipython", version = "8.39.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.10.*'" },
+    { name = "ipython", version = "9.16.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+]
 
 [package.dev-dependencies]
 dev = [
@@ -22,18 +35,51 @@ dev = [
     { name = "jupyterlab", version = "4.6.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "maturin" },
     { name = "nbval" },
-    { name = "prek" },
     { name = "pytest", version = "8.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "pytest", version = "9.1.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
 ]
 
 [package.metadata]
+requires-dist = [{ name = "ipython", marker = "extra == 'notebook'" }]
+provides-extras = ["notebook"]
 
 [package.metadata.requires-dev]
 dev = [
     { name = "ipython" },
     { name = "jupyterlab" },
     { name = "maturin" },
+    { name = "nbval" },
+    { name = "pytest" },
+]
+
+[[package]]
+name = "alpha-rs"
+version = "0.0.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "alpha" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "ipython", version = "8.18.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "ipython", version = "8.39.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.10.*'" },
+    { name = "ipython", version = "9.16.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "jupyterlab", version = "4.5.10", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "jupyterlab", version = "4.6.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "nbval" },
+    { name = "prek" },
+    { name = "pytest", version = "8.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "pytest", version = "9.1.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "alpha", editable = "alpha-py" }]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "ipython" },
+    { name = "jupyterlab" },
     { name = "nbval" },
     { name = "prek" },
     { name = "pytest" },

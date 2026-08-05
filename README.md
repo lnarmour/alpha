@@ -74,7 +74,6 @@ details; quickstart:
 
 ```
 uv sync && source .venv/bin/activate
-cd alpha-py && maturin develop
 ```
 
 ```python

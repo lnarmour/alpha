@@ -14,3 +14,4 @@ __pycache__/
 *.py[cod]
 alpha-py/python/alpha/*.so
 alpha-py/python/alpha/*.pyd
+alpha-py/notebooks/.ipynb_checkpoints/

@@ -49,8 +49,7 @@ from the raise side alone.
 ## Hello world
 
 ```
-uv sync && source .venv/bin/activate   # from the repo root, once — installs maturin too
-cd alpha-py && maturin develop         # rebuild after any Rust change
+uv sync && source .venv/bin/activate   # from the repo root — builds and installs alpha too
 ```
 
 ```python
@@ -73,9 +72,18 @@ print(alpha.generate(sched))
 Or interactively in Jupyter, using the cell magics instead of `parse`/`schedule` strings directly —
 see `notebooks/prefix_scan.ipynb` for the full worked version.
 
-Plain `cargo build -p alpha-py` fails to link — expected for a PyO3 `extension-module` crate
-(Python symbols are resolved by the interpreter at runtime, not at link time). Always use
-`maturin develop` (or `maturin build`) instead.
+**After changing Rust code**, `uv sync` alone won't pick it up — it only rebuilds a workspace
+member when it decides a reinstall is warranted, and mtime-only/no-op edits don't trigger that.
+Force it explicitly:
+
+```
+uv sync --reinstall-package alpha
+```
+
+(`maturin develop` from inside `alpha-py/` also still works, and is faster for a tight edit/test
+loop since it skips uv's dependency resolution step — but isn't required any more.) Plain
+`cargo build -p alpha-py` fails to link either way — expected for a PyO3 `extension-module` crate
+(Python symbols are resolved by the interpreter at runtime, not at link time).
 
 ## Testing
 
