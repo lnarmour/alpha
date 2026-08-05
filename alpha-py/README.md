@@ -46,12 +46,33 @@ fails with `TypeError: No constructor defined for ScheduleError` instead of yiel
 instance. Only surfaced by testing the catch side from real Python; invisible from `cargo test` or
 from the raise side alone.
 
-## Building
+## Hello world
 
 ```
-cd alpha-py
-maturin develop        # into the repo's own .venv
+uv sync && source .venv/bin/activate   # from the repo root, once
+uv pip install maturin                 # once
+cd alpha-py && maturin develop         # rebuild after any Rust change
 ```
+
+```python
+import alpha
+
+sys = alpha.parse("""
+affine PrefixScan [N]->{:N>0}
+    inputs  X: [N]
+    outputs Y: [N]
+    let Y[i] = reduce(+, [j], {:j<=i}: X[j]);
+.
+""")
+norm = alpha.normalize(sys)
+sched = norm.schedule(
+    "{ Y_NR__init[i] -> [i, 0, 0]; Y_NR__reduce[i,j] -> [i, 1, j]; Y[i] -> [i, 2, 0]; }"
+)
+print(alpha.generate(sched))
+```
+
+Or interactively in Jupyter, using the cell magics instead of `parse`/`schedule` strings directly —
+see `notebooks/prefix_scan.ipynb` for the full worked version.
 
 Plain `cargo build -p alpha-py` fails to link — expected for a PyO3 `extension-module` crate
 (Python symbols are resolved by the interpreter at runtime, not at link time). Always use

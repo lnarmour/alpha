@@ -66,6 +66,35 @@ cargo run -p alphac -- path/to/file.alpha -o path/to/file.c
 
 Without `-o`, generated C is printed to stdout.
 
+## Python bindings (`alpha-py`)
+
+Interactive, scheduled codegen — `parse`/`normalize`/`schedule`/`generate` from Python, plus
+`%%alpha`/`%%schedule` Jupyter cell magics. See [`alpha-py/README.md`](alpha-py/README.md) for
+details; quickstart:
+
+```
+uv sync && source .venv/bin/activate   # once
+uv pip install maturin                 # once
+cd alpha-py && maturin develop
+```
+
+```python
+import alpha
+
+sys = alpha.parse("""
+affine PrefixScan [N]->{:N>0}
+    inputs  X: [N]
+    outputs Y: [N]
+    let Y[i] = reduce(+, [j], {:j<=i}: X[j]);
+.
+""")
+norm = alpha.normalize(sys)
+sched = norm.schedule(
+    "{ Y_NR__init[i] -> [i, 0, 0]; Y_NR__reduce[i,j] -> [i, 1, j]; Y[i] -> [i, 2, 0]; }"
+)
+print(alpha.generate(sched))
+```
+
 ## Other make targets
 
 ```
