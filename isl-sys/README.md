@@ -51,6 +51,14 @@ runtime dependency on them being installed — this is how the VS Code extension
 installed. If `ISL_STATIC` is set but no static archive (`libisl.a`/`libgmp.a`) can be found,
 `build.rs` fails loudly rather than silently falling back to a dynamic build.
 
+If the crate being linked into is itself a cdylib (like the native addon), the static archives
+need to be built with `-fPIC` — on x86-64 Linux, apt's `libisl-dev`/`libgmp-dev` are not, and
+linking them into a cdylib fails with `relocation R_X86_64_PC32 cannot be used against symbol
+'stderr'; recompile with -fPIC`. The release workflow (`.github/workflows/release-vscode.yml`)
+works around this by building both from source with `--with-pic` into a local prefix and pointing
+`PKG_CONFIG_PATH` at it, rather than using apt's copies. This isn't needed on macOS — Homebrew's
+static libs already work here.
+
 ## Status
 
 Done: the full bounded header set above is bound and builds clean. Covered by one runtime smoke
