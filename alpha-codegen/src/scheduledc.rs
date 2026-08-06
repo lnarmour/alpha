@@ -330,7 +330,16 @@ fn gen_statement_body(g: &mut Gen, stmt: &Statement, idx_exprs: &[String]) -> Re
                 let Some((last, rest)) = equations.split_last() else {
                     unreachable!("equations is non-empty (checked by crate::stmt)")
                 };
-                let build = expr::ambient_build(&g.ctx, &g.param_names, &names)?;
+                // §4.1's guard-selection ternary chain, one per piecewise (multi-`SystemBody`)
+                // equation: `body_domain` here is the *SystemBody's own* guard domain (`when
+                // {D}`), always parameter-only in this port (no way to write a per-index `when`
+                // guard — confirmed empirically while building this fixture, see
+                // `docs/codegen-test-design.md` §5.6), so the ambient context for evaluating it
+                // must be 0-dim too (`&[]`), matching `writec.rs`'s own `gen_eval_function` — not
+                // `&names`, which mismatches `body_domain`'s dimensionality and silently renders a
+                // degenerate always-false condition instead of erroring (a real bug this test
+                // design surfaced; see that fixture's own doc comment for the numeric symptom).
+                let build = expr::ambient_build(&g.ctx, &g.param_names, &[])?;
                 let mut result = expr::gen_value(g, &names, &last.1.expr)?;
                 for (body_domain, eq) in rest.iter().rev() {
                     let cond_expr = build.expr_from_set((*body_domain).clone())?;
@@ -632,7 +641,134 @@ fn build_driver(system: &ir::System, g: &Gen, body_stmts: Vec<Stmt>) -> Result<F
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_util::{normalized_system, PLAIN_COPY, PREFIX_SUM};
+    use crate::test_util::{
+        normalized_system, TestGen, PIECEWISE_EQUATION, PLAIN_COPY, PREFIX_SUM, REDUCE_BINARY_BODY,
+        REDUCE_EXTERNAL, REDUCE_MAX, REDUCE_MIN, REDUCE_MUL,
+    };
+
+    /// Renders a `Vec<Stmt>` as text — Tier 2 of `docs/codegen-test-design.md` §5.4: one
+    /// statement's own body codegen (`gen_statement_body`), no schedule/AST walk, so no loops
+    /// ever appear here (see that module's own doc for why loops are a Tier-3-only concern).
+    /// `simplec::Stmt` has no standalone `Display`, only `simplec::Function` does — cheapest reuse
+    /// is wrapping the statements in a throwaway `Function` rather than adding a new public method
+    /// to `simplec.rs` just for this.
+    fn render_stmts(stmts: Vec<Stmt>) -> String {
+        let f = Function {
+            return_type: CType::Void,
+            name: "test".to_string(),
+            params: vec![],
+            body: stmts,
+            is_static: false,
+        };
+        f.to_string()
+    }
+
+    /// Builds a `Gen` + the `Statement` for `<name>__init`/`<name>__reduce`'s pair (`crate::stmt`,
+    /// §4.2) from a normalized reduce fixture, then renders both halves' `gen_statement_body`
+    /// output — a synthetic index-expression list (`"i0"`, `"i1"`, ...) stands in for whatever a
+    /// real `AstBuild` walk would have bound, decoupling this tier from needing one at all.
+    fn render_reduce_pair(src: &str) -> String {
+        let system = normalized_system(src);
+        let statements = stmt::statements(&system).unwrap();
+        let mut g = Gen {
+            ctx: statements[0].domain.ctx(),
+            variables: TestGen::for_system(&system).variables,
+            param_names: expr::param_names_of(&statements[0].domain),
+            externs: BTreeSet::new(),
+        };
+        let mut out = String::new();
+        for s in &statements {
+            let ndims = s.domain.dim(DimType::OutOrSet);
+            let idx: Vec<String> = (0..ndims).map(|i| format!("i{i}")).collect();
+            let rendered = gen_statement_body(&mut g, s, &idx).unwrap();
+            let _ = writeln!(out, "// {}", s.name);
+            out.push_str(&render_stmts(rendered));
+        }
+        out
+    }
+
+    #[test]
+    fn reduce_plus_baseline() {
+        insta::assert_snapshot!(render_reduce_pair(PREFIX_SUM));
+    }
+
+    #[test]
+    fn reduce_mul() {
+        insta::assert_snapshot!(render_reduce_pair(REDUCE_MUL));
+    }
+
+    #[test]
+    fn reduce_min() {
+        insta::assert_snapshot!(render_reduce_pair(REDUCE_MIN));
+    }
+
+    #[test]
+    fn reduce_max() {
+        insta::assert_snapshot!(render_reduce_pair(REDUCE_MAX));
+    }
+
+    #[test]
+    fn reduce_external_combiner() {
+        insta::assert_snapshot!(render_reduce_pair(REDUCE_EXTERNAL));
+    }
+
+    #[test]
+    fn reduce_binary_body() {
+        insta::assert_snapshot!(render_reduce_pair(REDUCE_BINARY_BODY));
+    }
+
+    /// Confirms `gen_value`'s shared path behaves identically whether reached from an `Ordinary`
+    /// statement (§5.1) or a `ReduceStep` (§4.2) — the `X[j] + X[j]` sub-expression text inside
+    /// `REDUCE_BINARY_BODY`'s `__reduce` half should match `BINARY_ADD`'s own Tier-1 snapshot
+    /// (`expr::tests::binary_op`) up to the `combine`-table wrapper around it.
+    #[test]
+    fn reduce_binary_body_shares_gen_value_with_ordinary_binary_op() {
+        let system = normalized_system(REDUCE_BINARY_BODY);
+        let statements = stmt::statements(&system).unwrap();
+        let StatementKind::ReduceStep {
+            body, body_context, ..
+        } = &statements
+            .iter()
+            .find(|s| s.name == "Y__reduce")
+            .expect("REDUCE_BINARY_BODY should produce a Y__reduce statement")
+            .kind
+        else {
+            panic!("Y__reduce should be a ReduceStep");
+        };
+        // The reduce's own full `(a+b)`-dim ambient space — `i` (context) and `j` (the reduce's
+        // own new dimension) both in scope, exactly as `ReduceStep`'s own codegen binds them
+        // (§4.2) — *not* just `[j]`, which would leave `X[j]`'s dependence function under-arity
+        // relative to the names list (a mistake this test itself first caught).
+        let names = expr::pick_names(body_context, 2);
+        let mut gen = TestGen::for_system(&system);
+        let rendered = expr::gen_value(&mut gen, &names, body).unwrap().to_string();
+        // Matches `expr::tests::binary_op`'s own Tier-1 snapshot for `BINARY_ADD`'s `X[i] + X[i]`
+        // up to the bound index name — same `ir::ExprKind::Binary` node, same `gen_value` path,
+        // reached from a `ReduceStep` this time instead of an `Ordinary` statement.
+        assert_eq!(rendered, "((X(j)) + (X(j)))");
+    }
+
+    /// §5.6: a piecewise (multi-`SystemBody`) equation's own body codegen — the ternary-chain
+    /// selection by guard domain (§4.1), same mechanism `gen_case` uses for a `case` expression's
+    /// own branches, just driven by `crate::stmt`'s equation grouping instead.
+    #[test]
+    fn piecewise_equation_renders_as_a_guard_selected_ternary_chain() {
+        let system = normalized_system(PIECEWISE_EQUATION);
+        let statements = stmt::statements(&system).unwrap();
+        let s = statements
+            .iter()
+            .find(|s| s.name == "Y")
+            .expect("PIECEWISE_EQUATION should produce a Y statement");
+        let mut g = Gen {
+            ctx: s.domain.ctx(),
+            variables: TestGen::for_system(&system).variables,
+            param_names: expr::param_names_of(&s.domain),
+            externs: BTreeSet::new(),
+        };
+        let idx = vec!["i0".to_string()];
+        let rendered = gen_statement_body(&mut g, s, &idx).unwrap();
+        insta::assert_snapshot!(render_stmts(rendered));
+    }
 
     #[test]
     fn empty_schedule_text_is_rejected_as_illegal_for_prefix_sum() {
@@ -641,7 +777,10 @@ mod tests {
         // fail, not silently emit miscompiled code.
         let system = normalized_system(PREFIX_SUM);
         match generate_scheduled_system(&system, "") {
-            Err(CodegenError::IllegalSchedule(_)) => {}
+            Err(e @ CodegenError::IllegalSchedule(_)) => {
+                // Tier 5 (docs/codegen-test-design.md §5.8): full diagnostic text.
+                insta::assert_snapshot!(e.to_string());
+            }
             other => panic!("expected an IllegalSchedule error, got {other:?}"),
         }
     }

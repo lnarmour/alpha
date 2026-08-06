@@ -1,0 +1,5 @@
+---
+source: alpha-codegen/src/schedule.rs
+expression: msg
+---
+invalid target mapping: target mapping for statement 'Y__init' is not injective — two instances would land on the same schedule-space point, making their relative order undefined (§6)

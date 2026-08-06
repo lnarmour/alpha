@@ -16,3 +16,6 @@ barvinok = { workspace = true, optional = true }
 # Off by default: enables Ehrhart/cardinality-based malloc sizing via the GPL-licensed
 # barvinok crate. Never enabled in the default `alphac` build or the VS Code addon.
 barvinok = ["dep:barvinok"]
+
+[dev-dependencies]
+insta = "1.48.0"

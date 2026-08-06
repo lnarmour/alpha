@@ -298,6 +298,10 @@ mod tests {
         let ctx = stmts[0].domain.ctx();
         let msg = expect_err(build_schedule(&ctx, &stmts, "{ Bogus[i] -> [i]; }"));
         assert!(msg.contains("Bogus"), "{msg}");
+        // Tier 5 (docs/codegen-test-design.md §5.8): the full diagnostic text, not just a
+        // substring — the `contains` check above stays as a quick, snapshot-independent statement
+        // of intent.
+        insta::assert_snapshot!(msg);
     }
 
     #[test]
@@ -309,6 +313,7 @@ mod tests {
         let text = "{ Y__init[i] -> [i, 0, 0] : 1 <= i; }";
         let msg = expect_err(build_schedule(&ctx, &stmts, text));
         assert!(msg.contains("Y__init") && msg.contains("cover"), "{msg}");
+        insta::assert_snapshot!(msg);
     }
 
     #[test]
@@ -323,6 +328,7 @@ mod tests {
             msg.contains("Y__init") && msg.contains("injective"),
             "{msg}"
         );
+        insta::assert_snapshot!(msg);
     }
 
     #[test]
@@ -336,5 +342,6 @@ mod tests {
         let text = "{ Y__init[i] -> [i, 2]; Y__reduce[i,j] -> [i, 0, j]; }";
         let msg = expect_err(build_schedule(&ctx, &stmts, text));
         assert!(msg.contains("width"), "{msg}");
+        insta::assert_snapshot!(msg);
     }
 }

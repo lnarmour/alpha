@@ -1,0 +1,5 @@
+---
+source: alpha-codegen/src/expr.rs
+expression: "render_rhs(&system, \"Y\")"
+---
+(((X(i)) > (((float)(0))))) ? (X(i)) : ((-(X(i))))

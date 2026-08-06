@@ -292,6 +292,7 @@ mod tests {
             Err(e) => e.to_string(),
         };
         assert!(err.contains("Y") && err.contains("§7.2"), "{err}");
+        insta::assert_snapshot!(err);
     }
 
     #[test]
@@ -321,6 +322,7 @@ mod tests {
             Err(e) => e.to_string(),
         };
         assert!(err.contains("Z") && err.contains("§7.2"), "{err}");
+        insta::assert_snapshot!(err);
     }
 
     #[test]
@@ -341,6 +343,7 @@ mod tests {
             err.contains("Y__reduce") && err.contains("Y__init"),
             "{err}"
         );
+        insta::assert_snapshot!(err);
     }
 
     #[test]

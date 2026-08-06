@@ -1,0 +1,5 @@
+---
+source: alpha-codegen/src/legality.rs
+expression: err
+---
+illegal schedule: 'Z' reads 'Y__reduce' but the schedule doesn't guarantee the producer instance runs strictly before the consumer instance that reads it (§7.2)

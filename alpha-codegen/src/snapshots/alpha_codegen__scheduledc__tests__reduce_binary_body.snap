@@ -1,0 +1,15 @@
+---
+source: alpha-codegen/src/scheduledc.rs
+expression: render_reduce_pair(REDUCE_BINARY_BODY)
+---
+// Y__init
+void test(void) {
+	long i = i0;
+	Y(i) = 0.0f;
+}
+// Y__reduce
+void test(void) {
+	long i = i0;
+	long j = i1;
+	Y(i) = (Y(i)) + (((X(j)) + (X(j))));
+}

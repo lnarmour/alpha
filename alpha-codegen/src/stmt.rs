@@ -179,7 +179,7 @@ fn push_statements_for_variable<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_util::{normalized_system, PLAIN_COPY, PREFIX_SUM};
+    use crate::test_util::{normalized_system, PIECEWISE_EQUATION, PLAIN_COPY, PREFIX_SUM};
     use isl::DimType;
 
     #[test]
@@ -218,5 +218,20 @@ mod tests {
         let names: Vec<&str> = stmts.iter().map(|s| s.name.as_str()).collect();
         assert_eq!(names, vec!["Y"]);
         assert!(matches!(stmts[0].kind, StatementKind::Ordinary { .. }));
+    }
+
+    /// §5.6 of `docs/codegen-test-design.md` / design decision 2 (§2 of
+    /// `docs/scheduled-codegen-design.md`): a variable defined by equations across multiple
+    /// `SystemBody`s (piecewise) stays merged into **one** statement, not split per source body.
+    #[test]
+    fn piecewise_equation_stays_one_statement_with_both_equations() {
+        let system = normalized_system(PIECEWISE_EQUATION);
+        let stmts = statements(&system).unwrap();
+        let names: Vec<&str> = stmts.iter().map(|s| s.name.as_str()).collect();
+        assert_eq!(names, vec!["Y"]);
+        let StatementKind::Ordinary { equations } = &stmts[0].kind else {
+            panic!("expected an Ordinary statement");
+        };
+        assert_eq!(equations.len(), 2, "both source bodies' equations for Y");
     }
 }

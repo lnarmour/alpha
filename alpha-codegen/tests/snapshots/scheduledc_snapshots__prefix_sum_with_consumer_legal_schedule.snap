@@ -1,0 +1,24 @@
+---
+source: alpha-codegen/tests/scheduledc_snapshots.rs
+expression: extract_driver_body(&code).to_string()
+---
+// Evaluate every statement, in schedule order.
+	long c0;
+	long c2;
+	for (c0 = 0; c0 < N; c0 += 1) {
+		{
+			long i = c0;
+			Y(i) = 0.0f;
+		}
+		for (c2 = 0; c2 <= c0; c2 += 1) {
+			{
+				long i = c0;
+				long j = c2;
+				Y(i) = (Y(i)) + (X(j));
+			}
+		}
+		{
+			long i = c0;
+			Z(i) = ((Y(i)) + (((float)(1))));
+		}
+	}

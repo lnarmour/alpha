@@ -1,0 +1,5 @@
+---
+source: alpha-codegen/src/scheduledc.rs
+expression: e.to_string()
+---
+illegal schedule: 'Y__reduce' reads 'Y__init' but the schedule doesn't guarantee the producer instance runs strictly before the consumer instance that reads it (§7.2)

@@ -46,7 +46,9 @@ pub fn describe_normalized_system(system: &ir::System, schedule_text: &str) -> R
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_util::{normalized_system, PREFIX_SUM};
+    use crate::test_util::{
+        normalized_system, PIECEWISE_EQUATION, PREFIX_SUM, TWO_REDUCES_FAN_OUT,
+    };
     use alpha_model::Resolver;
 
     fn unnormalized_prefix_sum() -> ir::System {
@@ -93,5 +95,30 @@ mod tests {
                      Y__reduce[i,j] -> [i, 1, j]; }";
         let text = describe_normalized_system(&system, sched_text).unwrap();
         assert!(text.contains("0") && text.contains("1"), "{text}");
+    }
+
+    /// §5.7/§5.5 row 4 of `docs/codegen-test-design.md`: two independent reduces fan out from one
+    /// input (`Y`/`MaxY`, each its own `__init`/`__reduce` pair) shouldn't spuriously depend on
+    /// each other — confirmed here at the cheapest level, statement enumeration, before any
+    /// schedule/legality/codegen concern: all 4 statements show up, correctly split.
+    #[test]
+    fn two_independent_reduces_enumerate_as_four_statements() {
+        let system = normalized_system(TWO_REDUCES_FAN_OUT);
+        let text = describe_normalized_system(&system, "").unwrap();
+        for name in ["Y__init", "Y__reduce", "MaxY__init", "MaxY__reduce"] {
+            assert!(text.contains(name), "{text}");
+        }
+        insta::assert_snapshot!(text);
+    }
+
+    /// §5.6: a piecewise (multi-`SystemBody`) equation for one output still enumerates as **one**
+    /// statement (design decision 2, §2 of `docs/scheduled-codegen-design.md`) — not split per
+    /// source body.
+    #[test]
+    fn piecewise_equation_enumerates_as_one_statement() {
+        let system = normalized_system(PIECEWISE_EQUATION);
+        let text = describe_normalized_system(&system, "").unwrap();
+        assert_eq!(text.matches("Y[").count(), 1, "{text}");
+        insta::assert_snapshot!(text);
     }
 }

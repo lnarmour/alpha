@@ -1,0 +1,5 @@
+---
+source: alpha-codegen/src/describe.rs
+expression: text
+---
+[N] -> { Y[__rect0] -> [__rect0' = __rect0] : 0 <= __rect0 < N }

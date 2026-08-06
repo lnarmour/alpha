@@ -450,3 +450,132 @@ pub(crate) fn gen_multi_arg<G: ExprGen>(
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_util::{
+        first_equation, normalized_system, TestGen, BINARY_ADD, CASE_THREE_BRANCH, CASE_TWO_BRANCH,
+        EXTERNAL_CALL, IF_THEN_ELSE, INDEX_FUNCTION_EXPR, INT_LITERAL, MULTI_ARG_MIN,
+        MULTI_ARG_SUM, REAL_LITERAL, UNARY_NEG,
+    };
+
+    /// Renders `var`'s own RHS expression (via `gen_value`, the shared expression-codegen entry
+    /// point both `WriteC` and `ScheduledC` use) as a plain C-expression string — Tier 1 of
+    /// `docs/codegen-test-design.md` §5.1/§5.4: one AST node shape at a time, no schedule/AST
+    /// build needed.
+    ///
+    /// `names`'s length comes from `var`'s own declared dimensionality (`TestGen`'s `VarInfo`),
+    /// *not* the equation's own `body.domain` — that's the equation's guard/context domain (0-dim
+    /// for an unguarded default equation), a different thing entirely from how many indices `var`
+    /// itself carries.
+    fn render_rhs(system: &ir::System, var: &str) -> String {
+        let (_, eq) = first_equation(system, var);
+        let mut gen = TestGen::for_system(system);
+        let ndims = gen
+            .variable(var)
+            .unwrap_or_else(|| panic!("'{var}' not found in TestGen's variable table"))
+            .ndims;
+        let names = pick_names(&eq.index_names, ndims);
+        gen_value(&mut gen, &names, &eq.expr)
+            .unwrap_or_else(|e| panic!("gen_value failed for '{var}': {e}"))
+            .to_string()
+    }
+
+    #[test]
+    fn int_literal() {
+        let system = normalized_system(INT_LITERAL);
+        insta::assert_snapshot!(render_rhs(&system, "Y"));
+    }
+
+    #[test]
+    fn real_literal() {
+        let system = normalized_system(REAL_LITERAL);
+        insta::assert_snapshot!(render_rhs(&system, "Y"));
+    }
+
+    #[test]
+    fn dependence_read() {
+        // PLAIN_COPY (`Y[i] = X[i];`) already has its own coverage via `crate::stmt`'s and
+        // `crate::scheduledc`'s tests — this is the Tier-1-level equivalent, isolating just the
+        // `Dependence`/`Variable` node shape.
+        let system = normalized_system(crate::test_util::PLAIN_COPY);
+        insta::assert_snapshot!(render_rhs(&system, "Y"));
+    }
+
+    #[test]
+    fn binary_op() {
+        let system = normalized_system(BINARY_ADD);
+        insta::assert_snapshot!(render_rhs(&system, "Y"));
+    }
+
+    #[test]
+    fn unary_op() {
+        let system = normalized_system(UNARY_NEG);
+        insta::assert_snapshot!(render_rhs(&system, "Y"));
+    }
+
+    #[test]
+    fn index_function() {
+        let system = normalized_system(INDEX_FUNCTION_EXPR);
+        insta::assert_snapshot!(render_rhs(&system, "Y"));
+    }
+
+    #[test]
+    fn if_then_else() {
+        let system = normalized_system(IF_THEN_ELSE);
+        insta::assert_snapshot!(render_rhs(&system, "Y"));
+    }
+
+    #[test]
+    fn case_two_branch() {
+        let system = normalized_system(CASE_TWO_BRANCH);
+        insta::assert_snapshot!(render_rhs(&system, "Y"));
+    }
+
+    #[test]
+    fn case_three_branch() {
+        let system = normalized_system(CASE_THREE_BRANCH);
+        insta::assert_snapshot!(render_rhs(&system, "Y"));
+    }
+
+    #[test]
+    fn multi_arg_sum() {
+        let system = normalized_system(MULTI_ARG_SUM);
+        insta::assert_snapshot!(render_rhs(&system, "Y"));
+    }
+
+    #[test]
+    fn multi_arg_min() {
+        let system = normalized_system(MULTI_ARG_MIN);
+        insta::assert_snapshot!(render_rhs(&system, "Y"));
+    }
+
+    #[test]
+    fn external_call() {
+        let system = normalized_system(EXTERNAL_CALL);
+        insta::assert_snapshot!(render_rhs(&system, "Y"));
+    }
+
+    /// §7.3/§11's one documented carve-out: a `Reduce` nested directly inside another `Reduce`'s
+    /// body isn't hoisted by `normalize_reduction` and stays opaque to codegen — confirms
+    /// `gen_value` reports it as a clear `Unsupported` error rather than mis-generating or
+    /// panicking. Built directly (not via a `.alpha` fixture) since `normalize_reduction`'s own
+    /// grammar-level non-hoisting means no realistic source ever reaches this shape through the
+    /// normal pipeline other than via `TestGen::gen_reduce_value`'s own stand-in error, which is
+    /// exactly what this test is pinning down — see `TestGen`'s doc comment.
+    #[test]
+    fn nested_reduce_in_reduce_is_unsupported() {
+        let system = normalized_system(crate::test_util::PREFIX_SUM);
+        let (_, eq) = first_equation(&system, "Y");
+        let mut gen = TestGen::for_system(&system);
+        let ndims = gen.variable("Y").unwrap().ndims;
+        let names = pick_names(&eq.index_names, ndims);
+        // `eq.expr` here is `Y`'s own top-level `Reduce` (PREFIX_SUM is left unhoisted, §3) —
+        // calling `gen_value` on it directly (bypassing the `<name>__init`/`<name>__reduce` split
+        // `crate::stmt` would otherwise apply) reaches `ExprGen::gen_reduce_value`, which for
+        // `TestGen` (matching `scheduledc::Gen`) always reports the same invariant violation.
+        let err = gen_value(&mut gen, &names, &eq.expr).unwrap_err();
+        insta::assert_snapshot!(err.to_string());
+    }
+}
