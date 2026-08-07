@@ -62,13 +62,48 @@ jobs:
 
       - name: Install system dependencies (Linux)
         if: runner.os == 'Linux'
+        # Not installing libisl-dev/libgmp-dev here: the native addon links libisl/libgmp
+        # statically (see the "Build isl/gmp from source" step below for why that rules out
+        # apt's copies specifically).
         run: |
           sudo apt-get update
-          # libgmp-dev (not just libisl-dev) is required here: the native addon links libisl/libgmp
-          # statically (via ISL_STATIC=1 in editors/vscode/native/package.json's build script) so the
-          # shipped .vsix has no runtime dependency on them, and that needs libgmp.a to be available,
-          # not just the libisl-dev's runtime libgmp10 dependency.
-          sudo apt-get install -y libisl-dev libgmp-dev libclang-dev pkg-config
+          sudo apt-get install -y libclang-dev pkg-config
+
+      - name: Build isl/gmp from source with -fPIC (Linux)
+        if: runner.os == 'Linux'
+        # The native addon links libisl/libgmp statically (via ISL_STATIC=1 in
+        # editors/vscode/native/package.json's build script) so the shipped .vsix has no runtime
+        # dependency on them. apt's libisl-dev/libgmp-dev ship static archives that aren't
+        # compiled with -fPIC, though, and linking non-PIC code into the addon's cdylib fails on
+        # x86-64 with e.g. "relocation R_X86_64_PC32 cannot be used against symbol 'stderr';
+        # recompile with -fPIC" — verified against a real Ubuntu 24.04 container. Building both
+        # from source with --with-pic avoids that; installing to our own prefix and pointing
+        # PKG_CONFIG_PATH there (pkg-config, and thus isl-sys's build.rs, checks it before any
+        # system path) makes that the copy that gets picked up instead of apt's.
+        env:
+          GMP_VERSION: 6.3.0
+          ISL_VERSION: 0.26
+        run: |
+          PREFIX="$HOME/isl-pic"
+          mkdir -p "$HOME/src" && cd "$HOME/src"
+
+          curl -sLO "https://ftp.gnu.org/gnu/gmp/gmp-$GMP_VERSION.tar.xz"
+          tar xf "gmp-$GMP_VERSION.tar.xz"
+          cd "gmp-$GMP_VERSION"
+          ./configure --prefix="$PREFIX" --enable-static --disable-shared --with-pic
+          make -j"$(nproc)"
+          make install
+          cd ..
+
+          curl -sL "https://libisl.sourceforge.io/isl-$ISL_VERSION.tar.bz2" -o "isl-$ISL_VERSION.tar.bz2"
+          tar xf "isl-$ISL_VERSION.tar.bz2"
+          cd "isl-$ISL_VERSION"
+          ./configure --prefix="$PREFIX" --enable-static --disable-shared --with-pic --with-gmp-prefix="$PREFIX"
+          make -j"$(nproc)"
+          make install
+          cd ..
+
+          echo "PKG_CONFIG_PATH=$PREFIX/lib/pkgconfig" >> "$GITHUB_ENV"
 
       - name: Install extension dependencies
         working-directory: editors/vscode
