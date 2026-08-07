@@ -15,3 +15,4 @@ __pycache__/
 alpha-py/python/alphalang/*.so
 alpha-py/python/alphalang/*.pyd
 alpha-py/notebooks/.ipynb_checkpoints/
+alpha-py/dist/
