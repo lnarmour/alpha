@@ -32,19 +32,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "alpha-py"
-version = "0.1.0"
-dependencies = [
- "alpha-codegen",
- "alpha-model",
- "alpha-syntax",
- "alpha-transform",
- "isl",
- "pyo3",
- "pyo3-build-config",
-]
-
-[[package]]
 name = "alpha-syntax"
 version = "0.1.0"
 dependencies = [
@@ -81,6 +68,19 @@ dependencies = [
  "alpha-syntax",
  "alpha-transform",
  "isl",
+]
+
+[[package]]
+name = "alphalang"
+version = "0.1.0"
+dependencies = [
+ "alpha-codegen",
+ "alpha-model",
+ "alpha-syntax",
+ "alpha-transform",
+ "isl",
+ "pyo3",
+ "pyo3-build-config",
 ]
 
 [[package]]

@@ -9,10 +9,10 @@ editors/vscode/native/*.node
 editors/vscode/native/index.js
 editors/vscode/native/index.d.ts
 
-# alpha-py: maturin/pytest build artifacts, regenerated fresh by `maturin develop`.
+# alphalang: maturin/pytest build artifacts, regenerated fresh by `maturin develop`.
 __pycache__/
 *.py[cod]
-alpha-py/python/alphalang/*.so
-alpha-py/python/alphalang/*.pyd
-alpha-py/notebooks/.ipynb_checkpoints/
-alpha-py/dist/
+alphalang/python/alphalang/*.so
+alphalang/python/alphalang/*.pyd
+alphalang/notebooks/.ipynb_checkpoints/
+alphalang/dist/

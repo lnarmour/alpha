@@ -347,7 +347,7 @@ pub struct SystemBody {
 /// `Clone` is a cheap, deep-in-value-but-shallow-in-isl-refcount copy (every isl `Set`/`Map`/
 /// `MultiAff` field clones via its own `_copy` — a refcount bump, not a real memory-duplicating
 /// deep copy, per every `isl` wrapper type's own `Clone` impl) — this is exactly what
-/// `alpha-py`'s "transformations return a new copy, never mutate the input" contract (§5.2 of
+/// `alphalang`'s "transformations return a new copy, never mutate the input" contract (§5.2 of
 /// `docs/scheduled-codegen-design.md`) needs: `alpha.normalize(sys)` clones `sys`'s underlying
 /// `System` before running `normalize_reduction::apply`/`normalize::apply` on the clone, leaving
 /// the original untouched.

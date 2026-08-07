@@ -75,7 +75,7 @@ means for tooling.
    own order, and why reversing it silently breaks codegen on any equation containing a reduce.
 6. **Tooling is a Jupyter notebook.** A standard Python kernel plus IPython cell magics expose five
    pipeline stages — read, normalize, print, schedule, generate (§5.2) — as notebook cells, backed
-   by a new PyO3 binding crate (`alpha-py`, §10.1). Two properties this depends on:
+   by a new PyO3 binding crate (`alphalang`, §10.1). Two properties this depends on:
    - **Statefulness comes for free.** Re-running `schedule`/`generate` against the same normalized
      IR without reparsing is just "re-run this cell using a variable an earlier cell defined" — the
      thing every notebook already does.
@@ -584,13 +584,13 @@ tags or clears tuple names first; see §12 step 5's own notes for the specific p
   (per §3's finding) no pass-order change either. The interactive story (§5) lives entirely in the
   new Python binding below, not in `alphac` itself.
 
-### 10.1 `alpha-py`: a new PyO3 binding crate
+### 10.1 `alphalang`: a new PyO3 binding crate
 
-A new workspace member, `alpha-py`, in the same spirit as the existing `editors/vscode/native`
+A new workspace member, `alphalang`, in the same spirit as the existing `editors/vscode/native`
 crate (a napi-rs binding exposing `alpha-syntax`/`alpha-model` diagnostics to the VS Code extension
 in-process) — same pattern, different host language: `pyo3` instead of `napi`, built into a wheel
 with `maturin` instead of a `cdylib` napi module. Where `editors/vscode/native` only needs to expose
-parse/analyze diagnostics, `alpha-py` needs the full read → normalize → schedule → generate surface,
+parse/analyze diagnostics, `alphalang` needs the full read → normalize → schedule → generate surface,
 so it depends on `alpha-syntax`, `alpha-model`, `alpha-transform`, and `alpha-codegen`. The Python
 import name and published PyPI distribution are both **`alphalang`** (`import alphalang`,
 `pip install alphalang`) — sidesteps a name collision on the bare `alpha` name on PyPI.
@@ -755,12 +755,12 @@ Functions/methods, all pure — clone the receiver's underlying Rust value, run 
      `(a+b)`-dim tuple in scope. Conflating the two (indexing storage by the full tuple) compiles
      fine as C — it's `float*` arithmetic, no type system catches it — and just silently computes
      the wrong answer; only the numeric check in `scheduledc_e2e.rs` caught it.
-7. `alpha-py` (§10) — the PyO3 binding crate: `System`/`NormalizedSystem`/`ScheduledSystem` plus
+7. `alphalang` (§10) — the PyO3 binding crate: `System`/`NormalizedSystem`/`ScheduledSystem` plus
    `read`/`normalize`/`schedule`/`generate`, a thin wrapper over steps 1–6 plus the existing
    `parse`/`analyze_system`/`lower_system` calls `main.rs` already makes — no new compiler logic, no
-   parallel code path. **Done** — `alpha-py/src/lib.rs`, built with `maturin develop`, verified
+   parallel code path. **Done** — `alphalang/src/lib.rs`, built with `maturin develop`, verified
    end-to-end from real Python (parse → normalize → schedule → generate, plus both error paths)
-   and covered by a permanent `pytest` suite (`alpha-py/tests/test_alpha.py`, 10 tests). A few
+   and covered by a permanent `pytest` suite (`alphalang/tests/test_alpha.py`, 10 tests). A few
    things came up that go beyond the original spec:
    - **`ir::System` needed `Clone`.** The whole binding's immutability contract (§5.1 — every
      function clones its receiver rather than mutating it in place) depends on cloning `ir::System`
@@ -787,13 +787,13 @@ Functions/methods, all pure — clone the receiver's underlying Rust value, run 
 8. The `%%alpha`/`%%schedule` IPython magics and JupyterLab syntax highlighting (§5.2, §10.2) —
    depends on step 7's Python types existing. Plus a fixture corpus of notebooks + `nbval`-checked
    expected output (§5.3), and the `docs/design.md` update (§1). **Partially done, in progress:**
-   - **IPython magics: done.** `alpha-py/python/alpha/magics.py` — `AlphaMagics(Magics)` with
+   - **IPython magics: done.** `alphalang/python/alpha/magics.py` — `AlphaMagics(Magics)` with
      `%%alpha <var>` and `%%schedule <var> <source-system-var>` cell magics, self-registering on
      `import alphalang` per §10.2. Verified end-to-end against a real in-process IPython shell
      (`IPython.testing.globalipapp`), including all three error paths (wrong source type →
      `TypeError`, undefined source name → `NameError`, illegal schedule text → `ScheduleError`,
-     bad `%%alpha` source → no binding). Permanent tests in `alpha-py/tests/test_magics.py` (8
-     tests) plus `alpha-py/tests/test_alpha.py` (10 tests) covering the plain-function API from
+     bad `%%alpha` source → no binding). Permanent tests in `alphalang/tests/test_magics.py` (8
+     tests) plus `alphalang/tests/test_alpha.py` (10 tests) covering the plain-function API from
      step 7 — 18/18 passing, `cargo fmt`/`clippy`/`test --workspace` all clean.
    - **JupyterLab syntax highlighting: dropped, deliberately, not attempted further.** Built and
      verified a working prototype (`editors/jupyterlab/`, scaffolded from the official
@@ -821,19 +821,19 @@ Functions/methods, all pure — clone the receiver's underlying Rust value, run 
        stay plain-text. Nothing functional depends on this either way: the magics (previous bullet)
        work fully regardless, since highlighting is cosmetic, not functional. Revisit only if
        JupyterLab ever grows a real extension point for this (§13).
-   - **Notebook fixture corpus: done.** `alpha-py/notebooks/prefix_sum.ipynb` — §5.2's own worked
+   - **Notebook fixture corpus: done.** `alphalang/notebooks/prefix_sum.ipynb` — §5.2's own worked
      example (parse → `System.__repr__` → normalize → `NormalizedSystem.__repr__` → schedule →
      `ScheduledSystem.__repr__` → generate, plus the identity-default `ScheduleError` path), executed
      for real against the repo's own `.venv` kernel and checked in with its real outputs, not
-     hand-written illustrative ones. `pytest --nbval alpha-py/notebooks/prefix_sum.ipynb` re-executes
+     hand-written illustrative ones. `pytest --nbval alphalang/notebooks/prefix_sum.ipynb` re-executes
      and diffs against those outputs — 8/8 passing; confirmed deterministic (no timestamps/addresses
      anywhere in `__repr__` or generated C, so a diff on re-run means a real behavior change, not
      fixture flakiness). Plain `pytest` (no `--nbval`) does not collect `.ipynb` files, so this stays
-     out of the ordinary `alpha-py/tests/` run. See `alpha-py/notebooks/README.md` for how to
+     out of the ordinary `alphalang/tests/` run. See `alphalang/notebooks/README.md` for how to
      regenerate it after an intentional change.
    - **`docs/design.md` scope-boundary update: done.** Its "out of scope" statement and pipeline
-     diagram now mention `ScheduledC`/`alpha-py` as in-scope (§1's own requirement), and its
-     workspace-layout table gained an `alpha-py` row. In the same pass, also corrected two stale,
+     diagram now mention `ScheduledC`/`alphalang` as in-scope (§1's own requirement), and its
+     workspace-layout table gained an `alphalang` row. In the same pass, also corrected two stale,
      unrelated claims sitting right next to that edit — the VS Code extension and its TextMate
      grammar are built and released, not "not yet built" as that doc previously (and incorrectly)
      still said.

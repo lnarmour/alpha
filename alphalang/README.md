@@ -1,4 +1,4 @@
-# alpha-py
+# alphalang
 
 A PyO3 binding crate exposing `alpha-syntax`/`alpha-model`/`alpha-transform`/`alpha-codegen`'s
 `ScheduledC` pipeline (`docs/scheduled-codegen-design.md`) to Python, plus an IPython cell-magic
@@ -83,16 +83,16 @@ Force it explicitly:
 uv sync --reinstall-package alphalang
 ```
 
-(`maturin develop` from inside `alpha-py/` also still works, and is faster for a tight edit/test
+(`maturin develop` from inside `alphalang/` also still works, and is faster for a tight edit/test
 loop since it skips uv's dependency resolution step — but isn't required any more.) Plain
-`cargo build -p alpha-py` fails to link either way — expected for a PyO3 `extension-module` crate
+`cargo build -p alphalang` fails to link either way — expected for a PyO3 `extension-module` crate
 (Python symbols are resolved by the interpreter at runtime, not at link time).
 
 ## Testing
 
 ```
-pytest alpha-py/tests/                              # 18 tests: plain API + magics
-pytest --nbval alpha-py/notebooks/prefix_sum.ipynb  # 8 more: the notebook fixture
+pytest alphalang/tests/                              # 18 tests: plain API + magics
+pytest --nbval alphalang/notebooks/prefix_sum.ipynb  # 8 more: the notebook fixture
 ```
 
 `tests/test_magics.py` drives a real in-process IPython shell
