@@ -5,6 +5,11 @@
       "release-type": "node",
       "component": "alpha-vscode",
       "include-component-in-tag": true
+    },
+    "alpha-py": {
+      "release-type": "python",
+      "component": "alphalang",
+      "include-component-in-tag": true
     }
   }
 }

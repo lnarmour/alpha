@@ -3,12 +3,12 @@ requires = ["maturin>=1.7,<2.0"]
 build-backend = "maturin"
 
 [project]
-name = "alpha"
+name = "alphalang"
 version = "0.1.0"
 description = "Interactive Python bindings for Alpha's scheduled codegen: read/normalize/schedule/generate (docs/scheduled-codegen-design.md)."
 requires-python = ">=3.9"
-# PyPI name collision risk noted in the design doc (§13) — not a blocker for internal/local use,
-# worth checking before any public release.
+# PyPI distribution name is `alphalang`, deliberately different from the `import alpha` name below
+# — sidesteps the PyPI name collision risk on the bare `alpha` name noted in the design doc (§13).
 
 [project.optional-dependencies]
 # The %%alpha/%%schedule magics (§5.2, §10.2) only self-register if IPython is importable —

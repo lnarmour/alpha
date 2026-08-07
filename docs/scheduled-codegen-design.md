@@ -592,8 +592,9 @@ in-process) — same pattern, different host language: `pyo3` instead of `napi`,
 with `maturin` instead of a `cdylib` napi module. Where `editors/vscode/native` only needs to expose
 parse/analyze diagnostics, `alpha-py` needs the full read → normalize → schedule → generate surface,
 so it depends on `alpha-syntax`, `alpha-model`, `alpha-transform`, and `alpha-codegen`. The Python
-package/import name is **`alpha`** (`import alpha`, `pip install alpha`) — check for a PyPI name
-collision before any public (non-internal) release.
+import name is **`alpha`** (`import alpha`); the published PyPI distribution is named
+**`alphalang`** (`pip install alphalang`) instead, to sidestep a name collision on the bare `alpha`
+name on PyPI.
 
 Three PyO3-wrapped types, each an immutable value wrapping a cloned `alpha_transform::ir::System`
 (or, for `ScheduledSystem`, the system plus its validated `isl::UnionMap` schedule) — deliberately

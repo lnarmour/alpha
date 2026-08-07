@@ -1,0 +1,148 @@
+name: Release Python package
+
+# Scoped to alpha-py only — kept separate from ci.yml, which stays as the Rust workspace's own
+# build+test gate and is unaffected by this workflow.
+#
+# release-please watches every push to main and maintains a standing release PR for the alpha-py
+# component (versioned via alpha-py/pyproject.toml, per release-please-config.json at the repo
+# root); when that PR is merged, this same workflow run also creates the GitHub Release/tag and the
+# `build` job below fires to attach platform-specific wheels to it.
+#
+# PyPI publishing itself is intentionally not wired up here yet — download the wheels from the
+# release and `twine upload` them by hand until that's set up.
+#
+# The published PyPI distribution is named `alphalang` (see alpha-py/pyproject.toml) — deliberately
+# different from the `import alpha` name, to sidestep a name collision on PyPI
+# (docs/scheduled-codegen-design.md §13). alpha-py's pyo3 dependency is built with the `abi3-py39`
+# feature (Cargo.toml), so one wheel per platform covers every CPython >=3.9 — no per-Python-version
+# build matrix needed.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs['alpha-py--release_created'] }}
+      tag_name: ${{ steps.release.outputs['alpha-py--tag_name'] }}
+    steps:
+      - id: release
+        uses: googleapis/release-please-action@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  build:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14 # Apple Silicon hosted runner
+            target: aarch64-apple-darwin
+            container: ""
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            # Building inside the official manylinux image (rather than plain ubuntu-latest, as
+            # release-vscode.yml's Linux leg does for the .vsix's native addon) is what makes the
+            # wheel's platform tag (manylinux_2_28_x86_64) actually mean something — maturin reads
+            # the image's AUDITWHEEL_PLAT env var to tag the wheel, and the resulting glibc/libc
+            # baseline is what makes it installable on other distros, not just the build host.
+            container: "quay.io/pypa/manylinux_2_28_x86_64"
+    runs-on: ${{ matrix.os }}
+    container: ${{ matrix.container }}
+    env:
+      # Links libisl/libgmp statically into the compiled extension module, so the shipped wheel has
+      # no runtime dependency on them being installed on the end user's machine — same convention
+      # release-vscode.yml's native addon build uses (isl-sys/build.rs recognizes this env var).
+      ISL_STATIC: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install system dependencies (macOS)
+        if: runner.os == 'macOS'
+        # Homebrew's isl formula pulls in gmp (and its static libgmp.a) as a dependency, so no
+        # separate `brew install gmp` is needed for the wheel's static link (see the manylinux step
+        # below for why Linux needs a from-source build instead of an equivalent one-liner).
+        run: brew install isl pkg-config
+
+      - name: Install system dependencies (manylinux)
+        if: runner.os == 'Linux'
+        run: dnf install -y clang-devel pkgconfig
+
+      - name: Build isl/gmp from source with -fPIC (manylinux)
+        if: runner.os == 'Linux'
+        # manylinux images ship no isl/gmp of their own, and distro packages of them (were we to
+        # add one) tend to ship static archives that aren't compiled with -fPIC — linking non-PIC
+        # code into the extension module's cdylib fails on x86-64 with e.g. "relocation
+        # R_X86_64_PC32 cannot be used against symbol 'stderr'; recompile with -fPIC" (same failure
+        # release-vscode.yml's Linux leg hit and documents in more detail). Building both from
+        # source with --with-pic avoids that; installing to our own prefix and pointing
+        # PKG_CONFIG_PATH there (pkg-config, and thus isl-sys's build.rs, checks it before any
+        # system path) makes that the copy that gets picked up.
+        env:
+          GMP_VERSION: 6.3.0
+          ISL_VERSION: 0.26
+        run: |
+          PREFIX="$HOME/isl-pic"
+          mkdir -p "$HOME/src" && cd "$HOME/src"
+
+          curl -sLO "https://ftp.gnu.org/gnu/gmp/gmp-$GMP_VERSION.tar.xz"
+          tar xf "gmp-$GMP_VERSION.tar.xz"
+          cd "gmp-$GMP_VERSION"
+          ./configure --prefix="$PREFIX" --enable-static --disable-shared --with-pic
+          make -j"$(nproc)"
+          make install
+          cd ..
+
+          curl -sL "https://libisl.sourceforge.io/isl-$ISL_VERSION.tar.bz2" -o "isl-$ISL_VERSION.tar.bz2"
+          tar xf "isl-$ISL_VERSION.tar.bz2"
+          cd "isl-$ISL_VERSION"
+          ./configure --prefix="$PREFIX" --enable-static --disable-shared --with-pic --with-gmp-prefix="$PREFIX"
+          make -j"$(nproc)"
+          make install
+          cd ..
+
+          echo "PKG_CONFIG_PATH=$PREFIX/lib/pkgconfig" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-python@v5
+        if: runner.os == 'macOS'
+        with:
+          python-version: "3.12"
+
+      - name: Install maturin (macOS)
+        if: runner.os == 'macOS'
+        run: pip install maturin
+
+      - name: Install maturin (manylinux)
+        if: runner.os == 'Linux'
+        # manylinux images' system python is too old to run maturin — use one of the /opt/python
+        # interpreters they bundle instead. Any one >=3.9 works: the abi3-py39 build only needs a
+        # single interpreter to invoke maturin, not one per supported Python version.
+        run: /opt/python/cp312-cp312/bin/pip install maturin
+
+      - name: Package wheel (macOS)
+        if: runner.os == 'macOS'
+        working-directory: alpha-py
+        run: maturin build --release --target ${{ matrix.target }} -o dist
+
+      - name: Package wheel (manylinux)
+        if: runner.os == 'Linux'
+        working-directory: alpha-py
+        run: /opt/python/cp312-cp312/bin/python -m maturin build --release --target ${{ matrix.target }} -i /opt/python/cp312-cp312/bin/python3.12 -o dist
+
+      - name: Attach wheel to the release
+        working-directory: alpha-py
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${{ needs.release-please.outputs.tag_name }}" dist/*.whl

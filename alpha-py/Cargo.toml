@@ -16,4 +16,4 @@ alpha-model.workspace = true
 alpha-transform.workspace = true
 alpha-codegen.workspace = true
 isl.workspace = true
-pyo3 = { version = "0.23", features = ["extension-module"] }
+pyo3 = { version = "0.23", features = ["extension-module", "abi3-py39"] }
