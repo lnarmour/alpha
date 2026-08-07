@@ -54,10 +54,11 @@ installed. If `ISL_STATIC` is set but no static archive (`libisl.a`/`libgmp.a`) 
 If the crate being linked into is itself a cdylib (like the native addon), the static archives
 need to be built with `-fPIC` — on x86-64 Linux, apt's `libisl-dev`/`libgmp-dev` are not, and
 linking them into a cdylib fails with `relocation R_X86_64_PC32 cannot be used against symbol
-'stderr'; recompile with -fPIC`. The release workflow (`.github/workflows/release-vscode.yml`)
-works around this by building both from source with `--with-pic` into a local prefix and pointing
-`PKG_CONFIG_PATH` at it, rather than using apt's copies. This isn't needed on macOS — Homebrew's
-static libs already work here.
+'stderr'; recompile with -fPIC`. The release workflow (`.github/workflows/release.yml`) works
+around this by building both from source with `--with-pic` into a local prefix and pointing
+`PKG_CONFIG_PATH` at it, rather than using apt's/dnf's copies (see also
+`alpha-py/ci/build-isl-static-linux.sh`, the same recipe for the Python wheel's manylinux build).
+This isn't needed on macOS — Homebrew's static libs already work here.
 
 ## Status
 
