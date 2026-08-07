@@ -14,7 +14,6 @@ name: Release VS Code extension
 on:
   push:
     branches: [main]
-  workflow_dispatch:
 
 permissions:
   contents: write
