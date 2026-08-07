@@ -1,4 +1,4 @@
-"""End-to-end tests for the alpha-py bindings (docs/scheduled-codegen-design.md §10.1).
+"""End-to-end tests for the alphalang bindings (docs/scheduled-codegen-design.md §10.1).
 
 Exercises the same read -> normalize -> schedule -> generate pipeline a notebook user
 would drive interactively, plus the two error paths the binding is responsible for

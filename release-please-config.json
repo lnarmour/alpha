@@ -7,7 +7,7 @@
       "component": "alpha-vscode",
       "include-component-in-tag": true
     },
-    "alpha-py": {
+    "alphalang": {
       "release-type": "python",
       "component": "alphalang",
       "include-component-in-tag": true

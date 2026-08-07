@@ -36,7 +36,7 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "alphalang", editable = "alpha-py" }]
+requires-dist = [{ name = "alphalang", editable = "alphalang" }]
 
 [package.metadata.requires-dev]
 dev = [
@@ -50,7 +50,7 @@ dev = [
 [[package]]
 name = "alphalang"
 version = "0.1.0"
-source = { editable = "alpha-py" }
+source = { editable = "alphalang" }
 
 [package.optional-dependencies]
 notebook = [

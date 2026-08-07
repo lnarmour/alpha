@@ -16,8 +16,8 @@ memory-mapping. `alpha-codegen` now has two backends: `WriteC`, the original dem
 generator (loop order falls out of memoized recursive calls, no explicit schedule), and
 `ScheduledC` (`docs/scheduled-codegen-design.md`), which takes an explicit, user-supplied target
 mapping and emits a flat loop nest in exactly the order it specifies — real polyhedral codegen
-*given* a schedule, still not a scheduler that derives one. `alpha-py`, a PyO3 binding crate, and
-an interactive Jupyter notebook workflow (`%%alpha`/`%%schedule` cell magics, `read`/`normalize`/
+*given* a schedule, still not a scheduler that derives one. `alphalang`, a PyO3 binding crate, and
+an interactive Jupyter notebook workflow (`%%alphalang`/`%%schedule` cell magics, `read`/`normalize`/
 `schedule`/`generate` as plain Python calls) are what actually drive `ScheduledC` day to day; see
 `docs/scheduled-codegen-design.md` for the full design and implementation-phasing history.
 
@@ -40,7 +40,7 @@ generated C
 ```
 
 `alphac` is the CLI that wires the `WriteC` path together end to end: `alphac file.alpha -o file.c`.
-`ScheduledC` has no CLI of its own — it's driven interactively through `alpha-py` (see
+`ScheduledC` has no CLI of its own — it's driven interactively through `alphalang` (see
 `docs/scheduled-codegen-design.md` §5, §10).
 
 ## Workspace layout
@@ -56,7 +56,7 @@ generated C
 | [`alpha-transform`](../alpha-transform) | `Normalize`, `NormalizeReduction` | Done for scope |
 | [`alpha-codegen`](../alpha-codegen) | `simpleC` model + `WriteC`/`ScheduledC` generators | Done for scope |
 | [`alphac`](../alphac) | CLI driver (`WriteC` only) | Done for scope |
-| [`alpha-py`](../alpha-py) | PyO3 bindings + IPython magics for the `ScheduledC` notebook workflow | Done for scope |
+| [`alphalang`](../alphalang) | PyO3 bindings + IPython magics for the `ScheduledC` notebook workflow | Done for scope |
 
 Each crate has its own README with module-level detail. See [`docs/progress.md`](progress.md) for the
 detailed, up-to-date crate-by-crate status, known bugs found and fixed, and next steps, meant to
@@ -69,9 +69,9 @@ for syntax highlighting) is built and released. No JupyterLab syntax highlightin
 built and then deliberately dropped; see `docs/scheduled-codegen-design.md` §10.2/§12 step 8 for why
 (JupyterLab 4 has no extension point mapping a cell-magic prefix to a highlighted language, so even
 working it would only ever have covered standalone `.alpha` files, not notebook cells — not worth a
-JS/TypeScript toolchain for that). The interactive notebook workflow itself (`%%alpha`/`%%schedule`
+JS/TypeScript toolchain for that). The interactive notebook workflow itself (`%%alphalang`/`%%schedule`
 cell magics, `read`/`normalize`/`schedule`/`generate`) is unaffected — it's plain Python, via
-`alpha-py`, and stays plain-text-highlighted in a notebook.
+`alphalang`, and stays plain-text-highlighted in a notebook.
 
 ## Prerequisites
 

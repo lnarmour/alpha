@@ -1,4 +1,4 @@
-# alpha-py
+# alphalang
 
 A PyO3 binding crate exposing `alpha-syntax`/`alpha-model`/`alpha-transform`/`alpha-codegen`'s
 `ScheduledC` pipeline (`docs/scheduled-codegen-design.md`) to Python, plus an IPython cell-magic
@@ -23,7 +23,7 @@ driven entirely through this crate.
   that created the value), not a workaround.
 - **`python/alphalang/__init__.py`**: re-exports the compiled extension's types/functions; imports
   `alphalang.magics` in a `try`/`except ImportError` (a no-op outside IPython).
-- **`python/alphalang/magics.py`**: `AlphaMagics(Magics)` — the `%%alpha <var>` and
+- **`python/alphalang/magics.py`**: `AlphaLangMagics(Magics)` — the `%%alphalang <var>` and
   `%%schedule <var> <source-system-var>` IPython cell magics, self-registering on `import alphalang`.
 - **`notebooks/prefix_sum.ipynb`**: a real, executed-and-checked-in worked example (also a
   regression fixture — see its own `notebooks/README.md`).
@@ -33,7 +33,7 @@ driven entirely through this crate.
 | Function/method | Returns | Notes |
 |---|---|---|
 | `alphalang.read(path)` | `System` | parse + analyze + lower a `.alpha` file from disk |
-| `alphalang.parse(source)` | `System` | same, from an inline string — what `%%alpha` is sugar for |
+| `alphalang.parse(source)` | `System` | same, from an inline string — what `%%alphalang` is sugar for |
 | `alphalang.normalize(sys)` | `NormalizedSystem` | runs `normalize_reduction::apply` then `normalize::apply` (that order is required — see `alpha-transform`'s own README) against a clone; `sys` is untouched |
 | `norm.schedule(text)` | `ScheduledSystem` | parses + validates (§6) + legality-checks (§7) a target mapping against a clone of `norm`; raises `alphalang.ScheduleError` and binds nothing on any failure |
 | `alphalang.generate(system)` | `str` | `NormalizedSystem` or `ScheduledSystem`; a bare `NormalizedSystem` is sugar for `generate(norm.schedule(""))` (§6's identity-schedule default) |
@@ -83,16 +83,16 @@ Force it explicitly:
 uv sync --reinstall-package alphalang
 ```
 
-(`maturin develop` from inside `alpha-py/` also still works, and is faster for a tight edit/test
+(`maturin develop` from inside `alphalang/` also still works, and is faster for a tight edit/test
 loop since it skips uv's dependency resolution step — but isn't required any more.) Plain
-`cargo build -p alpha-py` fails to link either way — expected for a PyO3 `extension-module` crate
+`cargo build -p alphalang` fails to link either way — expected for a PyO3 `extension-module` crate
 (Python symbols are resolved by the interpreter at runtime, not at link time).
 
 ## Testing
 
 ```
-pytest alpha-py/tests/                              # 18 tests: plain API + magics
-pytest --nbval alpha-py/notebooks/prefix_sum.ipynb  # 8 more: the notebook fixture
+pytest alphalang/tests/                              # 18 tests: plain API + magics
+pytest --nbval alphalang/notebooks/prefix_sum.ipynb  # 8 more: the notebook fixture
 ```
 
 `tests/test_magics.py` drives a real in-process IPython shell
@@ -106,7 +106,7 @@ the first (`start_ipython()`'s "run once" guard). Call it through the module att
 ## Status
 
 Done for scope (`docs/scheduled-codegen-design.md` §12, phasing step 7 — see it for the full list
-of findings). JupyterLab syntax highlighting for `%%alpha`/`%%schedule` cells was prototyped and
+of findings). JupyterLab syntax highlighting for `%%alphalang`/`%%schedule` cells was prototyped and
 then deliberately dropped, not shipped: JupyterLab 4 has no extension point mapping a cell-magic
 prefix to a highlighted language at all, so it would only ever have covered standalone `.alpha`
 files, not notebook cells — not worth a JS/TypeScript toolchain for that. Nothing functional
