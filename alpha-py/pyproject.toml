@@ -1,0 +1,51 @@
+[build-system]
+requires = ["maturin>=1.7,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "alphalang"
+version = "0.1.0"
+description = "Interactive Python bindings for Alpha's scheduled codegen: read/normalize/schedule/generate (docs/scheduled-codegen-design.md)."
+requires-python = ">=3.9"
+# PyPI distribution name and import name are both `alphalang` — sidesteps the PyPI name collision
+# risk on the bare `alpha` name noted in the design doc (§13).
+
+[project.optional-dependencies]
+# The %%alpha/%%schedule magics (§5.2, §10.2) only self-register if IPython is importable —
+# `alphalang/__init__.py` swallows the ImportError otherwise, so this stays optional rather than a
+# hard dependency of the package itself.
+notebook = ["ipython"]
+
+[tool.maturin]
+python-source = "python"
+module-name = "alphalang._alpha"
+features = ["pyo3/extension-module"]
+
+[tool.cibuildwheel]
+# Used by release.yml's python-wheels job, run with `working-directory: alpha-py` so this file is
+# both cibuildwheel's project root and package dir — `{package}` below refers to this directory.
+#
+# One build per platform: pyo3's abi3-py39 feature (Cargo.toml) makes the wheel forward-compatible
+# with every CPython >=3.9, so there's no need to build (or publish) once per Python version.
+build = "cp39-*"
+skip = "*-musllinux*"
+manylinux-x86_64-image = "manylinux_2_28"
+manylinux-aarch64-image = "manylinux_2_28"
+
+[tool.cibuildwheel.linux]
+before-all = "{package}/ci/build-isl-static-linux.sh"
+environment = { ISL_STATIC = "1", PKG_CONFIG_PATH = "$HOME/isl-pic/lib/pkgconfig", PATH = "$HOME/.cargo/bin:$PATH" }
+
+[tool.cibuildwheel.macos]
+# Homebrew's isl formula pulls in gmp (and its already-PIC static libgmp.a) as a dependency, so no
+# separate `brew install gmp` or from-source build is needed here — see build-isl-static-linux.sh
+# for why Linux can't take this shortcut.
+before-all = "brew install isl pkg-config"
+environment = { ISL_STATIC = "1" }
+
+[dependency-groups]
+# This crate is built and tested against the repo root's shared `.venv` (its `pyproject.toml`
+# declares the same dev tools) — `uv sync` from the repo root is the actual workflow. This group
+# documents what alpha-py itself needs and covers running `uv sync` from inside this directory
+# standalone.
+dev = ["maturin", "pytest", "nbval", "ipython", "jupyterlab"]

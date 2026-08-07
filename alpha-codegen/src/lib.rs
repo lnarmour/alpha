@@ -6,10 +6,20 @@
 //! `barvinok`) build uses a deliberately sanctioned isl-only bounding-box fallback instead, see
 //! [`layout`]'s module doc.
 
+pub mod describe;
 pub mod error;
+mod expr;
 pub mod layout;
+mod legality;
+mod schedule;
+mod scheduledc;
 pub mod simplec;
+mod stmt;
+#[cfg(test)]
+mod test_util;
 pub mod writec;
 
+pub use describe::{describe_normalized_system, describe_system};
 pub use error::{CodegenError, Result};
+pub use scheduledc::{generate_scheduled_system, validate_scheduled_system};
 pub use writec::generate_system;

@@ -6,6 +6,9 @@
 //! affine/boolean condition is rendered through isl's own C-format printer (see
 //! `crate::layout`/`isl::ast`'s module docs) rather than a hand-written affine-to-C converter.
 //!
+//! Expression-level codegen (`gen_value` and everything it calls, except `Reduce` itself) lives
+//! in `crate::expr`, shared with `ScheduledC` — see that module's doc comment for the boundary.
+//!
 //! **Scope, relative to the source system's own `WriteC`** — see this crate's
 //! `error::CodegenError::Unsupported` sites for the specifics:
 //! - `UseEquation`: no codegen backend, matching the source system exactly (not a port
@@ -21,24 +24,13 @@
 //!   isl-only fallback, not a correctness gap.
 
 use crate::error::{CodegenError, Result};
+use crate::expr::{self, ExprGen, Role, VarInfo};
 use crate::layout;
 use crate::simplec::{CType, Expr as CExpr, Function, Stmt};
 use alpha_transform::ir;
 use isl::{AstBuild, AstNodeKind, Context, DimType, Format, MultiAff, Set, UnionMap};
 use std::collections::{BTreeSet, HashMap};
 use std::fmt::Write as _;
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum Role {
-    Input,
-    Output,
-    Local,
-}
-
-struct VarInfo {
-    role: Role,
-    ndims: u32,
-}
 
 struct Gen {
     ctx: Context,
@@ -47,6 +39,41 @@ struct Gen {
     reduce_counter: u32,
     reduce_fns: Vec<Function>,
     externs: BTreeSet<String>,
+}
+
+impl ExprGen for Gen {
+    fn ctx(&self) -> &Context {
+        &self.ctx
+    }
+
+    fn param_names(&self) -> &[String] {
+        &self.param_names
+    }
+
+    fn variable(&self, name: &str) -> Option<&VarInfo> {
+        self.variables.get(name)
+    }
+
+    fn add_extern(&mut self, name: &str) {
+        self.externs.insert(name.to_string());
+    }
+
+    fn render_read(&self, name: &str, role: Role, idx: &[String]) -> String {
+        match role {
+            Role::Input => format!("{name}({})", idx.join(",")),
+            Role::Output | Role::Local => format!("eval_{name}({})", idx.join(",")),
+        }
+    }
+
+    fn gen_reduce_value(
+        &mut self,
+        names: &[String],
+        operator: &ir::Operator,
+        body_context_hint: &[String],
+        body: &ir::Expr,
+    ) -> Result<CExpr> {
+        gen_reduce(self, names, operator, body_context_hint, body)
+    }
 }
 
 /// Generates a whole system's C source as one self-contained file (preamble, globals, memory
@@ -70,7 +97,7 @@ pub fn generate_system(system: &ir::System) -> Result<String> {
     };
 
     let ctx = first_body.domain.ctx();
-    let param_names = param_names_of(&first_body.domain);
+    let param_names = expr::param_names_of(&first_body.domain);
 
     let mut variables = HashMap::new();
     for v in &system.inputs {
@@ -137,397 +164,6 @@ pub fn generate_system(system: &ir::System) -> Result<String> {
     Ok(render_program(system, &g, &eval_fns, &driver))
 }
 
-fn param_names_of(domain: &Set) -> Vec<String> {
-    let space = domain.space();
-    let n = space.dim(DimType::Param);
-    (0..n)
-        .map(|d| {
-            space
-                .dim_name(DimType::Param, d)
-                .unwrap_or_else(|| format!("P{d}"))
-        })
-        .collect()
-}
-
-fn space_prefix(params: &[String]) -> String {
-    if params.is_empty() {
-        String::new()
-    } else {
-        format!("[{}] -> ", params.join(","))
-    }
-}
-
-/// Builds an `AstBuild` whose "current" dims are exactly `names` (plus every system param) — used
-/// to render a `Set` sharing that ambient space as a boolean C condition via
-/// `AstBuild::expr_from_set`. The passed set's *own* dim names don't need to match `names` (isl
-/// matches positionally here — verified empirically against a real isl build before writing this
-/// module); only the dim count and param names need to agree.
-fn ambient_build(g: &Gen, names: &[String]) -> Result<AstBuild> {
-    let text = if names.is_empty() {
-        format!("{}{{: }}", space_prefix(&g.param_names))
-    } else {
-        format!(
-            "{}{{[{}]: }}",
-            space_prefix(&g.param_names),
-            names.join(",")
-        )
-    };
-    let universe = Set::read_from_str(&g.ctx, &text)?;
-    Ok(AstBuild::from_context(universe)?)
-}
-
-fn is_valid_c_ident(s: &str) -> bool {
-    let mut chars = s.chars();
-    let Some(first) = chars.next() else {
-        return false;
-    };
-    if !(first.is_ascii_alphabetic() || first == '_') {
-        return false;
-    }
-    if !chars.all(|c| c.is_ascii_alphanumeric() || c == '_') {
-        return false;
-    }
-    !matches!(
-        s,
-        "int"
-            | "float"
-            | "double"
-            | "return"
-            | "if"
-            | "else"
-            | "for"
-            | "while"
-            | "long"
-            | "char"
-            | "void"
-            | "static"
-            | "struct"
-            | "const"
-            | "break"
-            | "continue"
-    )
-}
-
-/// Prefers `hint` (real source names, threaded through from `alpha_transform::ir` purely as a
-/// naming aid — see that crate's doc comments on `StandardEquation::index_names`/
-/// `ExprKind::Reduce::body_context`) when it has exactly `n` valid C identifiers; falls back to
-/// synthesized `<prefix><0..n>` names otherwise. Either choice is semantically equivalent — the
-/// actual C variable a dimension gets named is cosmetic, since every isl object this generator
-/// prints from is explicitly renamed to match via `MultiAff::set_dim_name` before printing.
-fn pick_names(hint: &[String], n: u32) -> Vec<String> {
-    pick_names_prefixed(hint, n, "i")
-}
-
-fn pick_names_prefixed(hint: &[String], n: u32, prefix: &str) -> Vec<String> {
-    if hint.len() as u32 == n && hint.iter().all(|s| is_valid_c_ident(s)) {
-        hint.to_vec()
-    } else {
-        (0..n).map(|i| format!("{prefix}{i}")).collect()
-    }
-}
-
-/// Classifies an isl failure from a bound-dependent operation (`Set::dim_max`/`dim_min`,
-/// `AstBuild::generate`) as a documented scope boundary rather than a bug, when it's isl's own
-/// "unbounded optimum" — a real, if rare, tree shape this port doesn't handle: e.g. a `case`'s
-/// `auto` branch's true domain is computed purely as "parent context minus siblings"
-/// (`Normalize`'s own rule discards a wrapping restrict for `auto` specifically — see that
-/// module's doc), and if the reduce/equation's own ambient context is *itself* unbounded (nothing
-/// else constrains it, e.g. a 0-dimensional output whose whole body is one `reduce` with an
-/// `auto` case branch), the `auto` branch's resulting domain can be unbounded even though the
-/// source program's intent was clearly finite. A real limitation of this session's from-context
-/// bound derivation, not something to silently mis-generate.
-fn isl_bound_err(context: &str, e: isl::IslError) -> CodegenError {
-    if e.message.contains("unbounded") {
-        CodegenError::Unsupported(format!(
-            "{context}: isl couldn't establish a bound (\"{}\") — likely a `case` branch (often \
-             `auto`) whose domain isn't independently bounded once combined with only the \
-             enclosing equation's own ambient context; a documented limitation, not a crash",
-            e.message
-        ))
-    } else {
-        CodegenError::Isl(e)
-    }
-}
-
-fn rename_inputs(f: MultiAff, names: &[String]) -> Result<MultiAff> {
-    let mut f = f;
-    for (d, name) in names.iter().enumerate() {
-        f = f.set_dim_name(DimType::In, d as u32, name)?;
-    }
-    Ok(f)
-}
-
-fn binary_c_op(op: &str) -> Option<&'static str> {
-    Some(match op {
-        "+" => "+",
-        "-" => "-",
-        "*" => "*",
-        "/" => "/",
-        "=" => "==",
-        "!=" => "!=",
-        ">=" => ">=",
-        ">" => ">",
-        "<" => "<",
-        "<=" => "<=",
-        "and" => "&&",
-        "or" => "||",
-        _ => return None,
-    })
-}
-
-fn gen_value(g: &mut Gen, names: &[String], e: &ir::Expr) -> Result<CExpr> {
-    match &*e.kind {
-        ir::ExprKind::Variable(name) => Err(CodegenError::Unsupported(format!(
-            "internal error: bare Variable('{name}') reached codegen outside a Dependence — \
-             Normalize should have wrapped every Variable in an identity Dependence"
-        ))),
-        ir::ExprKind::Bool(b) => Ok(CExpr::Raw(if *b {
-            "1.0f".to_string()
-        } else {
-            "0.0f".to_string()
-        })),
-        ir::ExprKind::Int(s) => Ok(CExpr::Raw(format!("((float)({s}))"))),
-        ir::ExprKind::Real(s) => Ok(CExpr::Raw(format!("((float)({s}))"))),
-        ir::ExprKind::Dependence { function, operand } => {
-            gen_dependence(g, names, function, operand)
-        }
-        ir::ExprKind::IndexFunction { function } => gen_index_function(names, function),
-        ir::ExprKind::IndexPolynomial { .. } => Err(CodegenError::Unsupported(
-            "val{...} (polynomial-valued index expression) codegen not implemented this session"
-                .to_string(),
-        )),
-        ir::ExprKind::If {
-            cond,
-            then_branch,
-            else_branch,
-        } => {
-            let c = gen_value(g, names, cond)?;
-            let t = gen_value(g, names, then_branch)?;
-            let e2 = gen_value(g, names, else_branch)?;
-            Ok(CExpr::Ternary(Box::new(c), Box::new(t), Box::new(e2)))
-        }
-        ir::ExprKind::Restrict { operand, .. } => gen_value(g, names, operand),
-        ir::ExprKind::AutoRestrict { operand } => gen_value(g, names, operand),
-        ir::ExprKind::Case { branches, .. } => gen_case(g, names, branches),
-        ir::ExprKind::Reduce {
-            is_arg_reduce,
-            operator,
-            body_context,
-            body,
-            ..
-        } => {
-            if *is_arg_reduce {
-                return Err(CodegenError::Unsupported(
-                    "argreduce codegen not implemented (unseen across the whole fixture corpus)"
-                        .to_string(),
-                ));
-            }
-            gen_reduce(g, names, operator, body_context, body)
-        }
-        ir::ExprKind::Convolution { .. } => Err(CodegenError::Unsupported(
-            "Convolution codegen not implemented — should be unreachable, since \
-             alpha_model::domain's own documented gap means lowering already excludes any \
-             equation containing one"
-                .to_string(),
-        )),
-        ir::ExprKind::Select { .. } => Err(CodegenError::Unsupported(
-            "select {relation} from E codegen not implemented this session".to_string(),
-        )),
-        ir::ExprKind::MultiArg { operator, args } => gen_multi_arg(g, names, operator, args),
-        ir::ExprKind::Binary { operator, lhs, rhs } => gen_binary(g, names, operator, lhs, rhs),
-        ir::ExprKind::Unary { operator, operand } => gen_unary(g, names, operator, operand),
-    }
-}
-
-fn gen_dependence(
-    g: &mut Gen,
-    names: &[String],
-    function: &MultiAff,
-    operand: &ir::Expr,
-) -> Result<CExpr> {
-    match &*operand.kind {
-        ir::ExprKind::Bool(_) | ir::ExprKind::Int(_) | ir::ExprKind::Real(_) => {
-            // A dependence function applied to a constant doesn't change its value — only the
-            // (already-accounted-for-elsewhere) domain it's replicated across.
-            gen_value(g, names, operand)
-        }
-        ir::ExprKind::Variable(name) => {
-            let info = g.variables.get(name.as_str()).ok_or_else(|| {
-                CodegenError::Unsupported(format!("reference to undeclared variable '{name}'"))
-            })?;
-            let n_in = function.dim(DimType::In);
-            if n_in != names.len() as u32 {
-                return Err(CodegenError::Unsupported(format!(
-                    "dependence function arity ({n_in}) doesn't match the ambient index count ({})",
-                    names.len()
-                )));
-            }
-            if function.dim(DimType::OutOrSet) != info.ndims {
-                return Err(CodegenError::Unsupported(format!(
-                    "dependence function's output arity doesn't match '{name}''s own dimensionality"
-                )));
-            }
-            let renamed = rename_inputs(function.clone(), names)?;
-            let mut idx = Vec::with_capacity(info.ndims as usize);
-            for d in 0..info.ndims {
-                idx.push(renamed.get_aff(d)?.to_string_fmt(Format::C));
-            }
-            let call = match info.role {
-                Role::Input => format!("{name}({})", idx.join(",")),
-                Role::Output | Role::Local => format!("eval_{name}({})", idx.join(",")),
-            };
-            Ok(CExpr::Raw(call))
-        }
-        other => Err(CodegenError::Unsupported(format!(
-            "internal error: Dependence child is {} (Normalize guarantees Variable or a constant)",
-            other_kind_name(other)
-        ))),
-    }
-}
-
-fn other_kind_name(k: &ir::ExprKind) -> &'static str {
-    match k {
-        ir::ExprKind::Variable(_) => "Variable",
-        ir::ExprKind::Bool(_) => "Bool",
-        ir::ExprKind::Int(_) => "Int",
-        ir::ExprKind::Real(_) => "Real",
-        ir::ExprKind::Dependence { .. } => "Dependence",
-        ir::ExprKind::IndexFunction { .. } => "IndexFunction",
-        ir::ExprKind::IndexPolynomial { .. } => "IndexPolynomial",
-        ir::ExprKind::If { .. } => "If",
-        ir::ExprKind::Restrict { .. } => "Restrict",
-        ir::ExprKind::AutoRestrict { .. } => "AutoRestrict",
-        ir::ExprKind::Case { .. } => "Case",
-        ir::ExprKind::Reduce { .. } => "Reduce",
-        ir::ExprKind::Convolution { .. } => "Convolution",
-        ir::ExprKind::Select { .. } => "Select",
-        ir::ExprKind::MultiArg { .. } => "MultiArg",
-        ir::ExprKind::Binary { .. } => "Binary",
-        ir::ExprKind::Unary { .. } => "Unary",
-    }
-}
-
-fn gen_index_function(names: &[String], function: &MultiAff) -> Result<CExpr> {
-    if function.dim(DimType::OutOrSet) != 1 {
-        return Err(CodegenError::Unsupported(
-            "val(f) codegen only implemented for a single-output function".to_string(),
-        ));
-    }
-    if function.dim(DimType::In) != names.len() as u32 {
-        return Err(CodegenError::Unsupported(
-            "val(f) function's arity doesn't match the ambient index count".to_string(),
-        ));
-    }
-    let renamed = rename_inputs(function.clone(), names)?;
-    Ok(CExpr::Raw(format!(
-        "((float)({}))",
-        renamed.get_aff(0)?.to_string_fmt(Format::C)
-    )))
-}
-
-fn gen_case(g: &mut Gen, names: &[String], branches: &[ir::Expr]) -> Result<CExpr> {
-    let Some((last, rest)) = branches.split_last() else {
-        return Err(CodegenError::Unsupported(
-            "case with zero branches".to_string(),
-        ));
-    };
-    let mut result = gen_value(g, names, last)?;
-    if rest.is_empty() {
-        return Ok(result);
-    }
-    let build = ambient_build(g, names)?;
-    for b in rest.iter().rev() {
-        let guard = b.context_domain.clone().ok_or_else(|| {
-            CodegenError::Unsupported(
-                "case branch missing a context domain — codegen must run after Normalize's \
-                 context refresh"
-                    .to_string(),
-            )
-        })?;
-        let cond_expr = build.expr_from_set(guard)?;
-        let cond = CExpr::Raw(cond_expr.to_string_fmt(Format::C));
-        let val = gen_value(g, names, b)?;
-        result = CExpr::Ternary(Box::new(cond), Box::new(val), Box::new(result));
-    }
-    Ok(result)
-}
-
-fn gen_binary(
-    g: &mut Gen,
-    names: &[String],
-    operator: &str,
-    lhs: &ir::Expr,
-    rhs: &ir::Expr,
-) -> Result<CExpr> {
-    let l = gen_value(g, names, lhs)?;
-    let r = gen_value(g, names, rhs)?;
-    match operator {
-        "min" | "max" => Ok(CExpr::Call(operator.to_string(), vec![l, r])),
-        "xor" => Ok(CExpr::Raw(format!("((({l}) != 0) != (({r}) != 0))"))),
-        _ => {
-            let c_op = binary_c_op(operator).ok_or_else(|| {
-                CodegenError::Unsupported(format!("unknown binary operator '{operator}'"))
-            })?;
-            Ok(CExpr::Raw(format!("(({l}) {c_op} ({r}))")))
-        }
-    }
-}
-
-fn gen_unary(g: &mut Gen, names: &[String], operator: &str, operand: &ir::Expr) -> Result<CExpr> {
-    let v = gen_value(g, names, operand)?;
-    match operator {
-        "-" => Ok(CExpr::Raw(format!("(-({v}))"))),
-        "not" => Ok(CExpr::Raw(format!("(!({v}))"))),
-        _ => Err(CodegenError::Unsupported(format!(
-            "unknown unary operator '{operator}'"
-        ))),
-    }
-}
-
-fn gen_multi_arg(
-    g: &mut Gen,
-    names: &[String],
-    operator: &ir::Operator,
-    args: &[ir::Expr],
-) -> Result<CExpr> {
-    let vals: Vec<CExpr> = args
-        .iter()
-        .map(|a| gen_value(g, names, a))
-        .collect::<Result<_>>()?;
-    match operator {
-        ir::Operator::External(name) => {
-            g.externs.insert(name.clone());
-            Ok(CExpr::Call(name.clone(), vals))
-        }
-        ir::Operator::Named(op) => {
-            let mut iter = vals.into_iter();
-            let first = iter.next().ok_or_else(|| {
-                CodegenError::Unsupported("multi-arg with zero operands".to_string())
-            })?;
-            // `sum`/`prod` are `MultiArgExpression`'s own N-ary spellings of `+`/`*` (see
-            // `alpha-syntax`'s `MultiArgExpr::named_operator`) — not reduce-operator tokens here.
-            match op.as_str() {
-                "min" | "max" => {
-                    Ok(iter.fold(first, |acc, v| CExpr::Call(op.clone(), vec![acc, v])))
-                }
-                "xor" => Ok(iter.fold(first, |acc, v| {
-                    CExpr::Raw(format!("((({acc}) != 0) != (({v}) != 0))"))
-                })),
-                "sum" => Ok(iter.fold(first, |acc, v| CExpr::Raw(format!("(({acc}) + ({v}))")))),
-                "prod" => Ok(iter.fold(first, |acc, v| CExpr::Raw(format!("(({acc}) * ({v}))")))),
-                _ => {
-                    let c_op = binary_c_op(op).ok_or_else(|| {
-                        CodegenError::Unsupported(format!("unknown multi-arg operator '{op}'"))
-                    })?;
-                    Ok(iter.fold(first, |acc, v| {
-                        CExpr::Raw(format!("(({acc}) {c_op} ({v}))"))
-                    }))
-                }
-            }
-        }
-    }
-}
-
 #[allow(clippy::type_complexity)]
 fn gen_reduce(
     g: &mut Gen,
@@ -573,7 +209,7 @@ fn gen_reduce(
     } else {
         Vec::new()
     };
-    let new_names = pick_names_prefixed(&new_hint, b, "k");
+    let new_names = expr::pick_names_prefixed(&new_hint, b, "k");
 
     let n_param = g.param_names.len() as u32;
     let mut domain = full_domain;
@@ -591,7 +227,7 @@ fn gen_reduce(
         .intersect_domain(domain.clone())?;
     let ast = build
         .generate(UnionMap::from_map(ident))
-        .map_err(|e| isl_bound_err("generating this reduce's own summation loop", e))?;
+        .map_err(|e| expr::isl_bound_err("generating this reduce's own summation loop", e))?;
 
     let mut for_headers = Vec::new();
     let mut node = ast;
@@ -620,7 +256,7 @@ fn gen_reduce(
         }
         let value = domain
             .dim_max(pos as u32)
-            .map_err(|e| isl_bound_err(&format!("resolving reduce index '{name}'"), e))?
+            .map_err(|e| expr::isl_bound_err(&format!("resolving reduce index '{name}'"), e))?
             .to_string_fmt(Format::C);
         degenerate.insert(name.clone(), value);
     }
@@ -630,7 +266,7 @@ fn gen_reduce(
         .cloned()
         .chain(new_names.iter().cloned())
         .collect();
-    let value = gen_value(g, &reduce_local_names, body)?;
+    let value = expr::gen_value(g, &reduce_local_names, body)?;
 
     let (init_val, combine_extern): (String, Option<String>) = match operator {
         ir::Operator::External(name) => {
@@ -739,21 +375,21 @@ fn gen_eval_function(
 ) -> Result<Function> {
     let ndims = v.domain.dim(DimType::OutOrSet);
     let hint = &eqs[0].1.index_names;
-    let names = pick_names(hint, ndims);
+    let names = expr::pick_names(hint, ndims);
     let params: Vec<(CType, String)> = names.iter().map(|n| (CType::Long, n.clone())).collect();
 
     let value_expr = if eqs.len() == 1 {
-        gen_value(g, &names, &eqs[0].1.expr)?
+        expr::gen_value(g, &names, &eqs[0].1.expr)?
     } else {
         let Some((last, rest)) = eqs.split_last() else {
             unreachable!("eqs is non-empty (checked by caller)")
         };
-        let build = ambient_build(g, &[])?;
-        let mut result = gen_value(g, &names, &last.1.expr)?;
+        let build = expr::ambient_build(&g.ctx, &g.param_names, &[])?;
+        let mut result = expr::gen_value(g, &names, &last.1.expr)?;
         for (body_domain, s) in rest.iter().rev() {
             let cond_expr = build.expr_from_set((*body_domain).clone())?;
             let cond = CExpr::Raw(cond_expr.to_string_fmt(Format::C));
-            let val = gen_value(g, &names, &s.expr)?;
+            let val = expr::gen_value(g, &names, &s.expr)?;
             result = CExpr::Ternary(Box::new(cond), Box::new(val), Box::new(result));
         }
         result
@@ -824,7 +460,9 @@ fn union_of_body_domains(system: &ir::System) -> Result<Set> {
 
 fn flat_alloc_stmts(name: &str, ndims: u32, domain: &Set, elem_ctype: &str) -> Result<Vec<Stmt>> {
     let bounds = layout::FlatBounds::compute(domain).map_err(|e| match e {
-        CodegenError::Isl(isl_e) => isl_bound_err(&format!("sizing storage for '{name}'"), isl_e),
+        CodegenError::Isl(isl_e) => {
+            expr::isl_bound_err(&format!("sizing storage for '{name}'"), isl_e)
+        }
         other => other,
     })?;
     let mut stmts: Vec<Stmt> = layout::flat_size_init_stmts(name, &bounds)
@@ -859,7 +497,7 @@ fn gen_eval_loop(v: &ir::Variable) -> Result<Vec<Stmt>> {
         .into_map()?
         .intersect_domain(v.domain.clone())?;
     let ast = build.generate(UnionMap::from_map(ident)).map_err(|e| {
-        isl_bound_err(
+        expr::isl_bound_err(
             &format!("generating the driver's loop over '{}'", v.name),
             e,
         )
@@ -915,7 +553,7 @@ fn gen_driver(g: &mut Gen, system: &ir::System) -> Result<Function> {
     }
 
     let params_only_domain = union_of_body_domains(system)?;
-    let build0 = ambient_build(g, &[])?;
+    let build0 = expr::ambient_build(&g.ctx, &g.param_names, &[])?;
     let cond = build0.expr_from_set(params_only_domain)?;
     body.push(Stmt::Raw(String::new()));
     body.push(Stmt::Raw("// Check parameter validity.".to_string()));

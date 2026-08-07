@@ -2,10 +2,16 @@
 name = "alpha-rs"
 version = "0.0.0"
 requires-python = ">=3.9"
-dependencies = []
+dependencies = ["alphalang"]
 
 [tool.uv]
 package = false
 
+[tool.uv.workspace]
+members = ["alpha-py"]
+
+[tool.uv.sources]
+alphalang = { workspace = true }
+
 [dependency-groups]
-dev = ["prek"]
+dev = ["prek", "pytest", "nbval", "ipython", "jupyterlab"]

@@ -74,6 +74,16 @@ impl Set {
         unsafe { Space::from_raw(self.ctx.clone(), ptr) }
     }
 
+    /// Tags `self`'s space with a tuple name (`isl_set_set_tuple_name`) — used by scheduled
+    /// codegen to key a statement's domain by its statement name (§4.3/§6 of
+    /// `docs/scheduled-codegen-design.md`) before anything tuple-name-keyed touches it.
+    pub fn set_tuple_name(self, name: &str) -> Result<Set> {
+        let ctx = self.ctx.clone();
+        let cname = CString::new(name).expect("tuple name must not contain NUL bytes");
+        let ptr = unsafe { isl_sys::isl_set_set_tuple_name(self.into_raw(), cname.as_ptr()) };
+        Ok(unsafe { Set::from_raw(ctx.clone(), ctx.check(ptr)?) })
+    }
+
     pub fn dim(&self, ty: DimType) -> u32 {
         let n = unsafe { isl_sys::isl_set_dim(self.ptr, ty.to_raw()) };
         n.max(0) as u32

@@ -1,0 +1,5 @@
+---
+source: alpha-codegen/src/schedule.rs
+expression: msg
+---
+invalid target mapping: target mapping statements don't share one schedule-space width — 'Y__reduce' has width 3, but 'Y__init' has width 2; every *mentioned* statement must map into exactly the same width (§6) — pad the narrower one by hand

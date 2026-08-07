@@ -1,0 +1,22 @@
+[package]
+name = "alpha-py"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+description = "PyO3 binding exposing read/normalize/schedule/generate to a Jupyter notebook — the interactive front end for scheduled codegen (docs/scheduled-codegen-design.md §10.1)."
+publish = false
+
+[lib]
+name = "_alpha"
+crate-type = ["cdylib"]
+
+[dependencies]
+alpha-syntax.workspace = true
+alpha-model.workspace = true
+alpha-transform.workspace = true
+alpha-codegen.workspace = true
+isl.workspace = true
+pyo3 = { version = "0.23", features = ["extension-module", "abi3-py39"] }
+
+[build-dependencies]
+pyo3-build-config = "0.23"

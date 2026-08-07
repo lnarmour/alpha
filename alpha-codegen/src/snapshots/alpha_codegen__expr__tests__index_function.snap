@@ -1,0 +1,5 @@
+---
+source: alpha-codegen/src/expr.rs
+expression: "render_rhs(&system, \"Y\")"
+---
+((float)(N - i))

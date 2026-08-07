@@ -1,0 +1,8 @@
+---
+source: alpha-codegen/src/scheduledc.rs
+expression: render_stmts(rendered)
+---
+void test(void) {
+	long i = i0;
+	Y(i) = (N >= 11) ? (X(i)) : (((X(i)) + (X(i))));
+}

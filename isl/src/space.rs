@@ -51,6 +51,22 @@ impl Space {
         n.max(0) as u32
     }
 
+    /// The tuple name on the domain (`DimType::In`) or range (`DimType::OutOrSet`) side of this
+    /// space — e.g. the `S1` in `S1[i] -> [i,0]`. Scheduled codegen keys every statement by its
+    /// own domain tuple name (`docs/scheduled-codegen-design.md` §4.3/§6); this is how a
+    /// `UnionMap::for_each_map`-discovered fragment's own statement name is actually read back.
+    pub fn tuple_name(&self, ty: DimType) -> Option<String> {
+        let ptr = unsafe { isl_sys::isl_space_get_tuple_name(self.ptr, ty.to_raw()) };
+        if ptr.is_null() {
+            return None;
+        }
+        Some(
+            unsafe { std::ffi::CStr::from_ptr(ptr) }
+                .to_string_lossy()
+                .into_owned(),
+        )
+    }
+
     pub fn dim_name(&self, ty: DimType, pos: u32) -> Option<String> {
         let ptr = unsafe { isl_sys::isl_space_get_dim_name(self.ptr, ty.to_raw(), pos) };
         if ptr.is_null() {

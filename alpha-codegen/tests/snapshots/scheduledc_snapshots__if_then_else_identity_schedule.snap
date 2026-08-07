@@ -1,0 +1,12 @@
+---
+source: alpha-codegen/tests/scheduledc_snapshots.rs
+expression: identity
+---
+// Evaluate every statement, in schedule order.
+	long c0;
+	for (c0 = 0; c0 < N; c0 += 1) {
+		{
+			long i = c0;
+			Y(i) = (((X(i)) > (((float)(0))))) ? (X(i)) : ((-(X(i))));
+		}
+	}

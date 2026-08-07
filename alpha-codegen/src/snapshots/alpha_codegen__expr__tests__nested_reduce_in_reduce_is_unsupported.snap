@@ -1,0 +1,5 @@
+---
+source: alpha-codegen/src/expr.rs
+expression: err.to_string()
+---
+unsupported: a Reduce nested directly inside another Reduce's body is not implemented — the one case normalize_reduction doesn't hoist (§7.3, §11)

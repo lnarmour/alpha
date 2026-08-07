@@ -1234,6 +1234,7 @@ fn normalize_to_fixpoint(expr: Expr, top_context: Set, deep: bool) -> Expr {
 pub fn apply(system: System, deep: bool) -> System {
     let System {
         name,
+        parameter_domain,
         inputs,
         outputs,
         locals,
@@ -1289,6 +1290,7 @@ pub fn apply(system: System, deep: bool) -> System {
 
     System {
         name,
+        parameter_domain,
         inputs,
         outputs,
         locals,

@@ -2,7 +2,7 @@
 //! dependence-expression domain propagation (`apply`/`preimage`) in `alpha-model`.
 use crate::ctx::{take_c_string, Context, Result};
 use crate::set::{Format, Set};
-use crate::space::DimType;
+use crate::space::{DimType, Space};
 use std::ffi::CString;
 
 pub struct Map {
@@ -28,9 +28,66 @@ impl Map {
         Ok(unsafe { Map::from_raw(ctx.clone(), ctx.check(ptr)?) })
     }
 
+    /// The universal `{ [x] -> [y] : x >=_lex y }` ordering relation on `space` treated as a set
+    /// space (i.e. `space -> space`) — the building block scheduled codegen's legality check
+    /// (§7.2 of `docs/scheduled-codegen-design.md`) composes with a dependence edge to test
+    /// whether a schedule reorders it.
+    pub fn lex_ge_on_space(space: Space) -> Result<Map> {
+        let ctx = space.ctx.clone();
+        let ptr = unsafe { isl_sys::isl_map_lex_ge(space.into_raw()) };
+        Ok(unsafe { Map::from_raw(ctx.clone(), ctx.check(ptr)?) })
+    }
+
     pub fn dim(&self, ty: DimType) -> u32 {
         let n = unsafe { isl_sys::isl_map_dim(self.ptr, ty.to_raw()) };
         n.max(0) as u32
+    }
+
+    pub fn space(&self) -> Space {
+        let ptr = unsafe { isl_sys::isl_map_get_space(self.ptr) };
+        unsafe { Space::from_raw(self.ctx.clone(), ptr) }
+    }
+
+    /// Tags the domain (`DimType::In`) or range (`DimType::OutOrSet`) side of `self`'s space with
+    /// a tuple name — needed wherever a map built from an analysis artifact with no inherent
+    /// statement identity (e.g. a reduce's own `projection: MultiAff`, `alpha-codegen`'s
+    /// scheduled-codegen legality checker) needs to compose via `apply_range`/`apply_domain`
+    /// against another map keyed by statement name, since those require exact tuple-id equality
+    /// on the composing side (`isl_space_tuple_is_equal`), not just matching dim counts.
+    pub fn set_tuple_name(self, ty: DimType, name: &str) -> Result<Map> {
+        let ctx = self.ctx.clone();
+        let cname = CString::new(name).expect("tuple name must not contain NUL bytes");
+        let ptr = unsafe {
+            isl_sys::isl_map_set_tuple_name(self.into_raw(), ty.to_raw(), cname.as_ptr())
+        };
+        Ok(unsafe { Map::from_raw(ctx.clone(), ctx.check(ptr)?) })
+    }
+
+    /// Clears any tuple name on the domain/range side of `self`'s space (isl's own convention: a
+    /// null name pointer means anonymous) — the counterpart to [`Self::set_tuple_name`], needed to
+    /// undo tuple identity a construction step incidentally introduced (e.g. an identity map's
+    /// range inheriting its domain's own tuple name, since the two share one space) where a plain
+    /// anonymous tuple, matching every *other* differently-constructed map with the same
+    /// dimensionality, is what's actually wanted.
+    pub fn reset_tuple_name(self, ty: DimType) -> Result<Map> {
+        let ctx = self.ctx.clone();
+        let ptr = unsafe {
+            isl_sys::isl_map_set_tuple_name(self.into_raw(), ty.to_raw(), std::ptr::null())
+        };
+        Ok(unsafe { Map::from_raw(ctx.clone(), ctx.check(ptr)?) })
+    }
+
+    /// Names dim `pos` of type `ty` — `alpha-transform/src/print.rs`'s `Select` printing uses this
+    /// to make a relation's range-side names explicit and queryable before printing (isl's own
+    /// `Display` can show a plausible synthesized name for an unnamed dim that `Space::dim_name`
+    /// still reports as unset — a display-only convenience, not a stored, queryable fact).
+    pub fn set_dim_name(self, ty: DimType, pos: u32, name: &str) -> Result<Map> {
+        let ctx = self.ctx.clone();
+        let cname = CString::new(name).expect("dimension name must not contain NUL bytes");
+        let ptr = unsafe {
+            isl_sys::isl_map_set_dim_name(self.into_raw(), ty.to_raw(), pos, cname.as_ptr())
+        };
+        Ok(unsafe { Map::from_raw(ctx.clone(), ctx.check(ptr)?) })
     }
 
     pub fn domain(self) -> Result<Set> {
@@ -71,6 +128,15 @@ impl Map {
     pub fn is_identity(&self) -> Result<bool> {
         self.ctx
             .check_bool(unsafe { isl_sys::isl_map_is_identity(self.ptr) })
+    }
+
+    /// True if no two distinct domain points map to the same range point — a target mapping's
+    /// per-statement schedule must be injective on its own domain (§6 of
+    /// `docs/scheduled-codegen-design.md`): two instances colliding on one schedule-space point
+    /// makes their relative order undefined.
+    pub fn is_injective(&self) -> Result<bool> {
+        self.ctx
+            .check_bool(unsafe { isl_sys::isl_map_is_injective(self.ptr) })
     }
 
     pub fn intersect(self, other: Map) -> Result<Map> {

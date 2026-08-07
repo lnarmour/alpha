@@ -7,6 +7,7 @@ use crate::ctx::{take_c_string, Context, Result};
 use crate::map::Map;
 use crate::set::Format;
 use crate::space::{DimType, Space};
+use crate::val::Val;
 use std::ffi::CString;
 
 pub struct Aff {
@@ -50,6 +51,47 @@ impl Aff {
             isl_sys::isl_printer_free(printer);
             s
         }
+    }
+
+    /// Number of dims of type `ty` — `alpha-transform/src/print.rs`'s Alpha-syntax function
+    /// reconstruction uses `DimType::Div` here to detect a `floor`/`mod`-derived `Aff` (one
+    /// linear-combination-of-named-dims reconstruction can't faithfully represent) and fall back
+    /// to isl's own map syntax instead of producing wrong source text.
+    pub fn dim(&self, ty: DimType) -> u32 {
+        let n = unsafe { isl_sys::isl_aff_dim(self.ptr, ty.to_raw()) };
+        n.max(0) as u32
+    }
+
+    /// This `Aff`'s own coefficient on dim `pos` of type `ty` (`DimType::Param` or
+    /// `DimType::In`) — one term of the linear combination `alpha-transform/src/print.rs`
+    /// reconstructs as Alpha function-literal source text.
+    pub fn coefficient(&self, ty: DimType, pos: u32) -> Result<Val> {
+        let ptr =
+            unsafe { isl_sys::isl_aff_get_coefficient_val(self.ptr, ty.to_raw(), pos as i32) };
+        Ok(unsafe { Val::from_raw(self.ctx.clone(), self.ctx.check(ptr)?) })
+    }
+
+    pub fn constant(&self) -> Result<Val> {
+        let ptr = unsafe { isl_sys::isl_aff_get_constant_val(self.ptr) };
+        Ok(unsafe { Val::from_raw(self.ctx.clone(), self.ctx.check(ptr)?) })
+    }
+
+    /// The one denominator shared by every coefficient/constant of this whole `Aff` (isl's own
+    /// internal representation: integer numerators over one common denominator, not a per-term
+    /// rational) — `1` for the overwhelmingly common case of purely-integer Alpha functions.
+    pub fn denominator(&self) -> Result<Val> {
+        let ptr = unsafe { isl_sys::isl_aff_get_denominator_val(self.ptr) };
+        Ok(unsafe { Val::from_raw(self.ctx.clone(), self.ctx.check(ptr)?) })
+    }
+
+    /// The defining numerator expression `e` of this `Aff`'s existentially-quantified `Div` dim
+    /// `pos` — `Div` dim `pos`'s own value is `floor(e / e.denominator())`. Lets
+    /// `alpha-transform/src/print.rs`'s Alpha-syntax function reconstruction recursively render a
+    /// `floor(...)`-derived function instead of falling back to isl's own (Alpha-unparseable) map
+    /// syntax.
+    pub fn get_div(&self, pos: u32) -> Result<Aff> {
+        let ptr = unsafe { isl_sys::isl_aff_get_div(self.ptr, pos as i32) };
+        Ok(unsafe { Aff::from_raw(self.ctx.clone(), self.ctx.check(ptr)?) })
     }
 }
 

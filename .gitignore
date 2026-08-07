@@ -1,5 +1,5 @@
 /target
-/.venv
+.venv/
 
 # editors/vscode: generated build output, regenerated fresh by CI/local builds, not committed.
 node_modules/
@@ -8,3 +8,11 @@ editors/vscode/*.vsix
 editors/vscode/native/*.node
 editors/vscode/native/index.js
 editors/vscode/native/index.d.ts
+
+# alpha-py: maturin/pytest build artifacts, regenerated fresh by `maturin develop`.
+__pycache__/
+*.py[cod]
+alpha-py/python/alphalang/*.so
+alpha-py/python/alphalang/*.pyd
+alpha-py/notebooks/.ipynb_checkpoints/
+alpha-py/dist/

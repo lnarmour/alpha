@@ -22,15 +22,19 @@ mod map;
 mod polynomial;
 mod set;
 mod space;
+mod union_map;
+mod val;
 
 pub use aff::{Aff, MultiAff, PwAff};
-pub use ast::{AstBuild, AstExpr, AstExprKind, AstNode, AstNodeKind, UnionMap};
+pub use ast::{AstBuild, AstExpr, AstExprKind, AstNode, AstNodeKind};
 pub use constraint::{Constraint, LocalSpace};
 pub use ctx::{Context, IslError, Result};
 pub use map::Map;
 pub use polynomial::PwQPolynomial;
 pub use set::{BasicSet, Format, Set};
 pub use space::{DimType, Space};
+pub use union_map::UnionMap;
+pub use val::Val;
 
 /// Re-exported for callers that need isl operator-kind constants directly (e.g. matching
 /// [`AstExpr::op_type`]) without depending on `isl-sys` themselves.
