@@ -49,7 +49,7 @@ cargo build --workspace --release
 ## Python bindings (`alphalang`)
 
 Interactive, scheduled codegen — `parse`/`normalize`/`schedule`/`generate` from Python, plus
-`%%alpha`/`%%schedule` Jupyter cell magics and `print`/`show`/`ashow` pretty-printers. See
+`%%alphalang`/`%%schedule` Jupyter cell magics and `print`/`show`/`ashow` pretty-printers. See
 [`alphalang/README.md`](alphalang/README.md) for the full API.
 
 All you should need to do is:

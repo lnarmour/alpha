@@ -11,7 +11,7 @@ requires-python = ">=3.9"
 # risk on the bare `alpha` name noted in the design doc (§13).
 
 [project.optional-dependencies]
-# The %%alpha/%%schedule magics (§5.2, §10.2) only self-register if IPython is importable —
+# The %%alphalang/%%schedule magics (§5.2, §10.2) only self-register if IPython is importable —
 # `alphalang/__init__.py` swallows the ImportError otherwise, so this stays optional rather than a
 # hard dependency of the package itself.
 notebook = ["ipython"]

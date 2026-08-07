@@ -11,7 +11,7 @@ use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use std::path::Path;
 
-/// A parsed-and-lowered system, pre-normalization. `%%alpha`'s own return type (§5.2) —
+/// A parsed-and-lowered system, pre-normalization. `%%alphalang`'s own return type (§5.2) —
 /// `System.__repr__` shows one entry per output/local variable at its identity schedule, no
 /// reduce split (that split doesn't exist until `normalize_reduction` runs, §4.2).
 ///
@@ -57,7 +57,7 @@ fn codegen_err_to_py(e: alpha_codegen::CodegenError) -> PyErr {
     }
 }
 
-/// Parse + `analyze_system` + `lower_system` — the three steps `%%alpha` (§5.2) and
+/// Parse + `analyze_system` + `lower_system` — the three steps `%%alphalang` (§5.2) and
 /// [`read`] both go through, on inline source text either way; the only difference is where the
 /// text comes from.
 fn parse_and_lower(source: &str) -> PyResult<alpha_transform::ir::System> {
@@ -138,7 +138,7 @@ impl ScheduledSystem {
     }
 }
 
-/// Loads a `.alpha` file from disk — same three steps as `%%alpha` (§5.2), for use outside a
+/// Loads a `.alpha` file from disk — same three steps as `%%alphalang` (§5.2), for use outside a
 /// notebook (e.g. a plain script).
 #[pyfunction]
 fn read(path: &str) -> PyResult<System> {
@@ -147,7 +147,7 @@ fn read(path: &str) -> PyResult<System> {
     Ok(System(parse_and_lower(&source)?))
 }
 
-/// Parses `source` directly — what `%%alpha`'s own cell magic (§5.2, §10.2) is sugar for.
+/// Parses `source` directly — what `%%alphalang`'s own cell magic (§5.2, §10.2) is sugar for.
 #[pyfunction]
 fn parse(source: &str) -> PyResult<System> {
     Ok(System(parse_and_lower(source)?))

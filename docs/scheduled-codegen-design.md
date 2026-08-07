@@ -260,7 +260,7 @@ magic line names the `NormalizedSystem` the target-mapping text is checked again
 written against one system's `B` cannot be reused against a different system's `B`, any more than an
 argument list written for `foo(int Y)` could be reused to call `bar(int Y)`.
 
-### 5.2 The notebook: `%%alpha`, `normalize`, `repr`, `%%schedule`, `generate`
+### 5.2 The notebook: `%%alphalang`, `normalize`, `repr`, `%%schedule`, `generate`
 
 Five pipeline stages — read, normalize, print, schedule, generate — split across two mechanisms:
 
@@ -273,7 +273,7 @@ Five pipeline stages — read, normalize, print, schedule, generate — split ac
   exact signatures).
 
 ```
-%%alpha sys
+%%alphalang sys
 input A[N];
 B[i] = reduce(+, (i,j->i), {:0<=j<i}: A[j]);
 ```
@@ -282,7 +282,7 @@ This cell magic parses its body as Alpha source (parse + `alpha_model::analyze_s
 `alpha_transform::lower::lower_system`), and on success binds the result to the notebook variable
 named on the magic line (`sys`, here) as an `alphalang.System`. Diagnostics from any of those three
 steps are reported as the cell's error output, IPython's normal mechanism for a failed cell — no
-variable is bound. Re-running `%%alpha sys` with edited source binds a new `System` to the same
+variable is bound. Re-running `%%alphalang sys` with edited source binds a new `System` to the same
 name; an old `System` value is never mutated by doing so, it's simply no longer referenced.
 
 ```python
@@ -602,14 +602,14 @@ not a field to inspect:
 
 | Python type | Produced by | Wraps |
 |---|---|---|
-| `alphalang.System` | `%%alpha` cell magic (§5.2) — parse + `analyze_system` + `lower_system` | `ir::System`, pre-normalization |
+| `alphalang.System` | `%%alphalang` cell magic (§5.2) — parse + `analyze_system` + `lower_system` | `ir::System`, pre-normalization |
 | `alphalang.NormalizedSystem` | `alphalang.normalize(sys: System) -> NormalizedSystem` | `ir::System`, post `normalize_reduction::apply` then `normalize::apply` (§1, §3 — required order) — two Rust passes, one Python call |
 | `alphalang.ScheduledSystem` | `NormalizedSystem.schedule(text: str) -> ScheduledSystem` (also driven by the `%%schedule` magic) | the normalized `ir::System` plus a validated (§6), legality-checked (§7) `isl::UnionMap` |
 
 Functions/methods, all pure — clone the receiver's underlying Rust value, run the existing
 (in-place-mutating) Rust pass over the clone, wrap the result, never touch the original:
 
-- `alphalang.read(path: str) -> System` — same three steps as `%%alpha`, for loading a `.alpha` file
+- `alphalang.read(path: str) -> System` — same three steps as `%%alphalang`, for loading a `.alpha` file
   from disk instead of inline cell text (useful outside a notebook, e.g. from a plain script).
 - `alphalang.normalize(sys: System) -> NormalizedSystem` — always runs *deep* normalization (`normalize`'s
   `deep: bool` parameter is `true`, matching `alphac/main.rs`'s existing call), since scheduled
@@ -630,14 +630,14 @@ Functions/methods, all pure — clone the receiver's underlying Rust value, run 
 
 ### 10.2 Notebook integration
 
-- Two IPython cell magics, `%%alpha <var>` and `%%schedule <var> <source-system-var>` (§5.2),
+- Two IPython cell magics, `%%alphalang <var>` and `%%schedule <var> <source-system-var>` (§5.2),
   registered by an `IPython.core.magic.Magics` subclass that ships in the `alphalang` Python package
   and self-registers on `import alphalang` (the standard `%load_ext`-free pattern most magic-providing
   packages use).
 - Syntax highlighting reuses the TextMate grammar the VS Code extension already ships
   (`editors/vscode/syntaxes/alpha.tmLanguage.json`) rather than hand-writing a second grammar.
   JupyterLab 4's editor is CodeMirror 6, which can consume a TextMate grammar through a bridge
-  package (e.g. `codemirror-textmate`); a small JupyterLab extension maps the `%%alpha`/`%%schedule`
+  package (e.g. `codemirror-textmate`); a small JupyterLab extension maps the `%%alphalang`/`%%schedule`
   magic-line regex to that grammar, the same "magic prefix → language mode" technique `%%html`/
   `%%latex`/`ipython-sql` already use for their own cell magics. The target-mapping half
   (`%%schedule`) ships with no dedicated grammar at first (plain text) — §13 covers whether it's
@@ -784,15 +784,15 @@ Functions/methods, all pure — clone the receiver's underlying Rust value, run 
      real Python (`cargo test` can't catch this — the bug is entirely in the PyO3/CPython exception
      machinery, invisible from the Rust side). `create_exception!` also changes module registration
      from `m.add_class::<ScheduleError>()` to `m.add("ScheduleError", m.py().get_type::<ScheduleError>())`.
-8. The `%%alpha`/`%%schedule` IPython magics and JupyterLab syntax highlighting (§5.2, §10.2) —
+8. The `%%alphalang`/`%%schedule` IPython magics and JupyterLab syntax highlighting (§5.2, §10.2) —
    depends on step 7's Python types existing. Plus a fixture corpus of notebooks + `nbval`-checked
    expected output (§5.3), and the `docs/design.md` update (§1). **Partially done, in progress:**
-   - **IPython magics: done.** `alphalang/python/alpha/magics.py` — `AlphaMagics(Magics)` with
-     `%%alpha <var>` and `%%schedule <var> <source-system-var>` cell magics, self-registering on
+   - **IPython magics: done.** `alphalang/python/alphalang/magics.py` — `AlphaLangMagics(Magics)` with
+     `%%alphalang <var>` and `%%schedule <var> <source-system-var>` cell magics, self-registering on
      `import alphalang` per §10.2. Verified end-to-end against a real in-process IPython shell
      (`IPython.testing.globalipapp`), including all three error paths (wrong source type →
      `TypeError`, undefined source name → `NameError`, illegal schedule text → `ScheduleError`,
-     bad `%%alpha` source → no binding). Permanent tests in `alphalang/tests/test_magics.py` (8
+     bad `%%alphalang` source → no binding). Permanent tests in `alphalang/tests/test_magics.py` (8
      tests) plus `alphalang/tests/test_alpha.py` (10 tests) covering the plain-function API from
      step 7 — 18/18 passing, `cargo fmt`/`clippy`/`test --workspace` all clean.
    - **JupyterLab syntax highlighting: dropped, deliberately, not attempted further.** Built and
@@ -814,10 +814,10 @@ Functions/methods, all pure — clone the receiver's underlying Rust value, run 
        different custom magic](https://github.com/wardbrian/jupyterlab-stan-highlight) confirms this
        is a known-hard, unsolved problem, not something unique to this port.
      - **Net effect: even fully working, it would only ever highlight standalone `.alpha` files**
-       opened in JupyterLab's file browser — not the `%%alpha`/`%%schedule` notebook cells
+       opened in JupyterLab's file browser — not the `%%alphalang`/`%%schedule` notebook cells
        themselves, which is the actual notebook-workflow surface. That's a materially smaller win
        than §10.2 envisioned, for the cost of a whole npm/webpack/TypeScript toolchain grafted onto
-       an otherwise pure Rust+Python project. Decided not worth it — `%%alpha`/`%%schedule` cells
+       an otherwise pure Rust+Python project. Decided not worth it — `%%alphalang`/`%%schedule` cells
        stay plain-text. Nothing functional depends on this either way: the magics (previous bullet)
        work fully regardless, since highlighting is cosmetic, not functional. Revisit only if
        JupyterLab ever grows a real extension point for this (§13).
@@ -856,12 +856,12 @@ These are decided deferrals, not open questions blocking implementation:
   need an unmaintained WASM regex engine) was built and verified, then deliberately dropped rather
   than shipped: JupyterLab 4 has no extension point mapping a cell-magic prefix to a language at
   all, so even working, it could only ever highlight standalone `.alpha` files, not
-  `%%alpha`/`%%schedule` notebook cells themselves — too small a win for a whole npm/webpack/
+  `%%alphalang`/`%%schedule` notebook cells themselves — too small a win for a whole npm/webpack/
   TypeScript toolchain grafted onto an otherwise pure Rust+Python project. See §12 step 8.
-  `%%alpha`/`%%schedule` cells stay plain-text; this is purely cosmetic and nothing functional
+  `%%alphalang`/`%%schedule` cells stay plain-text; this is purely cosmetic and nothing functional
   depends on it. Revisit only if JupyterLab ever grows a real extension point here.
 - **A dedicated Alpha Jupyter kernel** (§5.3, §11) — revisit once real usage shows whether the
-  `%%alpha`/`%%schedule` magic split on a standard Python kernel feels natural or like friction.
+  `%%alphalang`/`%%schedule` magic split on a standard Python kernel feels natural or like friction.
 - **Relaxing `gen_value`'s `Variable` arm to tolerate a bare `Variable` node** (§3), matching
   upstream's `ExprConverter.convertExpr(VariableExpression)` (treat it as an implicit identity
   read using the node's own `context_domain`, rather than hard-erroring). This is the actual

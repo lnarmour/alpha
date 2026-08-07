@@ -17,7 +17,7 @@ generator (loop order falls out of memoized recursive calls, no explicit schedul
 `ScheduledC` (`docs/scheduled-codegen-design.md`), which takes an explicit, user-supplied target
 mapping and emits a flat loop nest in exactly the order it specifies — real polyhedral codegen
 *given* a schedule, still not a scheduler that derives one. `alphalang`, a PyO3 binding crate, and
-an interactive Jupyter notebook workflow (`%%alpha`/`%%schedule` cell magics, `read`/`normalize`/
+an interactive Jupyter notebook workflow (`%%alphalang`/`%%schedule` cell magics, `read`/`normalize`/
 `schedule`/`generate` as plain Python calls) are what actually drive `ScheduledC` day to day; see
 `docs/scheduled-codegen-design.md` for the full design and implementation-phasing history.
 
@@ -69,7 +69,7 @@ for syntax highlighting) is built and released. No JupyterLab syntax highlightin
 built and then deliberately dropped; see `docs/scheduled-codegen-design.md` §10.2/§12 step 8 for why
 (JupyterLab 4 has no extension point mapping a cell-magic prefix to a highlighted language, so even
 working it would only ever have covered standalone `.alpha` files, not notebook cells — not worth a
-JS/TypeScript toolchain for that). The interactive notebook workflow itself (`%%alpha`/`%%schedule`
+JS/TypeScript toolchain for that). The interactive notebook workflow itself (`%%alphalang`/`%%schedule`
 cell magics, `read`/`normalize`/`schedule`/`generate`) is unaffected — it's plain Python, via
 `alphalang`, and stays plain-text-highlighted in a notebook.
 
