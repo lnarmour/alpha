@@ -57,7 +57,7 @@ linking them into a cdylib fails with `relocation R_X86_64_PC32 cannot be used a
 'stderr'; recompile with -fPIC`. The release workflow (`.github/workflows/release.yml`) works
 around this by building both from source with `--with-pic` into a local prefix and pointing
 `PKG_CONFIG_PATH` at it, rather than using apt's/dnf's copies (see also
-`alpha-py/ci/build-isl-static-linux.sh`, the same recipe for the Python wheel's manylinux build).
+`alphalang/ci/build-isl-static-linux.sh`, the same recipe for the Python wheel's manylinux build).
 This isn't needed on macOS — Homebrew's static libs already work here.
 
 ## Status

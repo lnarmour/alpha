@@ -8,7 +8,7 @@ dependencies = ["alphalang"]
 package = false
 
 [tool.uv.workspace]
-members = ["alpha-py"]
+members = ["alphalang"]
 
 [tool.uv.sources]
 alphalang = { workspace = true }

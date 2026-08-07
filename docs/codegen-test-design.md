@@ -16,7 +16,7 @@ This doc plans a denser, snapshot-based test suite for `alpha-codegen` — prima
 `ScheduledC` (the new backend: `stmt.rs`/`schedule.rs`/`legality.rs`/`scheduledc.rs`) since that's
 where schedule-driven behavior (loop fusion/splitting, reordering, reduce splitting) actually lives,
 but reusing `expr.rs`'s shared expression codegen means most of this coverage benefits `WriteC` too.
-Not in scope: performance, Barvinok-feature-gated sizing, the `alpha-py`/notebook layer (already has
+Not in scope: performance, Barvinok-feature-gated sizing, the `alphalang`/notebook layer (already has
 its own `pytest`/`nbval` suite), or re-testing isl itself (`isl/tests/smoke.rs` already covers the
 lex-order/width finding this design leans on).
 

@@ -85,7 +85,7 @@ impl ExprGen for Gen {
 /// `normalize_reduction::apply` then `normalize::apply` (§1, §3).
 /// Validates `schedule_text` against `system` — parses it (§6), checks totality/injectivity/
 /// shared-width agreement (§6), and checks it doesn't reorder a real dependence (§7) — without
-/// running any codegen. What `alpha-py`'s `NormalizedSystem.schedule(text)` (§10.1) actually needs:
+/// running any codegen. What `alphalang`'s `NormalizedSystem.schedule(text)` (§10.1) actually needs:
 /// producing a `ScheduledSystem` is cheap validation, not full generation, and `generate()` is a
 /// separate, later call (possibly against a `ScheduledSystem` that's never `generate()`'d at all).
 pub fn validate_scheduled_system(system: &ir::System, schedule_text: &str) -> Result<()> {

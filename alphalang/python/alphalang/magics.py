@@ -1,4 +1,4 @@
-"""`%%alpha`/`%%schedule` IPython cell magics (docs/scheduled-codegen-design.md §5.2, §10.2).
+"""`%%alphalang`/`%%schedule` IPython cell magics (docs/scheduled-codegen-design.md §5.2, §10.2).
 
 Imported (and self-registered against the running kernel) by ``alphalang/__init__.py``; importing
 this module outside IPython is a no-op beyond the class definition — nothing runs until IPython's
@@ -12,15 +12,15 @@ from ._alpha import NormalizedSystem, parse
 
 
 @magics_class
-class AlphaMagics(Magics):
-    """Registers ``%%alpha`` and ``%%schedule`` — see §5.2 for the full worked example."""
+class AlphaLangMagics(Magics):
+    """Registers ``%%alphalang`` and ``%%schedule`` — see §5.2 for the full worked example."""
 
     @cell_magic
-    def alpha(self, line, cell):
-        """``%%alpha <var>`` — parses the cell body and binds an `alphalang.System` to `<var>`."""
+    def alphalang(self, line, cell):
+        """``%%alphalang <var>`` — parses the cell body and binds an `alphalang.System` to `<var>`."""
         var = line.strip()
         if not var:
-            raise ValueError("%%alpha requires a variable name: %%alpha <var>")
+            raise ValueError("%%alphalang requires a variable name: %%alphalang <var>")
         system = parse(cell)
         self.shell.user_ns[var] = system
 
@@ -54,4 +54,4 @@ class AlphaMagics(Magics):
 
 _ip = get_ipython()
 if _ip is not None:
-    _ip.register_magics(AlphaMagics)
+    _ip.register_magics(AlphaLangMagics)

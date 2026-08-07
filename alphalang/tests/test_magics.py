@@ -1,4 +1,4 @@
-"""Tests for the `%%alpha`/`%%schedule` IPython cell magics (§5.2, §10.2).
+"""Tests for the `%%alphalang`/`%%schedule` IPython cell magics (§5.2, §10.2).
 
 Drives a real, in-process IPython shell (`IPython.testing.globalipapp`) rather than mocking magic
 dispatch — the magics' whole job is to sit on top of IPython's own `run_cell_magic` machinery, so
@@ -40,16 +40,16 @@ def ip():
     # cross-test artifact, not a product bug: a real notebook kernel always has its shell running
     # before any user `import` executes. Register explicitly so these tests don't depend on
     # cross-test import order.
-    from alphalang.magics import AlphaMagics
+    from alphalang.magics import AlphaLangMagics
 
-    shell.register_magics(AlphaMagics)
+    shell.register_magics(AlphaLangMagics)
     yield shell
     for name in ("sys", "norm", "sched", "code", "bad", "broken"):
         shell.user_ns.pop(name, None)
 
 
 def test_percent_alpha_binds_a_system(ip):
-    result = ip.run_cell_magic("alpha", "sys", PREFIX_SUM_CELL)
+    result = ip.run_cell_magic("alphalang", "sys", PREFIX_SUM_CELL)
     assert result is None or not getattr(result, "error_in_exec", None)
     import alphalang
 
@@ -57,18 +57,18 @@ def test_percent_alpha_binds_a_system(ip):
 
 
 def test_percent_alpha_with_bad_source_does_not_bind(ip):
-    result = ip.run_cell(f'%%alpha broken\nthis is not alpha source\n')
+    result = ip.run_cell(f'%%alphalang broken\nthis is not alpha source\n')
     assert result.error_in_exec is not None
     assert "broken" not in ip.user_ns
 
 
 def test_percent_alpha_requires_a_variable_name(ip):
-    result = ip.run_cell(f"%%alpha\n{PREFIX_SUM_CELL}")
+    result = ip.run_cell(f"%%alphalang\n{PREFIX_SUM_CELL}")
     assert isinstance(result.error_in_exec, ValueError)
 
 
 def test_percent_schedule_binds_a_scheduled_system(ip):
-    ip.run_cell_magic("alpha", "sys", PREFIX_SUM_CELL)
+    ip.run_cell_magic("alphalang", "sys", PREFIX_SUM_CELL)
     ip.run_cell("norm = alphalang.normalize(sys)")
     result = ip.run_cell(f"%%schedule sched norm\n{PREFIX_SUM_SCHEDULE_CELL}")
     assert result.error_in_exec is None
@@ -78,7 +78,7 @@ def test_percent_schedule_binds_a_scheduled_system(ip):
 
 
 def test_percent_schedule_against_wrong_type_raises_type_error(ip):
-    ip.run_cell_magic("alpha", "sys", PREFIX_SUM_CELL)
+    ip.run_cell_magic("alphalang", "sys", PREFIX_SUM_CELL)
     result = ip.run_cell(f"%%schedule bad sys\n{PREFIX_SUM_SCHEDULE_CELL}")
     assert isinstance(result.error_in_exec, TypeError)
 
@@ -89,7 +89,7 @@ def test_percent_schedule_against_undefined_name_raises_name_error(ip):
 
 
 def test_percent_schedule_with_illegal_schedule_raises_schedule_error(ip):
-    ip.run_cell_magic("alpha", "sys", PREFIX_SUM_CELL)
+    ip.run_cell_magic("alphalang", "sys", PREFIX_SUM_CELL)
     ip.run_cell("norm = alphalang.normalize(sys)")
     result = ip.run_cell("%%schedule bad norm\n{}\n")
     import alphalang
@@ -99,7 +99,7 @@ def test_percent_schedule_with_illegal_schedule_raises_schedule_error(ip):
 
 
 def test_full_pipeline_through_magics_generates_c(ip):
-    ip.run_cell_magic("alpha", "sys", PREFIX_SUM_CELL)
+    ip.run_cell_magic("alphalang", "sys", PREFIX_SUM_CELL)
     ip.run_cell("norm = alphalang.normalize(sys)")
     ip.run_cell(f"%%schedule sched norm\n{PREFIX_SUM_SCHEDULE_CELL}")
     result = ip.run_cell("code = alphalang.generate(sched)")
