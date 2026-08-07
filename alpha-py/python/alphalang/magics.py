@@ -1,8 +1,8 @@
 """`%%alpha`/`%%schedule` IPython cell magics (docs/scheduled-codegen-design.md §5.2, §10.2).
 
-Imported (and self-registered against the running kernel) by ``alpha/__init__.py``; importing this
-module outside IPython is a no-op beyond the class definition — nothing runs until IPython's own
-magic dispatch calls into it. Not meant to be imported directly by user code.
+Imported (and self-registered against the running kernel) by ``alphalang/__init__.py``; importing
+this module outside IPython is a no-op beyond the class definition — nothing runs until IPython's
+own magic dispatch calls into it. Not meant to be imported directly by user code.
 """
 
 from IPython.core.getipython import get_ipython
@@ -17,7 +17,7 @@ class AlphaMagics(Magics):
 
     @cell_magic
     def alpha(self, line, cell):
-        """``%%alpha <var>`` — parses the cell body and binds an `alpha.System` to `<var>`."""
+        """``%%alpha <var>`` — parses the cell body and binds an `alphalang.System` to `<var>`."""
         var = line.strip()
         if not var:
             raise ValueError("%%alpha requires a variable name: %%alpha <var>")
@@ -26,9 +26,10 @@ class AlphaMagics(Magics):
 
     @cell_magic
     def schedule(self, line, cell):
-        """``%%schedule <var> <source-system-var>`` — binds an `alpha.ScheduledSystem` to `<var>`.
+        """``%%schedule <var> <source-system-var>`` — binds an `alphalang.ScheduledSystem` to
+        `<var>`.
 
-        `<source-system-var>` must already name an `alpha.NormalizedSystem` in the notebook
+        `<source-system-var>` must already name an `alphalang.NormalizedSystem` in the notebook
         namespace (§5.1's precondition) — a `TypeError`/`NameError` here, before the cell body is
         even parsed, matches every other type-gated operation in this API.
         """
@@ -45,7 +46,7 @@ class AlphaMagics(Magics):
         if not isinstance(source, NormalizedSystem):
             raise TypeError(
                 f"%%schedule's source system {source_name!r} must be a NormalizedSystem, "
-                f"got {type(source).__name__} instead — run alpha.normalize() first (§5.1)"
+                f"got {type(source).__name__} instead — run alphalang.normalize() first (§5.1)"
             )
         scheduled = source.schedule(cell)
         user_ns[var] = scheduled

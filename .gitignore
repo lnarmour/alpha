@@ -12,6 +12,6 @@ editors/vscode/native/index.d.ts
 # alpha-py: maturin/pytest build artifacts, regenerated fresh by `maturin develop`.
 __pycache__/
 *.py[cod]
-alpha-py/python/alpha/*.so
-alpha-py/python/alpha/*.pyd
+alpha-py/python/alphalang/*.so
+alpha-py/python/alphalang/*.pyd
 alpha-py/notebooks/.ipynb_checkpoints/

@@ -7,18 +7,18 @@ name = "alphalang"
 version = "0.1.0"
 description = "Interactive Python bindings for Alpha's scheduled codegen: read/normalize/schedule/generate (docs/scheduled-codegen-design.md)."
 requires-python = ">=3.9"
-# PyPI distribution name is `alphalang`, deliberately different from the `import alpha` name below
-# — sidesteps the PyPI name collision risk on the bare `alpha` name noted in the design doc (§13).
+# PyPI distribution name and import name are both `alphalang` — sidesteps the PyPI name collision
+# risk on the bare `alpha` name noted in the design doc (§13).
 
 [project.optional-dependencies]
 # The %%alpha/%%schedule magics (§5.2, §10.2) only self-register if IPython is importable —
-# `alpha/__init__.py` swallows the ImportError otherwise, so this stays optional rather than a
+# `alphalang/__init__.py` swallows the ImportError otherwise, so this stays optional rather than a
 # hard dependency of the package itself.
 notebook = ["ipython"]
 
 [tool.maturin]
 python-source = "python"
-module-name = "alpha._alpha"
+module-name = "alphalang._alpha"
 features = ["pyo3/extension-module"]
 
 [dependency-groups]

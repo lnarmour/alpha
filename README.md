@@ -61,26 +61,26 @@ jupyter lab alpha-py/notebooks/prefix_sum.ipynb
 ```
 
 `uv sync` builds `alpha-py`'s Rust extension (via `maturin`, the workspace's own build backend for
-it) and installs the resulting `alpha` package straight into `.venv` — there's no separate build
-step. `prefix_sum.ipynb` is a real, already-executed, checked-in worked example (also a
+it) and installs the resulting `alphalang` package straight into `.venv` — there's no separate
+build step. `prefix_sum.ipynb` is a real, already-executed, checked-in worked example (also a
 regression fixture — see [`alpha-py/notebooks/README.md`](alpha-py/notebooks/README.md)) that
 walks the whole pipeline: parse → normalize → schedule → generate C.
 
 Or drive the same pipeline from a plain Python script instead of a notebook:
 
 ```python
-import alpha
+import alphalang
 
-sys = alpha.parse("""
+sys = alphalang.parse("""
 affine PrefixSum [N]->{:N>0}
     inputs  X: [N]
     outputs Y: [N]
     let Y[i] = reduce(+, [j], {:j<=i}: X[j]);
 .
 """)
-norm = alpha.normalize(sys)
+norm = alphalang.normalize(sys)
 sched = norm.schedule("{ Y__init[i] -> [i, 0, 0]; Y__reduce[i,j] -> [i, 1, j]; }")
-print(alpha.generate(sched))
+print(alphalang.generate(sched))
 ```
 
 ## Testing

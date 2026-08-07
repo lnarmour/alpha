@@ -67,7 +67,7 @@ means for tooling.
    to skip normalizing before scheduled codegen runs — every path that consumes a target mapping
    (§10) normalizes first, unconditionally. Normalizing is two genuinely separate Rust-level passes
    run in sequence — `normalize_reduction::apply` then `normalize::apply` (§1, §3) — but the caller
-   only ever sees one conceptual step: `alpha.normalize()` (§10.1) bundles both, so nothing
+   only ever sees one conceptual step: `alphalang.normalize()` (§10.1) bundles both, so nothing
    downstream of it has to sequence two calls itself. Since normalizing changes statement identity
    (hoisting reduces into their own statements, §4.2), "what should the schedule look like before
    normalization" isn't a well-formed question — there is no such state to design for.
@@ -280,7 +280,7 @@ B[i] = reduce(+, (i,j->i), {:0<=j<i}: A[j]);
 
 This cell magic parses its body as Alpha source (parse + `alpha_model::analyze_system` +
 `alpha_transform::lower::lower_system`), and on success binds the result to the notebook variable
-named on the magic line (`sys`, here) as an `alpha.System`. Diagnostics from any of those three
+named on the magic line (`sys`, here) as an `alphalang.System`. Diagnostics from any of those three
 steps are reported as the cell's error output, IPython's normal mechanism for a failed cell — no
 variable is bound. Re-running `%%alpha sys` with edited source binds a new `System` to the same
 name; an old `System` value is never mutated by doing so, it's simply no longer referenced.
@@ -301,14 +301,14 @@ equation rather than split into its own statement (that split is `normalize`'s j
 ```
 
 ```python
-norm = alpha.normalize(sys)
+norm = alphalang.normalize(sys)
 norm
 ```
 
-`alpha.normalize` runs `normalize_reduction::apply` then `normalize::apply` (§1, §3 — this order is
+`alphalang.normalize` runs `normalize_reduction::apply` then `normalize::apply` (§1, §3 — this order is
 required) against a *clone* of `sys`'s underlying IR — two separate Rust passes, bundled into one
 Python call so nothing downstream has to sequence them itself — and returns a new
-`alpha.NormalizedSystem`; `sys` itself is untouched and still usable. (Cloning an isl `Set`/`Map` is a cheap refcount bump — `isl_set_copy`/
+`alphalang.NormalizedSystem`; `sys` itself is untouched and still usable. (Cloning an isl `Set`/`Map` is a cheap refcount bump — `isl_set_copy`/
 `isl_map_copy` — not a real memory-duplicating deep copy, so "deep-copy-then-modify-the-copy" as an
 implementation strategy costs about what "mutate in place" would have; see §10.) Trailing-expression
 display is Jupyter's own mechanism for showing a value without an explicit `print`, so a bare `norm`
@@ -335,8 +335,8 @@ and the `NormalizedSystem` variable to schedule against (`norm`) — and its cel
 mapping text in the §6 format, typically pasted and hand-edited from a `norm`-cell's own `repr`
 output above. It's sugar for `sched = norm.schedule(text)`: `NormalizedSystem.schedule` parses the
 text, validates it (§6), checks legality against `norm`'s dependences (§7), and — only if all of
-that passes — returns a new `alpha.ScheduledSystem`; `norm` is never mutated. A rejected schedule
-raises `alpha.ScheduleError` (diagnostic attached) as the cell's error output and binds nothing.
+that passes — returns a new `alphalang.ScheduledSystem`; `norm` is never mutated. A rejected schedule
+raises `alphalang.ScheduleError` (diagnostic attached) as the cell's error output and binds nothing.
 `sched` also has a `repr` showing the same skeleton syntax, reflecting the schedule that was
 actually loaded, as a sanity check.
 
@@ -345,11 +345,11 @@ namespace (wrong type, or undefined), the magic raises a Python `TypeError`/`Nam
 attempting to parse the cell body, consistent with every other type-gated operation in §5.1.
 
 ```python
-code = alpha.generate(sched)
+code = alphalang.generate(sched)
 print(code)
 ```
 
-`alpha.generate` runs `ScheduledC` (§8) and returns the generated C source as a `str`. It also
+`alphalang.generate` runs `ScheduledC` (§8) and returns the generated C source as a `str`. It also
 accepts a bare `NormalizedSystem` directly (skipping `%%schedule` entirely) — consistent with §6's
 "an omitted target mapping ⇒ every statement gets its identity schedule" rule, this is just
 `generate(norm)` as sugar for `generate(norm.schedule(""))`.
@@ -592,9 +592,8 @@ in-process) — same pattern, different host language: `pyo3` instead of `napi`,
 with `maturin` instead of a `cdylib` napi module. Where `editors/vscode/native` only needs to expose
 parse/analyze diagnostics, `alpha-py` needs the full read → normalize → schedule → generate surface,
 so it depends on `alpha-syntax`, `alpha-model`, `alpha-transform`, and `alpha-codegen`. The Python
-import name is **`alpha`** (`import alpha`); the published PyPI distribution is named
-**`alphalang`** (`pip install alphalang`) instead, to sidestep a name collision on the bare `alpha`
-name on PyPI.
+import name and published PyPI distribution are both **`alphalang`** (`import alphalang`,
+`pip install alphalang`) — sidesteps a name collision on the bare `alpha` name on PyPI.
 
 Three PyO3-wrapped types, each an immutable value wrapping a cloned `alpha_transform::ir::System`
 (or, for `ScheduledSystem`, the system plus its validated `isl::UnionMap` schedule) — deliberately
@@ -603,23 +602,23 @@ not a field to inspect:
 
 | Python type | Produced by | Wraps |
 |---|---|---|
-| `alpha.System` | `%%alpha` cell magic (§5.2) — parse + `analyze_system` + `lower_system` | `ir::System`, pre-normalization |
-| `alpha.NormalizedSystem` | `alpha.normalize(sys: System) -> NormalizedSystem` | `ir::System`, post `normalize_reduction::apply` then `normalize::apply` (§1, §3 — required order) — two Rust passes, one Python call |
-| `alpha.ScheduledSystem` | `NormalizedSystem.schedule(text: str) -> ScheduledSystem` (also driven by the `%%schedule` magic) | the normalized `ir::System` plus a validated (§6), legality-checked (§7) `isl::UnionMap` |
+| `alphalang.System` | `%%alpha` cell magic (§5.2) — parse + `analyze_system` + `lower_system` | `ir::System`, pre-normalization |
+| `alphalang.NormalizedSystem` | `alphalang.normalize(sys: System) -> NormalizedSystem` | `ir::System`, post `normalize_reduction::apply` then `normalize::apply` (§1, §3 — required order) — two Rust passes, one Python call |
+| `alphalang.ScheduledSystem` | `NormalizedSystem.schedule(text: str) -> ScheduledSystem` (also driven by the `%%schedule` magic) | the normalized `ir::System` plus a validated (§6), legality-checked (§7) `isl::UnionMap` |
 
 Functions/methods, all pure — clone the receiver's underlying Rust value, run the existing
 (in-place-mutating) Rust pass over the clone, wrap the result, never touch the original:
 
-- `alpha.read(path: str) -> System` — same three steps as `%%alpha`, for loading a `.alpha` file
+- `alphalang.read(path: str) -> System` — same three steps as `%%alpha`, for loading a `.alpha` file
   from disk instead of inline cell text (useful outside a notebook, e.g. from a plain script).
-- `alpha.normalize(sys: System) -> NormalizedSystem` — always runs *deep* normalization (`normalize`'s
+- `alphalang.normalize(sys: System) -> NormalizedSystem` — always runs *deep* normalization (`normalize`'s
   `deep: bool` parameter is `true`, matching `alphac/main.rs`'s existing call), since scheduled
   codegen has no use for the shallow, readability-oriented form (polyhedral-object shorthand, named
   cases, auto-restrict) that shallow normalization preserves.
-- `NormalizedSystem.schedule(text: str) -> ScheduledSystem` — raises `alpha.ScheduleError` (carrying
+- `NormalizedSystem.schedule(text: str) -> ScheduledSystem` — raises `alphalang.ScheduleError` (carrying
   the §6/§7 diagnostic) on a parse, validation, or legality failure; raises nothing into `norm`
   itself, since there's nothing in it to roll back.
-- `alpha.generate(system: NormalizedSystem | ScheduledSystem) -> str` — calls
+- `alphalang.generate(system: NormalizedSystem | ScheduledSystem) -> str` — calls
   `alpha_codegen::generate_scheduled_system` under the hood; a bare `NormalizedSystem` is sugar for
   scheduling it with empty text first (§6's identity-schedule default).
 - `System.__repr__` / `NormalizedSystem.__repr__` / `ScheduledSystem.__repr__` — all three print at
@@ -632,8 +631,8 @@ Functions/methods, all pure — clone the receiver's underlying Rust value, run 
 ### 10.2 Notebook integration
 
 - Two IPython cell magics, `%%alpha <var>` and `%%schedule <var> <source-system-var>` (§5.2),
-  registered by an `IPython.core.magic.Magics` subclass that ships in the `alpha` Python package and
-  self-registers on `import alpha` (the standard `%load_ext`-free pattern most magic-providing
+  registered by an `IPython.core.magic.Magics` subclass that ships in the `alphalang` Python package
+  and self-registers on `import alphalang` (the standard `%load_ext`-free pattern most magic-providing
   packages use).
 - Syntax highlighting reuses the TextMate grammar the VS Code extension already ships
   (`editors/vscode/syntaxes/alpha.tmLanguage.json`) rather than hand-writing a second grammar.
@@ -790,7 +789,7 @@ Functions/methods, all pure — clone the receiver's underlying Rust value, run 
    expected output (§5.3), and the `docs/design.md` update (§1). **Partially done, in progress:**
    - **IPython magics: done.** `alpha-py/python/alpha/magics.py` — `AlphaMagics(Magics)` with
      `%%alpha <var>` and `%%schedule <var> <source-system-var>` cell magics, self-registering on
-     `import alpha` per §10.2. Verified end-to-end against a real in-process IPython shell
+     `import alphalang` per §10.2. Verified end-to-end against a real in-process IPython shell
      (`IPython.testing.globalipapp`), including all three error paths (wrong source type →
      `TypeError`, undefined source name → `NameError`, illegal schedule text → `ScheduleError`,
      bad `%%alpha` source → no binding). Permanent tests in `alpha-py/tests/test_magics.py` (8
@@ -844,7 +843,7 @@ Functions/methods, all pure — clone the receiver's underlying Rust value, run 
 These are decided deferrals, not open questions blocking implementation:
 
 - **Exact error-type shape** for schedule-parse vs. legality-violation vs. isl failures (new enum?
-  new variants on `CodegenError`? how the Rust-level error maps to `alpha.ScheduleError`'s fields on
+  new variants on `CodegenError`? how the Rust-level error maps to `alphalang.ScheduleError`'s fields on
   the Python side) is an implementation-time decision within §10's stated constraints, not something
   this spec needs to pin down further.
 - **Counterexample extraction** for a legality violation (§7.2, §11).

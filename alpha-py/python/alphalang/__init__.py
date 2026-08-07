@@ -2,7 +2,7 @@
 
 Five pipeline stages split across two mechanisms (§5.2): reading Alpha/target-mapping *source
 text* happens through IPython cell magics (``%%alpha``, ``%%schedule`` — registered on import, see
-``alpha.magics``); everything else — ``normalize``/``schedule``/``generate`` — is a plain, typed
+``alphalang.magics``); everything else — ``normalize``/``schedule``/``generate`` — is a plain, typed
 Python function or method over immutable values, each cloning its input rather than mutating it.
 
 ``print``/``show``/``ashow`` are read-only renderings of a ``System``/``NormalizedSystem``/
@@ -11,12 +11,12 @@ Python function or method over immutable values, each cloning its input rather t
 Alpha-like source syntax, ``ashow`` is ``show`` in array-index notation (``X[i+1,j]`` instead of
 ``show``'s point-free ``f@X``).
 
-    >>> import alpha
-    >>> sys = alpha.read("foo.alpha")
-    >>> print(alpha.show(sys))
-    >>> norm = alpha.normalize(sys)
+    >>> import alphalang
+    >>> sys = alphalang.read("foo.alpha")
+    >>> print(alphalang.show(sys))
+    >>> norm = alphalang.normalize(sys)
     >>> sched = norm.schedule("{ ... }")
-    >>> code = alpha.generate(sched)
+    >>> code = alphalang.generate(sched)
 """
 
 from ._alpha import (

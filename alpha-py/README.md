@@ -3,9 +3,9 @@
 A PyO3 binding crate exposing `alpha-syntax`/`alpha-model`/`alpha-transform`/`alpha-codegen`'s
 `ScheduledC` pipeline (`docs/scheduled-codegen-design.md`) to Python, plus an IPython cell-magic
 front end for driving it interactively from a Jupyter notebook. The Python package name is
-**`alpha`**; the compiled extension module is `alpha._alpha` (crate name `_alpha`, per `Cargo.toml`
-— PyO3's `extension-module` feature, so it links against no libpython at build time and is resolved
-by the interpreter at import time).
+**`alphalang`**; the compiled extension module is `alphalang._alpha` (crate name `_alpha`, per
+`Cargo.toml` — PyO3's `extension-module` feature, so it links against no libpython at build time
+and is resolved by the interpreter at import time).
 
 `alphac`'s `WriteC` CLI path is untouched by any of this — `ScheduledC` has no CLI of its own and is
 driven entirely through this crate.
@@ -21,10 +21,10 @@ driven entirely through this crate.
   diagnostic buried in the pipeline. `unsendable` on all three: isl's raw C pointers aren't `Sync`,
   and isl itself isn't thread-safe — `unsendable` is the honest opt-out (restricted to the thread
   that created the value), not a workaround.
-- **`python/alpha/__init__.py`**: re-exports the compiled extension's types/functions; imports
-  `alpha.magics` in a `try`/`except ImportError` (a no-op outside IPython).
-- **`python/alpha/magics.py`**: `AlphaMagics(Magics)` — the `%%alpha <var>` and
-  `%%schedule <var> <source-system-var>` IPython cell magics, self-registering on `import alpha`.
+- **`python/alphalang/__init__.py`**: re-exports the compiled extension's types/functions; imports
+  `alphalang.magics` in a `try`/`except ImportError` (a no-op outside IPython).
+- **`python/alphalang/magics.py`**: `AlphaMagics(Magics)` — the `%%alpha <var>` and
+  `%%schedule <var> <source-system-var>` IPython cell magics, self-registering on `import alphalang`.
 - **`notebooks/prefix_sum.ipynb`**: a real, executed-and-checked-in worked example (also a
   regression fixture — see its own `notebooks/README.md`).
 
@@ -32,17 +32,17 @@ driven entirely through this crate.
 
 | Function/method | Returns | Notes |
 |---|---|---|
-| `alpha.read(path)` | `System` | parse + analyze + lower a `.alpha` file from disk |
-| `alpha.parse(source)` | `System` | same, from an inline string — what `%%alpha` is sugar for |
-| `alpha.normalize(sys)` | `NormalizedSystem` | runs `normalize_reduction::apply` then `normalize::apply` (that order is required — see `alpha-transform`'s own README) against a clone; `sys` is untouched |
-| `norm.schedule(text)` | `ScheduledSystem` | parses + validates (§6) + legality-checks (§7) a target mapping against a clone of `norm`; raises `alpha.ScheduleError` and binds nothing on any failure |
-| `alpha.generate(system)` | `str` | `NormalizedSystem` or `ScheduledSystem`; a bare `NormalizedSystem` is sugar for `generate(norm.schedule(""))` (§6's identity-schedule default) |
+| `alphalang.read(path)` | `System` | parse + analyze + lower a `.alpha` file from disk |
+| `alphalang.parse(source)` | `System` | same, from an inline string — what `%%alpha` is sugar for |
+| `alphalang.normalize(sys)` | `NormalizedSystem` | runs `normalize_reduction::apply` then `normalize::apply` (that order is required — see `alpha-transform`'s own README) against a clone; `sys` is untouched |
+| `norm.schedule(text)` | `ScheduledSystem` | parses + validates (§6) + legality-checks (§7) a target mapping against a clone of `norm`; raises `alphalang.ScheduleError` and binds nothing on any failure |
+| `alphalang.generate(system)` | `str` | `NormalizedSystem` or `ScheduledSystem`; a bare `NormalizedSystem` is sugar for `generate(norm.schedule(""))` (§6's identity-schedule default) |
 | `repr(sys)` / `repr(norm)` / `repr(sched)` | `str` | the ISL union-map skeleton, no precondition — always safe to print |
-| `alpha.print(system)` | `str` | an indented debug tree dump — every node's own kind plus its `expression_domain`/`context_domain` (ported from alpha-language's `PrintAST`); accepts `System`, `NormalizedSystem`, or `ScheduledSystem` |
-| `alpha.show(system)` | `str` | reconstructs Alpha-like source syntax from the model, `f@X` point-free `Dependence` notation (ported from `Show.xtend`); same three accepted types |
-| `alpha.ashow(system)` | `str` | like `show`, but array-index notation (`X[f]`) for a `Dependence` over a `Variable`/constant, and explicit ambient index names on each equation (ported from `AShow.xtend`) |
+| `alphalang.print(system)` | `str` | an indented debug tree dump — every node's own kind plus its `expression_domain`/`context_domain` (ported from alpha-language's `PrintAST`); accepts `System`, `NormalizedSystem`, or `ScheduledSystem` |
+| `alphalang.show(system)` | `str` | reconstructs Alpha-like source syntax from the model, `f@X` point-free `Dependence` notation (ported from `Show.xtend`); same three accepted types |
+| `alphalang.ashow(system)` | `str` | like `show`, but array-index notation (`X[f]`) for a `Dependence` over a `Variable`/constant, and explicit ambient index names on each equation (ported from `AShow.xtend`) |
 
-`alpha.ScheduleError` is defined via `pyo3::create_exception!`, not a hand-rolled
+`alphalang.ScheduleError` is defined via `pyo3::create_exception!`, not a hand-rolled
 `#[pyclass(extends = PyException)]` unit struct — the latter compiles and even raises without
 error, but has no usable `__new__`, so the *first time real Python code actually catches one*, PyO3
 fails with `TypeError: No constructor defined for ScheduleError` instead of yielding the exception
@@ -56,20 +56,20 @@ uv sync && source .venv/bin/activate   # from the repo root — builds and insta
 ```
 
 ```python
-import alpha
+import alphalang
 
-sys = alpha.parse("""
+sys = alphalang.parse("""
 affine PrefixSum [N]->{:N>0}
     inputs  X: [N]
     outputs Y: [N]
     let Y[i] = reduce(+, [j], {:j<=i}: X[j]);
 .
 """)
-norm = alpha.normalize(sys)
+norm = alphalang.normalize(sys)
 sched = norm.schedule(
     "{ Y__init[i] -> [i, 0, 0]; Y__reduce[i,j] -> [i, 1, j]; }"
 )
-print(alpha.generate(sched))
+print(alphalang.generate(sched))
 ```
 
 Or interactively in Jupyter, using the cell magics instead of `parse`/`schedule` strings directly —
@@ -80,7 +80,7 @@ member when it decides a reinstall is warranted, and mtime-only/no-op edits don'
 Force it explicitly:
 
 ```
-uv sync --reinstall-package alpha
+uv sync --reinstall-package alphalang
 ```
 
 (`maturin develop` from inside `alpha-py/` also still works, and is faster for a tight edit/test
