@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/lnarmour/alpha/compare/alphalang-v0.2.0...alphalang-v0.2.1) (2026-08-08)
+
+
+### Bug Fixes
+
+* build wheels for pypi ([#16](https://github.com/lnarmour/alpha/issues/16)) ([7a2bc57](https://github.com/lnarmour/alpha/commit/7a2bc572805a268ffce4d4ea30e69b2e88eb9a6f))
+
 ## [0.2.0](https://github.com/lnarmour/alpha/compare/alphalang-v0.1.0...alphalang-v0.2.0) (2026-08-07)
 
 
