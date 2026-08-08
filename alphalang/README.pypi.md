@@ -8,10 +8,10 @@ magics (`%%alphalang`, `%%schedule`) for driving it interactively from a Jupyter
 ## Install
 
 ```
-pip install alphalang-lnarmour
+pip install alphalang
 ```
 
-The distribution is named `alphalang-lnarmour`, but the importable package is `alphalang`.
+The distribution is named `alphalang`, but the importable package is `alphalang`.
 
 ## Quick start
 
