@@ -5,14 +5,6 @@ for expressing and transforming affine programs. `alphalang` exposes the Rust
 parse → normalize → schedule → generate pipeline as a small, typed Python API, plus IPython cell
 magics (`%%alphalang`, `%%schedule`) for driving it interactively from a Jupyter notebook.
 
-## Install
-
-```
-pip install alphalang
-```
-
-The distribution is named `alphalang`, but the importable package is `alphalang`.
-
 ## Quick start
 
 ```python

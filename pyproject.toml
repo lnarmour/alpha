@@ -2,7 +2,7 @@
 name = "alpha-rs"
 version = "0.0.0"
 requires-python = ">=3.9"
-dependencies = ["alphalang_lnarmour"]
+dependencies = ["alphalang"]
 
 [tool.uv]
 package = false
@@ -11,7 +11,7 @@ package = false
 members = ["alphalang"]
 
 [tool.uv.sources]
-alphalang_lnarmour = { workspace = true }
+alphalang = { workspace = true }
 
 [dependency-groups]
 dev = ["prek", "pytest", "nbval", "ipython", "jupyterlab"]
