@@ -37,4 +37,4 @@ lint:
 	uv run prek run --all-files
 
 clean:
-	$(CARGO) clean
+	$(CARGO) clean && rm -f alphalang/dist/*
