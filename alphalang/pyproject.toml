@@ -3,12 +3,21 @@ requires = ["maturin>=1.7,<2.0"]
 build-backend = "maturin"
 
 [project]
-name = "alphalang"
+name = "alphalang_lnarmour"
 version = "0.2.0"
-description = "Interactive Python bindings for Alpha's scheduled codegen: read/normalize/schedule/generate (docs/scheduled-codegen-design.md)."
+authors = [
+    { name="Louis Narmour", email="lrnarmour@gmail.com" },
+]
+description = "Interactive Python bindings for the Alpha language polyhedral compilation toolchain."
 requires-python = ">=3.9"
-# PyPI distribution name and import name are both `alphalang` — sidesteps the PyPI name collision
-# risk on the bare `alpha` name noted in the design doc (§13).
+readme = "README.pypi.md"
+
+license = "MIT"
+license-files = ["LICEN[CS]E*"]
+
+[project.urls]
+Homepage = "https://github.com/lnarmour/alpha"
+Issues = "https://github.com/lnarmour/alpha/issues"
 
 [project.optional-dependencies]
 # The %%alphalang/%%schedule magics (§5.2, §10.2) only self-register if IPython is importable —
