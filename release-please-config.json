@@ -10,7 +10,14 @@
     "alphalang": {
       "release-type": "python",
       "component": "alphalang",
-      "include-component-in-tag": true
+      "include-component-in-tag": true,
+      "extra-files": [
+        {
+          "type": "toml",
+          "path": "Cargo.toml",
+          "jsonpath": "$.package.version"
+        }
+      ]
     }
   }
 }
