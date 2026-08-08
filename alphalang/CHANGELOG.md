@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/lnarmour/alpha/compare/alphalang-v0.2.1...alphalang-v0.2.2) (2026-08-08)
+
+
+### Bug Fixes
+
+* revert pypi name ([#19](https://github.com/lnarmour/alpha/issues/19)) ([47d66a1](https://github.com/lnarmour/alpha/commit/47d66a1ff2496f50e9020cf9837d4e2a54e17ed8))
+
 ## [0.2.1](https://github.com/lnarmour/alpha/compare/alphalang-v0.2.0...alphalang-v0.2.1) (2026-08-08)
 
 

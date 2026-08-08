@@ -1,6 +1,6 @@
 [package]
 name = "alphalang"
-version = "0.2.1"
+version = "0.2.2"
 edition.workspace = true
 license.workspace = true
 description = "PyO3 binding exposing read/normalize/schedule/generate to a Jupyter notebook — the interactive front end for scheduled codegen (docs/scheduled-codegen-design.md §10.1)."
