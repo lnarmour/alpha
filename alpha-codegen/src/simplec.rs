@@ -149,6 +149,16 @@ impl Function {
     }
 }
 
+/// Renders a statement list at the standard single-level-deep body indentation — the same helper
+/// [`Function`]'s own `Display` impl uses internally, exposed for callers (e.g. `crate::wrapper`)
+/// that need a function body's text without a `Function`'s signature line (this crate's `CType`
+/// has no `Int` variant, so `int main(...)` can't be built as a `Function` directly).
+pub fn render_body(stmts: &[Stmt]) -> String {
+    let mut out = String::new();
+    write_stmts(&mut out, stmts, 1);
+    out
+}
+
 const INDENT: &str = "\t";
 
 fn write_stmts(out: &mut String, stmts: &[Stmt], depth: usize) {
