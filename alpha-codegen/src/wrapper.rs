@@ -17,7 +17,7 @@
 use crate::error::Result;
 use crate::expr;
 use crate::layout;
-use crate::simplec::{self, CType, Expr as CExpr, Function, Stmt};
+use crate::simplec::{CType, Expr as CExpr, Function, Stmt, write_stmts};
 use alpha_transform::ir;
 use isl::{DimType, Format, Set};
 use std::fmt::Write as _;
@@ -56,7 +56,7 @@ pub fn generate_wrapper(system: &ir::System) -> Result<String> {
 
     let main_body = build_main_body(system, &param_names)?;
     let _ = writeln!(out, "int main(int argc, char **argv) {{");
-    out.push_str(&simplec::render_body(&main_body));
+    out.push_str(&render_body(&main_body));
     let _ = writeln!(out, "}}");
 
     Ok(out)
@@ -265,4 +265,14 @@ fn gen_array_alloc(v: &ir::Variable, is_input: bool) -> Result<(Vec<Stmt>, Vec<S
     }
 
     Ok((stmts, frees, prev_name))
+}
+
+/// Renders a statement list at the standard single-level-deep body indentation — the same helper
+/// [`Function`]'s own `Display` impl uses internally, exposed for callers (e.g. `crate::wrapper`)
+/// that need a function body's text without a `Function`'s signature line (this crate's `CType`
+/// has no `Int` variant, so `int main(...)` can't be built as a `Function` directly).
+fn render_body(stmts: &[Stmt]) -> String {
+    let mut out = String::new();
+    write_stmts(&mut out, stmts, 1);
+    out
 }
