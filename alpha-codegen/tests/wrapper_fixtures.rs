@@ -10,6 +10,7 @@
 use alpha_model::Resolver;
 use alpha_syntax::ast;
 use isl::Context;
+use std::os::unix::process::ExitStatusExt;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -197,9 +198,10 @@ fn compile_and_run(generated_c: &str, wrapper_c: &str, tag: &str, run_args: &[&s
         .output()
         .unwrap_or_else(|e| panic!("running compiled binary ({tag}): {e}"));
     if !run.status.success() {
-        eprintln!(
-            "binary ({tag}) exited with {:?}\nstdout: {}\nstderr: {}",
+        println!(
+            "binary ({tag}) exited with {:?}\nsignal: {:?}\nstdout: {}\nstderr: {}",
             run.status.code(),
+            run.status.signal(),
             String::from_utf8_lossy(&run.stdout),
             String::from_utf8_lossy(&run.stderr)
         );
@@ -233,12 +235,16 @@ fn wrapper_compiles_and_runs_at_k1_k2_k3() {
             .expect("wrapper generation should succeed");
 
         assert!(
-            compile_and_run(&generated, &wrapper, tag, &[]),
-            "wrapper for {tag} did not run to completion with default parameters"
+            !compile_and_run(&generated, &wrapper, tag, &[]),
+            "wrapper for {tag} did not throw an error when run without arguments"
         );
         assert!(
-            compile_and_run(&generated, &wrapper, &format!("{tag}_argv"), &["7"]),
-            "wrapper for {tag} did not run to completion with an explicit N via argv"
+            !compile_and_run(&generated, &wrapper, &format!("{tag}_argv_illegal"), &["foo"]),
+            "wrapper for {tag} did not throw an error when given an illegal argument"
+        );
+        assert!(
+            compile_and_run(&generated, &wrapper, &format!("{tag}_argv_legal"), &["7"]),
+            "wrapper for {tag} did not run to completion when given legal arguments"
         );
     }
 }

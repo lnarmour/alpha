@@ -11,7 +11,7 @@
 //!
 //! Array extents are generally symbolic in the system's own scalar parameters (e.g. `N`), so
 //! concrete values for those parameters aren't known until the wrapper actually runs — `main`
-//! reads them from `argv`, falling back to [`DEFAULT_PARAM_VALUE`] when absent, matching the
+//! reads them from `argv`, throwing an error when absent, matching the
 //! reference AlphaZ wrapper's own convention of running the same binary across several sizes.
 
 use crate::error::Result;
@@ -21,8 +21,6 @@ use crate::simplec::{CType, Expr as CExpr, Function, Stmt, write_stmts};
 use alpha_transform::ir;
 use isl::{DimType, Format, Set};
 use std::fmt::Write as _;
-
-const DEFAULT_PARAM_VALUE: i64 = 10;
 
 /// Generates a self-contained wrapper source file for `system`'s public entry point.
 pub fn generate_wrapper(system: &ir::System) -> Result<String> {
@@ -81,16 +79,41 @@ fn entry_params_list(system: &ir::System, param_names: &[String]) -> Vec<(CType,
 fn build_main_body(system: &ir::System, param_names: &[String]) -> Result<Vec<Stmt>> {
     let mut body = Vec::new();
 
+    body.push(Stmt::If { 
+        cond: CExpr::Raw(format!("argc != {}", param_names.len() + 1)), 
+        then_branch: vec![
+            Stmt::Raw(format!(
+                "fprintf(stderr, \"alphac wrapper: wrong number of arguments\\n\");"
+            )),
+            usage_hint(&param_names),
+            Stmt::Return(Some(CExpr::Raw("1".to_string()))),
+        ], 
+        else_branch: vec![],
+    });
+
+    body.push(Stmt::Decl {
+        ty: CType::Ptr(Box::new(CType::Char), 1),
+        name: "endptr".to_string(),
+        init: None,
+    });
+
     for (i, p) in param_names.iter().enumerate() {
         let argn = i + 1;
         body.push(Stmt::Decl {
             ty: CType::Long,
             name: p.clone(),
-            init: Some(CExpr::Ternary(
-                Box::new(CExpr::Raw(format!("argc > {argn}"))),
-                Box::new(CExpr::Raw(format!("atol(argv[{argn}])"))),
-                Box::new(CExpr::Raw(DEFAULT_PARAM_VALUE.to_string())),
-            )),
+            init: Some(CExpr::Raw(format!("strtol(argv[{argn}], &endptr, 10)"))),
+        });
+
+        body.push(Stmt::If { 
+            cond: CExpr::Raw("*endptr != '\\0'".to_string()), 
+            then_branch: vec![
+                Stmt::Raw(format!(
+                    "fprintf(stderr, \"alphac wrapper: could not convert argument {argn} (%s) to long.\\n\", argv[{argn}]);"
+                )),
+                Stmt::Return(Some(CExpr::Raw("1".to_string()))),
+            ], 
+            else_branch: vec![],
         });
     }
     if !param_names.is_empty() {
@@ -134,6 +157,19 @@ fn build_main_body(system: &ir::System, param_names: &[String]) -> Result<Vec<St
 
     Ok(body)
 }
+
+/// Returns a printf statement that tells the user the wrapper's proper usage.
+fn usage_hint(param_names: &[String]) -> Stmt {
+    let params= param_names.iter()
+        .map(|p| format!("[{p}]"))
+        .collect::<Vec<String>>()
+        .join(" ");
+
+    Stmt::Raw(
+        format!("printf(\"alphac wrapper: Usage: %s {params}\\n\", argv[0]);")
+    )
+}
+
 
 /// Per-dimension `dim_max(d) + 1`, as C text — interface arrays are indexed directly with no
 /// offset (`layout` module doc), so allocation must cover index `0..=dim_max(d)` regardless of
