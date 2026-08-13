@@ -10,11 +10,12 @@
 use alpha_model::Resolver;
 use isl::Context;
 use std::os::unix::process::ExitStatusExt;
-use std::path::{PathBuf};
+use std::path::PathBuf;
 use std::process::Command;
 mod fixture_util;
-use fixture_util::{all_systems, is_known_scope_boundary, all_alpha_files, fixtures_root, lowered_system};
-
+use fixture_util::{
+    all_alpha_files, all_systems, fixtures_root, is_known_scope_boundary, lowered_system,
+};
 
 #[test]
 fn generates_for_every_system_write_c_itself_generates() {
@@ -175,7 +176,12 @@ fn wrapper_compiles_and_runs_at_k1_k2_k3() {
             "wrapper for {tag} did not throw an error when run without arguments"
         );
         assert!(
-            !compile_and_run(&generated, &wrapper, &format!("{tag}_argv_illegal"), &["foo"]),
+            !compile_and_run(
+                &generated,
+                &wrapper,
+                &format!("{tag}_argv_illegal"),
+                &["foo"]
+            ),
             "wrapper for {tag} did not throw an error when given an illegal argument"
         );
         assert!(

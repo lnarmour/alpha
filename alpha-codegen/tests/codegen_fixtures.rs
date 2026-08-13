@@ -9,7 +9,7 @@
 use alpha_model::Resolver;
 use isl::Context;
 mod fixture_util;
-use fixture_util::{all_systems, is_known_scope_boundary, all_alpha_files, fixtures_root};
+use fixture_util::{all_alpha_files, all_systems, fixtures_root, is_known_scope_boundary};
 
 #[test]
 fn generates_or_reports_a_known_scope_boundary_across_fixture_corpus() {

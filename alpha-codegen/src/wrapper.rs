@@ -17,7 +17,7 @@
 use crate::error::Result;
 use crate::expr;
 use crate::layout;
-use crate::simplec::{CType, Expr as CExpr, Function, Stmt, write_stmts};
+use crate::simplec::{write_stmts, CType, Expr as CExpr, Function, Stmt};
 use alpha_transform::ir;
 use isl::{DimType, Format, Set};
 use std::fmt::Write as _;
@@ -79,15 +79,15 @@ fn entry_params_list(system: &ir::System, param_names: &[String]) -> Vec<(CType,
 fn build_main_body(system: &ir::System, param_names: &[String]) -> Result<Vec<Stmt>> {
     let mut body = Vec::new();
 
-    body.push(Stmt::If { 
-        cond: CExpr::Raw(format!("argc != {}", param_names.len() + 1)), 
+    body.push(Stmt::If {
+        cond: CExpr::Raw(format!("argc != {}", param_names.len() + 1)),
         then_branch: vec![
             Stmt::Raw(format!(
                 "fprintf(stderr, \"alphac wrapper: wrong number of arguments\\n\");"
             )),
             usage_hint(&param_names),
             Stmt::Return(Some(CExpr::Raw("1".to_string()))),
-        ], 
+        ],
         else_branch: vec![],
     });
 
@@ -105,14 +105,14 @@ fn build_main_body(system: &ir::System, param_names: &[String]) -> Result<Vec<St
             init: Some(CExpr::Raw(format!("strtol(argv[{argn}], &endptr, 10)"))),
         });
 
-        body.push(Stmt::If { 
+        body.push(Stmt::If {
             cond: CExpr::Raw("*endptr != '\\0'".to_string()), 
             then_branch: vec![
                 Stmt::Raw(format!(
                     "fprintf(stderr, \"alphac wrapper: could not convert argument {argn} (%s) to long.\\n\", argv[{argn}]);"
                 )),
                 Stmt::Return(Some(CExpr::Raw("1".to_string()))),
-            ], 
+            ],
             else_branch: vec![],
         });
     }
@@ -160,16 +160,16 @@ fn build_main_body(system: &ir::System, param_names: &[String]) -> Result<Vec<St
 
 /// Returns a printf statement that tells the user the wrapper's proper usage.
 fn usage_hint(param_names: &[String]) -> Stmt {
-    let params= param_names.iter()
+    let params = param_names
+        .iter()
         .map(|p| format!("[{p}]"))
         .collect::<Vec<String>>()
         .join(" ");
 
-    Stmt::Raw(
-        format!("printf(\"alphac wrapper: Usage: %s {params}\\n\", argv[0]);")
-    )
+    Stmt::Raw(format!(
+        "printf(\"alphac wrapper: Usage: %s {params}\\n\", argv[0]);"
+    ))
 }
-
 
 /// Per-dimension `dim_max(d) + 1`, as C text — interface arrays are indexed directly with no
 /// offset (`layout` module doc), so allocation must cover index `0..=dim_max(d)` regardless of

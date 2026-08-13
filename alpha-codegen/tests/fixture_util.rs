@@ -1,8 +1,7 @@
-
 use alpha_model::Resolver;
+use alpha_syntax::ast;
 use isl::Context;
 use std::path::{Path, PathBuf};
-use alpha_syntax::ast;
 
 pub(crate) fn fixtures_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/alpha-language-fixtures")
@@ -26,7 +25,6 @@ pub(crate) fn lowered_system(src: &str) -> alpha_transform::ir::System {
     alpha_transform::normalize_reduction::apply(&mut ir_system);
     alpha_transform::normalize::apply(ir_system, true)
 }
-
 
 pub(crate) fn all_systems(root: &ast::Root) -> Vec<ast::System> {
     let mut out: Vec<ast::System> = root.systems().collect();
@@ -61,7 +59,6 @@ pub(crate) fn is_known_scope_boundary(msg: &str) -> bool {
     .iter()
     .any(|known| msg.contains(known))
 }
-
 
 pub(crate) fn all_alpha_files(dir: &Path, out: &mut Vec<PathBuf>) {
     for entry in std::fs::read_dir(dir).unwrap_or_else(|e| panic!("reading {dir:?}: {e}")) {
