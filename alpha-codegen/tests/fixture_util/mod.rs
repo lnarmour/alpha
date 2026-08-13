@@ -1,3 +1,5 @@
+#![allow(dead_code)] // each consumer test binary only uses a subset of these helpers
+
 use alpha_model::Resolver;
 use alpha_syntax::ast;
 use isl::Context;

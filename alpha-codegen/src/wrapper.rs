@@ -82,10 +82,10 @@ fn build_main_body(system: &ir::System, param_names: &[String]) -> Result<Vec<St
     body.push(Stmt::If {
         cond: CExpr::Raw(format!("argc != {}", param_names.len() + 1)),
         then_branch: vec![
-            Stmt::Raw(format!(
-                "fprintf(stderr, \"alphac wrapper: wrong number of arguments\\n\");"
-            )),
-            usage_hint(&param_names),
+            Stmt::Raw(
+                "fprintf(stderr, \"alphac wrapper: wrong number of arguments\\n\");".to_string(),
+            ),
+            usage_hint(param_names),
             Stmt::Return(Some(CExpr::Raw("1".to_string()))),
         ],
         else_branch: vec![],
