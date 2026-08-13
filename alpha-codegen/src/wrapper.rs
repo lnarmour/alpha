@@ -256,6 +256,7 @@ fn gen_array_alloc(v: &ir::Variable, is_input: bool) -> Result<(Vec<Stmt>, Vec<S
         init: Some(CExpr::Raw(alloc_expr)),
     });
     stmts.push(alloc_check_stmt(&data_name, &v.name));
+    //TODO: Replace with proper variable I/O (issue #32)
     if is_input {
         stmts.push(Stmt::For {
             iterator: "_i".to_string(),
