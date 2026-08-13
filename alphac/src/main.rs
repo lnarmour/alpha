@@ -3,6 +3,13 @@
 //! `alphac file.alpha -o file.c`, replacing the source project's `alpha.loader`, deliberately
 //! without its accidental coupling to the schedule-tree grammar.
 //!
+//! `--wrapper` additionally emits a `*_wrapper.c` test harness per system (via
+//! `alpha_codegen::generate_wrapper`) alongside `-o`'s own output file, in the same directory and
+//! named after its stem — `-o dir/foo.c --wrapper` writes `dir/foo_wrapper.c` (or, for a file with
+//! more than one system, one `dir/foo_<SystemName>_wrapper.c` per system). Requires `-o`: with no
+//! output file there's no path to derive the wrapper's name/location from, so `--wrapper` alone is
+//! a hard error.
+//!
 //! Pipeline, per system found in the input file: parse (once, for the whole file) → analyze (all
 //! six `alpha_model` phases, via `alpha_model::analyze_system`, the consolidated "run all of
 //! alpha-model" entry point) → if clean, lower → `NormalizeReduction` → `Normalize`
@@ -43,11 +50,13 @@ fn all_systems(root: &ast::Root) -> Vec<ast::System> {
 struct Args {
     input: PathBuf,
     output: Option<PathBuf>,
+    wrapper: bool,
 }
 
 fn parse_args() -> Result<Args, String> {
     let mut input = None;
     let mut output = None;
+    let mut wrapper = false;
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -55,6 +64,9 @@ fn parse_args() -> Result<Args, String> {
                 output = Some(PathBuf::from(
                     args.next().ok_or("-o requires a path argument")?,
                 ));
+            }
+            "--wrapper" => {
+                wrapper = true;
             }
             other if !other.starts_with('-') => {
                 if input.is_some() {
@@ -65,9 +77,13 @@ fn parse_args() -> Result<Args, String> {
             other => return Err(format!("unrecognized option: {other}")),
         }
     }
+    if wrapper && output.is_none() {
+        return Err("--wrapper requires -o/--output to be specified".to_string());
+    }
     Ok(Args {
-        input: input.ok_or("usage: alphac <file.alpha> [-o <file.c>]")?,
+        input: input.ok_or("usage: alphac <file.alpha> [-o <file.c>] [--wrapper]")?,
         output,
+        wrapper,
     })
 }
 
@@ -105,6 +121,7 @@ fn main() -> ExitCode {
 
     let mut had_diagnostics = false;
     let mut generated = Vec::new();
+    let mut wrappers: Vec<(String, String)> = Vec::new();
 
     for system in &systems {
         let ctx = Context::new();
@@ -151,6 +168,16 @@ fn main() -> ExitCode {
                 return ExitCode::FAILURE;
             }
         }
+
+        if args.wrapper {
+            match alpha_codegen::generate_wrapper(&normalized) {
+                Ok(wrapper_code) => wrappers.push((normalized.name.clone(), wrapper_code)),
+                Err(e) => {
+                    eprintln!("alphac: wrapper codegen error: {e}");
+                    return ExitCode::FAILURE;
+                }
+            }
+        }
     }
 
     if had_diagnostics {
@@ -158,14 +185,36 @@ fn main() -> ExitCode {
     }
 
     let output_text = generated.join("\n");
-    match args.output {
+    match &args.output {
         Some(path) => {
-            if let Err(e) = std::fs::write(&path, output_text) {
+            if let Err(e) = std::fs::write(path, &output_text) {
                 eprintln!("alphac: writing {path:?}: {e}");
                 return ExitCode::FAILURE;
             }
         }
         None => print!("{output_text}"),
+    }
+
+    if args.wrapper {
+        // `parse_args` already rejected `--wrapper` without `-o`.
+        let output_path = args.output.as_ref().expect("--wrapper requires -o");
+        let stem = output_path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("output");
+        let multi_system = wrappers.len() > 1;
+        for (name, wrapper_code) in &wrappers {
+            let file_name = if multi_system {
+                format!("{stem}_{name}_wrapper.c")
+            } else {
+                format!("{stem}_wrapper.c")
+            };
+            let wrapper_path = output_path.with_file_name(file_name);
+            if let Err(e) = std::fs::write(&wrapper_path, wrapper_code) {
+                eprintln!("alphac: writing {wrapper_path:?}: {e}");
+                return ExitCode::FAILURE;
+            }
+        }
     }
 
     ExitCode::SUCCESS

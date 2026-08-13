@@ -83,6 +83,29 @@ def test_parse_with_syntax_error_raises_value_error():
         alphalang.parse("this is not alpha source")
 
 
+def test_generate_wrapper_on_normalized_system_produces_c_harness():
+    norm = alphalang.normalize(alphalang.parse(PREFIX_SUM))
+    harness = alphalang.generate_wrapper(norm)
+    assert "#include" in harness
+    assert "int main(" in harness
+    assert "PrefixSum(" in harness
+
+
+def test_generate_wrapper_on_scheduled_system_produces_c_harness():
+    norm = alphalang.normalize(alphalang.parse(PREFIX_SUM))
+    sched = norm.schedule(PREFIX_SUM_SCHEDULE)
+    harness = alphalang.generate_wrapper(sched)
+    assert "#include" in harness
+    assert "int main(" in harness
+    assert "PrefixSum(" in harness
+
+
+def test_generate_wrapper_on_bare_system_raises_type_error():
+    sys = alphalang.parse(PREFIX_SUM)
+    with pytest.raises(TypeError):
+        alphalang.generate_wrapper(sys)
+
+
 def test_print_dumps_the_tree_with_domains():
     sys = alphalang.parse(PREFIX_SUM)
     text = alphalang.print(sys)

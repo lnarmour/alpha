@@ -17,9 +17,11 @@ pub mod simplec;
 mod stmt;
 #[cfg(test)]
 mod test_util;
+mod wrapper;
 pub mod writec;
 
 pub use describe::{describe_normalized_system, describe_system};
 pub use error::{CodegenError, Result};
 pub use scheduledc::{generate_scheduled_system, validate_scheduled_system};
+pub use wrapper::generate_wrapper;
 pub use writec::generate_system;

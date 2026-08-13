@@ -186,6 +186,26 @@ fn generate(system: &Bound<'_, PyAny>) -> PyResult<String> {
     ))
 }
 
+/// Generates a `*_wrapper.c`-style test harness for `system`'s public entry point
+/// (`alpha_codegen::generate_wrapper`, issue #23): allocates memory for every parameter, calls the
+/// generated function, and frees it. Accepts a `NormalizedSystem` or `ScheduledSystem` — the
+/// harness matches the entry point's own driver signature (`layout::interface_ctype`), which
+/// scheduling never changes, so this works identically before or after `NormalizedSystem.schedule()`
+/// runs; same acceptance shape as [`generate`], for the same reason.
+#[pyfunction]
+fn generate_wrapper(system: &Bound<'_, PyAny>) -> PyResult<String> {
+    if let Ok(scheduled) = system.extract::<PyRef<ScheduledSystem>>() {
+        return alpha_codegen::generate_wrapper(&scheduled.system).map_err(codegen_err_to_py);
+    }
+    if let Ok(normalized) = system.extract::<PyRef<NormalizedSystem>>() {
+        return alpha_codegen::generate_wrapper(&normalized.0).map_err(codegen_err_to_py);
+    }
+    Err(PyTypeError::new_err(
+        "generate_wrapper() requires a NormalizedSystem or ScheduledSystem, not a bare System — \
+         run alpha.normalize() first (§5.1)",
+    ))
+}
+
 /// Any of the three pipeline-stage wrapper types share the same underlying `ir::System` — the
 /// three printers below (`print`/`show`/`ashow`) work identically at any stage, unlike
 /// `schedule`/`generate`, which are gated on normalization (§5.1). Clones the same as every other
@@ -242,6 +262,7 @@ fn _alpha(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(parse, m)?)?;
     m.add_function(wrap_pyfunction!(normalize, m)?)?;
     m.add_function(wrap_pyfunction!(generate, m)?)?;
+    m.add_function(wrap_pyfunction!(generate_wrapper, m)?)?;
     m.add_function(wrap_pyfunction!(print, m)?)?;
     m.add_function(wrap_pyfunction!(show, m)?)?;
     m.add_function(wrap_pyfunction!(ashow, m)?)?;

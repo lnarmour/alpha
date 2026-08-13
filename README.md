@@ -101,6 +101,14 @@ cargo run -p alphac -- path/to/file.alpha -o path/to/file.c
 
 Without `-o`, generated C is printed to stdout.
 
+Add `--wrapper` to also emit a `*_wrapper.c` test harness (allocates memory for each parameter,
+calls the generated function, and frees it) next to `-o`'s output file — requires `-o`, since
+that's where the wrapper's name/location is derived from:
+
+```
+cargo run -p alphac -- path/to/file.alpha -o path/to/file.c --wrapper
+```
+
 ## Other make targets
 
 ```
