@@ -8,77 +8,13 @@
 //! as valid Rust-generated text (mirrors `scheduledc_e2e.rs`'s own `compile_and_run` approach).
 
 use alpha_model::Resolver;
-use alpha_syntax::ast;
 use isl::Context;
 use std::os::unix::process::ExitStatusExt;
-use std::path::{Path, PathBuf};
+use std::path::{PathBuf};
 use std::process::Command;
+mod fixture_util;
+use fixture_util::{all_systems, is_known_scope_boundary, all_alpha_files, fixtures_root, lowered_system};
 
-fn fixtures_root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/alpha-language-fixtures")
-}
-
-fn all_alpha_files(dir: &Path, out: &mut Vec<PathBuf>) {
-    for entry in std::fs::read_dir(dir).unwrap_or_else(|e| panic!("reading {dir:?}: {e}")) {
-        let entry = entry.unwrap();
-        let path = entry.path();
-        if path.is_dir() {
-            all_alpha_files(&path, out);
-        } else if path.extension().is_some_and(|ext| ext == "alpha") {
-            out.push(path);
-        }
-    }
-}
-
-fn all_systems(root: &ast::Root) -> Vec<ast::System> {
-    let mut out: Vec<ast::System> = root.systems().collect();
-    fn walk_pkg(pkg: &ast::AlphaPackage, out: &mut Vec<ast::System>) {
-        out.extend(pkg.systems());
-        for sub in pkg.packages() {
-            walk_pkg(&sub, out);
-        }
-    }
-    for pkg in root.packages() {
-        walk_pkg(&pkg, &mut out);
-    }
-    out
-}
-
-/// Parses/analyzes/lowers/normalizes the first system in `src` — panics on any front-end failure
-/// (these are hand-written fixtures, expected to be clean), mirroring
-/// `scheduledc_e2e.rs`'s own `lowered_prefix_sum` helper, generalized to any source text.
-fn lowered_system(src: &str) -> alpha_transform::ir::System {
-    let ctx = Context::new();
-    let parse = alpha_syntax::parse(src);
-    assert!(parse.errors.is_empty(), "{:?}", parse.errors);
-    let tree = parse.tree();
-    let system = tree.systems().next().expect("one system in fixture");
-    let mut resolver = Resolver::new(ctx, &system);
-    let diagnostics = alpha_model::analyze_system(&mut resolver, &system);
-    assert!(diagnostics.is_empty(), "{diagnostics:?}");
-    let (mut ir_system, lower_diagnostics) =
-        alpha_transform::lower::lower_system(&mut resolver, &system).unwrap();
-    assert!(lower_diagnostics.is_empty(), "{lower_diagnostics:?}");
-    alpha_transform::normalize_reduction::apply(&mut ir_system);
-    alpha_transform::normalize::apply(ir_system, true)
-}
-
-/// Same `is_known_scope_boundary` substrings as `codegen_fixtures.rs` — a wrapper is only
-/// meaningful for a system `generate_system` itself actually produced code for.
-fn is_known_scope_boundary(msg: &str) -> bool {
-    [
-        "UseEquation has no codegen backend",
-        "select {relation} from E codegen not implemented",
-        "val{...} (polynomial-valued index expression) codegen not implemented",
-        "argreduce codegen not implemented",
-        "val(f) codegen only implemented for a single-output function",
-        "Convolution codegen not implemented",
-        "system has no bodies to generate code for",
-        "isl couldn't establish a bound",
-    ]
-    .iter()
-    .any(|known| msg.contains(known))
-}
 
 #[test]
 fn generates_for_every_system_write_c_itself_generates() {
