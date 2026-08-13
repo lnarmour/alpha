@@ -106,7 +106,7 @@ fn build_main_body(system: &ir::System, param_names: &[String]) -> Result<Vec<St
         });
 
         body.push(Stmt::If {
-            cond: CExpr::Raw("*endptr != '\\0'".to_string()), 
+            cond: CExpr::Raw("*endptr != '\\0'".to_string()),
             then_branch: vec![
                 Stmt::Raw(format!(
                     "fprintf(stderr, \"alphac wrapper: could not convert argument {argn} (%s) to long.\\n\", argv[{argn}]);"
