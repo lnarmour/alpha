@@ -9,7 +9,7 @@
 
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// A parsed-and-lowered system, pre-normalization. `%%alphalang`'s own return type (§5.2) —
 /// `System.__repr__` shows one entry per output/local variable at its identity schedule, no
@@ -186,6 +186,61 @@ fn generate(system: &Bound<'_, PyAny>) -> PyResult<String> {
     ))
 }
 
+/// Generates a `*_wrapper.c`-style test harness for `system`'s public entry point
+/// (`alpha_codegen::generate_wrapper`, issue #23): allocates memory for every parameter, calls the
+/// generated function, and frees it. Accepts a `NormalizedSystem` or `ScheduledSystem` — the
+/// harness matches the entry point's own driver signature (`layout::interface_ctype`), which
+/// scheduling never changes, so this works identically before or after `NormalizedSystem.schedule()`
+/// runs; same acceptance shape as [`generate`], for the same reason.
+#[pyfunction]
+fn generate_wrapper(system: &Bound<'_, PyAny>) -> PyResult<String> {
+    if let Ok(scheduled) = system.extract::<PyRef<ScheduledSystem>>() {
+        return alpha_codegen::generate_wrapper(&scheduled.system).map_err(codegen_err_to_py);
+    }
+    if let Ok(normalized) = system.extract::<PyRef<NormalizedSystem>>() {
+        return alpha_codegen::generate_wrapper(&normalized.0).map_err(codegen_err_to_py);
+    }
+    Err(PyTypeError::new_err(
+        "generate_wrapper() requires a NormalizedSystem or ScheduledSystem, not a bare System — \
+         run alpha.normalize() first (§5.1)",
+    ))
+}
+
+/// Validates that `path` names an actual file (i.e. `Path::file_name()` is `Some`) — unlike the
+/// CLI (`alphac`'s `-o`), which only ever calls `alpha_codegen::generate_makefile` on a path it has
+/// already successfully written a real file to, this binding takes a bare string straight from the
+/// Python caller with no such guarantee (e.g. `"/"`, `".."`, `"."` all have no file name). Raising
+/// here, rather than letting `alpha_codegen::generate_makefile` silently fall back to a placeholder
+/// name, is what keeps a typo'd path from producing a plausible-looking but wrong `Makefile`.
+fn require_file_name(path: &str, label: &str) -> PyResult<PathBuf> {
+    let p = PathBuf::from(path);
+    if p.file_name().is_none() {
+        return Err(PyValueError::new_err(format!(
+            "{label} {path:?} has no file name"
+        )));
+    }
+    Ok(p)
+}
+
+/// Generates a `Makefile` (`alpha_codegen::generate_makefile`, issue #22, sub-issue of #21) that
+/// compiles `c_path` to an object file and, for each path in `wrapper_paths`, links that wrapper
+/// against the resulting object file into its own executable. Takes file paths, not a
+/// `System`/`NormalizedSystem`/`ScheduledSystem`: unlike every other binding in this module, a
+/// Makefile has nothing to say about program semantics, only about which already-written files
+/// (produced by writing `generate`'s/`generate_wrapper`'s own output to disk) to compile together
+/// — so it never touches isl or the IR. The only way this raises is [`require_file_name`] rejecting
+/// a path with no file name.
+#[pyfunction]
+#[pyo3(signature = (c_path, wrapper_paths=Vec::new()))]
+fn generate_makefile(c_path: &str, wrapper_paths: Vec<String>) -> PyResult<String> {
+    let c_path = require_file_name(c_path, "c_path")?;
+    let wrapper_paths = wrapper_paths
+        .iter()
+        .map(|p| require_file_name(p, "wrapper path"))
+        .collect::<PyResult<Vec<PathBuf>>>()?;
+    Ok(alpha_codegen::generate_makefile(&c_path, &wrapper_paths))
+}
+
 /// Any of the three pipeline-stage wrapper types share the same underlying `ir::System` — the
 /// three printers below (`print`/`show`/`ashow`) work identically at any stage, unlike
 /// `schedule`/`generate`, which are gated on normalization (§5.1). Clones the same as every other
@@ -242,6 +297,8 @@ fn _alpha(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(parse, m)?)?;
     m.add_function(wrap_pyfunction!(normalize, m)?)?;
     m.add_function(wrap_pyfunction!(generate, m)?)?;
+    m.add_function(wrap_pyfunction!(generate_wrapper, m)?)?;
+    m.add_function(wrap_pyfunction!(generate_makefile, m)?)?;
     m.add_function(wrap_pyfunction!(print, m)?)?;
     m.add_function(wrap_pyfunction!(show, m)?)?;
     m.add_function(wrap_pyfunction!(ashow, m)?)?;

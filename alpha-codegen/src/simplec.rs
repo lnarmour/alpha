@@ -151,13 +151,13 @@ impl Function {
 
 const INDENT: &str = "\t";
 
-fn write_stmts(out: &mut String, stmts: &[Stmt], depth: usize) {
+pub fn write_stmts(out: &mut String, stmts: &[Stmt], depth: usize) {
     for s in stmts {
         write_stmt(out, s, depth);
     }
 }
 
-fn write_stmt(out: &mut String, stmt: &Stmt, depth: usize) {
+pub fn write_stmt(out: &mut String, stmt: &Stmt, depth: usize) {
     let pad = INDENT.repeat(depth);
     match stmt {
         Stmt::Decl { ty, name, init } => {

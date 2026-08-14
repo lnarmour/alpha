@@ -28,6 +28,19 @@ formatting.
   schedule, never hand-rolled; `case` branches become a right-nested ternary.
 - **`error`**: `CodegenError`/`Result` — every unsupported construct raises a named error, never a
   panic or a bare isl error.
+- **`wrapper`**: `generate_wrapper`, a `*_wrapper.c`-style test harness generator for a system's
+  public entry point — allocates memory for every parameter, calls the generated function, and
+  frees it, so a generated system can be compiled and run without hand-written boilerplate. Reads
+  concrete values for a system's own symbolic scalar parameters (e.g. `N`) from `argv` at runtime,
+  falling back to a default when absent, matching the reference AlphaZ wrapper's own convention of
+  running the same binary across several sizes. Exposed on the CLI via `alphac`'s `--wrapper` flag
+  (see [that crate's README](../alphac)).
+- **`makefile`**: `generate_makefile` (issue #22, sub-issue of #21) — generates a `Makefile` that
+  compiles a generated `.c` source to an object file and, for each wrapper harness path given,
+  links it against that object file into its own executable. Takes only file names/paths, not an
+  `ir::System`: a Makefile has nothing to say about program semantics, only about which
+  already-written files to compile together, so it can't fail. Exposed on the CLI via `alphac`'s
+  `--makefile` flag (see [that crate's README](../alphac)).
 
 ## Cardinality counting (`barvinok` feature)
 
@@ -59,4 +72,7 @@ generate successfully, 21 hit a named scope boundary, zero unexpected failures. 
 generated C for the three `alpha.codegen.tests` reference programs (`CopyInput`, `PrefixScan`,
 `LUDecomposition`) was compiled and linked against the sibling Java system's own
 `*-wrapper.c`/`*_verify.c` files and **passes real numeric verification** against the original
-AlphaZ-generated output across a range of `N`.
+AlphaZ-generated output across a range of `N`. Wrapper generation (`generate_wrapper`) is also
+implemented and fixture-tested (`tests/wrapper_fixtures.rs`). Makefile generation
+(`generate_makefile`) is implemented and unit-tested in `src/makefile.rs`, plus end-to-end tested
+via `alphac`'s `tests/makefile_cli.rs` (runs `make` and the resulting binary).

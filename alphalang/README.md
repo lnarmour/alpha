@@ -37,6 +37,8 @@ driven entirely through this crate.
 | `alphalang.normalize(sys)` | `NormalizedSystem` | runs `normalize_reduction::apply` then `normalize::apply` (that order is required — see `alpha-transform`'s own README) against a clone; `sys` is untouched |
 | `norm.schedule(text)` | `ScheduledSystem` | parses + validates (§6) + legality-checks (§7) a target mapping against a clone of `norm`; raises `alphalang.ScheduleError` and binds nothing on any failure |
 | `alphalang.generate(system)` | `str` | `NormalizedSystem` or `ScheduledSystem`; a bare `NormalizedSystem` is sugar for `generate(norm.schedule(""))` (§6's identity-schedule default) |
+| `alphalang.generate_wrapper(system)` | `str` | `NormalizedSystem` or `ScheduledSystem`; a `*_wrapper.c`-style test harness (issue #23) for the system's public entry point — allocates memory for every parameter, calls the generated function, and frees it. Scheduling never changes the entry point's own signature, so this accepts either stage identically, unlike `generate` |
+| `alphalang.generate_makefile(c_path, wrapper_paths=[])` | `str` | issue #22, sub-issue of #21; a `Makefile` that compiles `c_path` to an object file and links each path in `wrapper_paths` against it into its own executable — takes file paths (not a `System`/`NormalizedSystem`/`ScheduledSystem`), since a Makefile has nothing to say about program semantics. Raises `ValueError` if `c_path` or any wrapper path has no file name (e.g. `"/"`, `".."`) |
 | `repr(sys)` / `repr(norm)` / `repr(sched)` | `str` | the ISL union-map skeleton, no precondition — always safe to print |
 | `alphalang.print(system)` | `str` | an indented debug tree dump — every node's own kind plus its `expression_domain`/`context_domain` (ported from alpha-language's `PrintAST`); accepts `System`, `NormalizedSystem`, or `ScheduledSystem` |
 | `alphalang.show(system)` | `str` | reconstructs Alpha-like source syntax from the model, `f@X` point-free `Dependence` notation (ported from `Show.xtend`); same three accepted types |
@@ -91,7 +93,7 @@ loop since it skips uv's dependency resolution step — but isn't required any m
 ## Testing
 
 ```
-pytest alphalang/tests/                              # 18 tests: plain API + magics
+pytest alphalang/tests/                              # 30 tests: plain API + magics
 pytest --nbval alphalang/notebooks/prefix_sum.ipynb  # 8 more: the notebook fixture
 ```
 
