@@ -118,6 +118,16 @@ def test_generate_makefile_with_wrapper_links_it_against_the_object_file():
     assert "prefix_sum_wrapper: prefix_sum_wrapper.c prefix_sum.o" in makefile
 
 
+def test_generate_makefile_with_pathless_c_path_raises_value_error():
+    with pytest.raises(ValueError):
+        alphalang.generate_makefile("/")
+
+
+def test_generate_makefile_with_pathless_wrapper_path_raises_value_error():
+    with pytest.raises(ValueError):
+        alphalang.generate_makefile("prefix_sum.c", [".."])
+
+
 def test_print_dumps_the_tree_with_domains():
     sys = alphalang.parse(PREFIX_SUM)
     text = alphalang.print(sys)

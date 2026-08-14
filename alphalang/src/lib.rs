@@ -206,18 +206,39 @@ fn generate_wrapper(system: &Bound<'_, PyAny>) -> PyResult<String> {
     ))
 }
 
+/// Validates that `path` names an actual file (i.e. `Path::file_name()` is `Some`) — unlike the
+/// CLI (`alphac`'s `-o`), which only ever calls `alpha_codegen::generate_makefile` on a path it has
+/// already successfully written a real file to, this binding takes a bare string straight from the
+/// Python caller with no such guarantee (e.g. `"/"`, `".."`, `"."` all have no file name). Raising
+/// here, rather than letting `alpha_codegen::generate_makefile` silently fall back to a placeholder
+/// name, is what keeps a typo'd path from producing a plausible-looking but wrong `Makefile`.
+fn require_file_name(path: &str, label: &str) -> PyResult<PathBuf> {
+    let p = PathBuf::from(path);
+    if p.file_name().is_none() {
+        return Err(PyValueError::new_err(format!(
+            "{label} {path:?} has no file name"
+        )));
+    }
+    Ok(p)
+}
+
 /// Generates a `Makefile` (`alpha_codegen::generate_makefile`, issue #22, sub-issue of #21) that
 /// compiles `c_path` to an object file and, for each path in `wrapper_paths`, links that wrapper
 /// against the resulting object file into its own executable. Takes file paths, not a
 /// `System`/`NormalizedSystem`/`ScheduledSystem`: unlike every other binding in this module, a
 /// Makefile has nothing to say about program semantics, only about which already-written files
 /// (produced by writing `generate`'s/`generate_wrapper`'s own output to disk) to compile together
-/// — so it never touches isl or the IR and cannot fail.
+/// — so it never touches isl or the IR. The only way this raises is [`require_file_name`] rejecting
+/// a path with no file name.
 #[pyfunction]
 #[pyo3(signature = (c_path, wrapper_paths=Vec::new()))]
-fn generate_makefile(c_path: &str, wrapper_paths: Vec<String>) -> String {
-    let wrapper_paths: Vec<PathBuf> = wrapper_paths.into_iter().map(PathBuf::from).collect();
-    alpha_codegen::generate_makefile(Path::new(c_path), &wrapper_paths)
+fn generate_makefile(c_path: &str, wrapper_paths: Vec<String>) -> PyResult<String> {
+    let c_path = require_file_name(c_path, "c_path")?;
+    let wrapper_paths = wrapper_paths
+        .iter()
+        .map(|p| require_file_name(p, "wrapper path"))
+        .collect::<PyResult<Vec<PathBuf>>>()?;
+    Ok(alpha_codegen::generate_makefile(&c_path, &wrapper_paths))
 }
 
 /// Any of the three pipeline-stage wrapper types share the same underlying `ir::System` — the
