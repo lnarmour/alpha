@@ -8,7 +8,7 @@ deliberately without its accidental coupling to the schedule-tree grammar.
 ## Usage
 
 ```
-alphac <file.alpha> [-o <file.c>] [--wrapper]
+alphac <file.alpha> [-o <file.c>] [--wrapper] [--makefile]
 ```
 
 Without `-o`, generated C is printed to stdout.
@@ -21,6 +21,13 @@ as `-o` and named after its stem: `-o dir/foo.c --wrapper` writes `dir/foo_wrapp
 file with more than one system, one `dir/foo_<SystemName>_wrapper.c` per system). Requires `-o`:
 with no output file there's no path to derive the wrapper's name/location from, so `--wrapper`
 alone is a hard error.
+
+`--makefile` additionally emits a `Makefile` (via
+[`alpha_codegen::generate_makefile`](../alpha-codegen)) alongside `-o`'s own output file, that
+compiles it to an object file — and, if `--wrapper` was also given, links each wrapper against that
+object file into its own executable named after the wrapper's own file stem (e.g.
+`dir/foo_wrapper.c` builds a `dir/foo_wrapper` binary). Requires `-o` for the same reason
+`--wrapper` does.
 
 ## Pipeline
 
@@ -50,6 +57,9 @@ ships.
 Done for scope: CLI wiring is complete and manually verified against the three
 `alpha.codegen.tests` reference fixtures (see `alpha-codegen`'s README). `--wrapper` generation is
 implemented and covered by dedicated crate-level tests (`tests/wrapper_cli.rs`): a wrapper file is
-written next to `-o`'s path, and `--wrapper` without `-o` fails with a clear error. No dedicated
-crate-level test of the main codegen path yet — see `docs/progress.md`'s "immediate next steps" for
-what that would need (a C compiler on the test machine to actually compile the generated output).
+written next to `-o`'s path, and `--wrapper` without `-o` fails with a clear error. `--makefile`
+generation is implemented and covered by dedicated crate-level tests (`tests/makefile_cli.rs`),
+including one that actually runs `make` on the generated `Makefile` and executes the resulting
+binary. No dedicated crate-level test of the main codegen path yet — see `docs/progress.md`'s
+"immediate next steps" for what that would need (a C compiler on the test machine to actually
+compile the generated output).

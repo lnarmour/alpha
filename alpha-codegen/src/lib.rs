@@ -11,6 +11,7 @@ pub mod error;
 mod expr;
 pub mod layout;
 mod legality;
+mod makefile;
 mod schedule;
 mod scheduledc;
 pub mod simplec;
@@ -22,6 +23,7 @@ pub mod writec;
 
 pub use describe::{describe_normalized_system, describe_system};
 pub use error::{CodegenError, Result};
+pub use makefile::generate_makefile;
 pub use scheduledc::{generate_scheduled_system, validate_scheduled_system};
 pub use wrapper::generate_wrapper;
 pub use writec::generate_system;

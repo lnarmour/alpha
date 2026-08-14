@@ -106,6 +106,18 @@ def test_generate_wrapper_on_bare_system_raises_type_error():
         alphalang.generate_wrapper(sys)
 
 
+def test_generate_makefile_without_wrapper_only_compiles_the_object_file():
+    makefile = alphalang.generate_makefile("prefix_sum.c")
+    assert "prefix_sum.o: prefix_sum.c" in makefile
+    assert "_wrapper:" not in makefile
+
+
+def test_generate_makefile_with_wrapper_links_it_against_the_object_file():
+    makefile = alphalang.generate_makefile("prefix_sum.c", ["prefix_sum_wrapper.c"])
+    assert "prefix_sum.o: prefix_sum.c" in makefile
+    assert "prefix_sum_wrapper: prefix_sum_wrapper.c prefix_sum.o" in makefile
+
+
 def test_print_dumps_the_tree_with_domains():
     sys = alphalang.parse(PREFIX_SUM)
     text = alphalang.print(sys)

@@ -109,6 +109,14 @@ that's where the wrapper's name/location is derived from:
 cargo run -p alphac -- path/to/file.alpha -o path/to/file.c --wrapper
 ```
 
+Add `--makefile` to also emit a `Makefile` next to `-o`'s output file, that compiles it to an
+object file — and, combined with `--wrapper`, links each wrapper against that object file into its
+own executable. Also requires `-o`:
+
+```
+cargo run -p alphac -- path/to/file.alpha -o path/to/file.c --wrapper --makefile
+```
+
 ## Other make targets
 
 ```

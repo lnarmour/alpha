@@ -9,7 +9,7 @@
 
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// A parsed-and-lowered system, pre-normalization. `%%alphalang`'s own return type (§5.2) —
 /// `System.__repr__` shows one entry per output/local variable at its identity schedule, no
@@ -206,6 +206,20 @@ fn generate_wrapper(system: &Bound<'_, PyAny>) -> PyResult<String> {
     ))
 }
 
+/// Generates a `Makefile` (`alpha_codegen::generate_makefile`, issue #22, sub-issue of #21) that
+/// compiles `c_path` to an object file and, for each path in `wrapper_paths`, links that wrapper
+/// against the resulting object file into its own executable. Takes file paths, not a
+/// `System`/`NormalizedSystem`/`ScheduledSystem`: unlike every other binding in this module, a
+/// Makefile has nothing to say about program semantics, only about which already-written files
+/// (produced by writing `generate`'s/`generate_wrapper`'s own output to disk) to compile together
+/// — so it never touches isl or the IR and cannot fail.
+#[pyfunction]
+#[pyo3(signature = (c_path, wrapper_paths=Vec::new()))]
+fn generate_makefile(c_path: &str, wrapper_paths: Vec<String>) -> String {
+    let wrapper_paths: Vec<PathBuf> = wrapper_paths.into_iter().map(PathBuf::from).collect();
+    alpha_codegen::generate_makefile(Path::new(c_path), &wrapper_paths)
+}
+
 /// Any of the three pipeline-stage wrapper types share the same underlying `ir::System` — the
 /// three printers below (`print`/`show`/`ashow`) work identically at any stage, unlike
 /// `schedule`/`generate`, which are gated on normalization (§5.1). Clones the same as every other
@@ -263,6 +277,7 @@ fn _alpha(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(normalize, m)?)?;
     m.add_function(wrap_pyfunction!(generate, m)?)?;
     m.add_function(wrap_pyfunction!(generate_wrapper, m)?)?;
+    m.add_function(wrap_pyfunction!(generate_makefile, m)?)?;
     m.add_function(wrap_pyfunction!(print, m)?)?;
     m.add_function(wrap_pyfunction!(show, m)?)?;
     m.add_function(wrap_pyfunction!(ashow, m)?)?;

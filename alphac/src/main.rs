@@ -10,6 +10,11 @@
 //! output file there's no path to derive the wrapper's name/location from, so `--wrapper` alone is
 //! a hard error.
 //!
+//! `--makefile` additionally emits a `Makefile` (via `alpha_codegen::generate_makefile`) next to
+//! `-o`'s own output file, that compiles it to an object file — and, if `--wrapper` was also given,
+//! links each wrapper against that object file into its own executable. Requires `-o` for the same
+//! reason `--wrapper` does.
+//!
 //! Pipeline, per system found in the input file: parse (once, for the whole file) → analyze (all
 //! six `alpha_model` phases, via `alpha_model::analyze_system`, the consolidated "run all of
 //! alpha-model" entry point) → if clean, lower → `NormalizeReduction` → `Normalize`
@@ -51,12 +56,14 @@ struct Args {
     input: PathBuf,
     output: Option<PathBuf>,
     wrapper: bool,
+    makefile: bool,
 }
 
 fn parse_args() -> Result<Args, String> {
     let mut input = None;
     let mut output = None;
     let mut wrapper = false;
+    let mut makefile = false;
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -67,6 +74,9 @@ fn parse_args() -> Result<Args, String> {
             }
             "--wrapper" => {
                 wrapper = true;
+            }
+            "--makefile" => {
+                makefile = true;
             }
             other if !other.starts_with('-') => {
                 if input.is_some() {
@@ -80,10 +90,14 @@ fn parse_args() -> Result<Args, String> {
     if wrapper && output.is_none() {
         return Err("--wrapper requires -o/--output to be specified".to_string());
     }
+    if makefile && output.is_none() {
+        return Err("--makefile requires -o/--output to be specified".to_string());
+    }
     Ok(Args {
-        input: input.ok_or("usage: alphac <file.alpha> [-o <file.c>] [--wrapper]")?,
+        input: input.ok_or("usage: alphac <file.alpha> [-o <file.c>] [--wrapper] [--makefile]")?,
         output,
         wrapper,
+        makefile,
     })
 }
 
@@ -195,6 +209,7 @@ fn main() -> ExitCode {
         None => print!("{output_text}"),
     }
 
+    let mut wrapper_paths: Vec<PathBuf> = Vec::new();
     if args.wrapper {
         // `parse_args` already rejected `--wrapper` without `-o`.
         let output_path = args.output.as_ref().expect("--wrapper requires -o");
@@ -214,6 +229,18 @@ fn main() -> ExitCode {
                 eprintln!("alphac: writing {wrapper_path:?}: {e}");
                 return ExitCode::FAILURE;
             }
+            wrapper_paths.push(wrapper_path);
+        }
+    }
+
+    if args.makefile {
+        // `parse_args` already rejected `--makefile` without `-o`.
+        let output_path = args.output.as_ref().expect("--makefile requires -o");
+        let makefile_text = alpha_codegen::generate_makefile(output_path, &wrapper_paths);
+        let makefile_path = output_path.with_file_name("Makefile");
+        if let Err(e) = std::fs::write(&makefile_path, makefile_text) {
+            eprintln!("alphac: writing {makefile_path:?}: {e}");
+            return ExitCode::FAILURE;
         }
     }
 

@@ -16,6 +16,11 @@ Alpha-like source syntax, ``ashow`` is ``show`` in array-index notation (``X[i+1
 parameter, calls the generated function, and frees it, so the output of ``generate``/
 ``generate_wrapper`` together compile and run with no hand-written boilerplate.
 
+``generate_makefile`` (issue #22, sub-issue of #21) produces a ``Makefile`` that compiles the
+``*.c``/``*_wrapper.c`` files ``generate``/``generate_wrapper`` produced (once written to disk) into
+a working executable — it takes their file paths, not a ``System``/``NormalizedSystem``/
+``ScheduledSystem``.
+
     >>> import alphalang
     >>> sys = alphalang.read("foo.alpha")
     >>> print(alphalang.show(sys))
@@ -23,6 +28,7 @@ parameter, calls the generated function, and frees it, so the output of ``genera
     >>> sched = norm.schedule("{ ... }")
     >>> code = alphalang.generate(sched)
     >>> harness = alphalang.generate_wrapper(sched)
+    >>> makefile = alphalang.generate_makefile("foo.c", ["foo_wrapper.c"])
 """
 
 from ._alpha import (
@@ -32,6 +38,7 @@ from ._alpha import (
     System,
     ashow,
     generate,
+    generate_makefile,
     generate_wrapper,
     normalize,
     parse,
@@ -50,6 +57,7 @@ __all__ = [
     "normalize",
     "generate",
     "generate_wrapper",
+    "generate_makefile",
     "print",
     "show",
     "ashow",
