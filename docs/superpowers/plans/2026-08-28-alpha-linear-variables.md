@@ -175,9 +175,9 @@ fn linear_value_cannot_flow_to_unrestricted_target() {
 - Consumes: completed multiplicity metadata and analysis.
 - Produces: workspace-wide compatibility and evidence that schedules do not alter resource results.
 
-- [ ] **Step 1: Run `cargo test --workspace --no-fail-fast`** and fix only compilation/regression failures caused by the new required IR field or syntax keyword.
-- [ ] **Step 2: Add a schedule regression** that checks two different legal schedules for the same linear transfer system validate successfully after the source passes multiplicity analysis.
-- [ ] **Step 3: Run the focused codegen schedule test**.
-- [ ] **Step 4: Run `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, and `cargo test --workspace --no-fail-fast`**.
-- [ ] **Step 5: Confirm `git diff --check` and review `git status --short` for unrelated changes**.
-- [ ] **Step 6: Commit with `git commit -m "test: cover linear schedule independence"`**.
+- [x] **Step 1: Run `cargo test --workspace --no-fail-fast`** and fix only compilation/regression failures caused by the new required IR field or syntax keyword.
+- [x] **Step 2: Add a schedule regression** that checks two different legal schedules for the same linear transfer system validate successfully after the source passes multiplicity analysis.
+- [x] **Step 3: Run the focused codegen schedule test**.
+- [x] **Step 4: Run `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, and `cargo test --workspace --no-fail-fast`**.
+- [x] **Step 5: Confirm `git diff --check` and review `git status --short` for unrelated changes**.
+- [x] **Step 6: Commit with `git commit -m "test: cover linear schedule independence"`**.

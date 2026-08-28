@@ -23,8 +23,5 @@ fn lowering_propagates_group_multiplicity() {
     assert!(diagnostics.is_empty(), "{diagnostics:?}");
     assert_eq!(lowered.inputs[0].multiplicity, Multiplicity::Linear);
     assert_eq!(lowered.inputs[1].multiplicity, Multiplicity::Linear);
-    assert_eq!(
-        lowered.outputs[0].multiplicity,
-        Multiplicity::Unrestricted
-    );
+    assert_eq!(lowered.outputs[0].multiplicity, Multiplicity::Unrestricted);
 }

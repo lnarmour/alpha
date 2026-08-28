@@ -11,8 +11,8 @@
 //! the result, and reports [`Diagnostic::CyclicDefinition`] if resolution re-enters itself.
 
 use crate::diagnostic::Diagnostic;
-use crate::{Multiplicity, VariableId};
 use crate::value::{eval_binary, eval_unary, Value};
+use crate::{Multiplicity, VariableId};
 use alpha_syntax::ast::{self, AstNode, CalcExpr};
 use alpha_syntax::syntax_kind::SyntaxNode;
 use isl::{Context, Set};
