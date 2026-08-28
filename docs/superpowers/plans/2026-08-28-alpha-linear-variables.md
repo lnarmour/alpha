@@ -86,7 +86,7 @@ Assign IDs in declaration source order. Resolve group multiplicity by walking ba
 - Consumes: `VariableId`, `Multiplicity`, resolver domains, expression/context domains.
 - Produces: `check_system(resolver, system, domains, contexts) -> Vec<Diagnostic>`, `ExprFacts`, and source-located `ResourceUse` records.
 
-- [ ] **Step 1: Write failing model tests** for linear identity transfer, unrestricted-to-linear restriction, linear-to-unrestricted rejection, and linear operands passed to existing unary/binary/multi-arg operators.
+- [x] **Step 1: Write failing model tests** for linear identity transfer, unrestricted-to-linear restriction, linear-to-unrestricted rejection, and linear operands passed to existing unary/binary/multi-arg operators.
 
 ```rust
 #[test]
@@ -96,11 +96,11 @@ fn linear_value_cannot_flow_to_unrestricted_target() {
 }
 ```
 
-- [ ] **Step 2: Run `cargo test -p alpha-model --test multiplicity`** and confirm the new diagnostic/API is absent.
-- [ ] **Step 3: Add `LinearValueWidened`, `LinearArgumentToUnrestrictedPort`, and `LinearityUnsupportedHere` diagnostics** with source ranges and stable messages.
-- [ ] **Step 4: Implement expression inference**. Literals/index values are unrestricted; variable references use resolved multiplicity; dependence/restriction/auto/paren preserve result multiplicity; existing operators have all-unrestricted signatures and reject linear operands; unsupported index-changing forms report `LinearityUnsupportedHere` only when they contain a linear reference.
-- [ ] **Step 5: Check standard equations** using the explicit four-case assignment compatibility table from the spec and call the pass from `analyze_system` after domain inference.
-- [ ] **Step 6: Run `cargo test -p alpha-model --test multiplicity` and `cargo test -p alpha-model`**.
+- [x] **Step 2: Run `cargo test -p alpha-model --test multiplicity`** and confirm the new diagnostic/API is absent.
+- [x] **Step 3: Add `LinearValueWidened`, `LinearArgumentToUnrestrictedPort`, and `LinearityUnsupportedHere` diagnostics** with source ranges and stable messages.
+- [x] **Step 4: Implement expression inference**. Literals/index values are unrestricted; variable references use resolved multiplicity; dependence/restriction/auto/paren preserve result multiplicity; existing operators have all-unrestricted signatures and reject linear operands; unsupported index-changing forms report `LinearityUnsupportedHere` only when they contain a linear reference.
+- [x] **Step 5: Check standard equations** using the explicit four-case assignment compatibility table from the spec and call the pass from `analyze_system` after domain inference.
+- [x] **Step 6: Run `cargo test -p alpha-model --test multiplicity` and `cargo test -p alpha-model`**.
 - [ ] **Step 7: Commit with `git commit -m "feat: check linear value flow"`**.
 
 ### Task 3: Exact Polyhedral Consumer Accounting

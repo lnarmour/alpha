@@ -190,6 +190,27 @@ pub enum Diagnostic {
     /// An output variable (or a local variable that's referenced somewhere) has no defining
     /// equation — neither a `StandardEquation` nor a `UseEquation` output — in a `SystemBody`.
     UndefinedVariable { name: String, start: u32, end: u32 },
+
+    /// A linear expression was assigned to an unrestricted variable.
+    LinearValueWidened {
+        target: String,
+        start: u32,
+        end: u32,
+    },
+
+    /// A linear expression was passed to an operator port that permits copying and dropping.
+    LinearArgumentToUnrestrictedPort {
+        operator: String,
+        start: u32,
+        end: u32,
+    },
+
+    /// A construct containing a linear reference has no exact relation derivation yet.
+    LinearityUnsupportedHere {
+        construct: String,
+        start: u32,
+        end: u32,
+    },
 }
 
 impl std::fmt::Display for Diagnostic {
@@ -314,6 +335,18 @@ impl std::fmt::Display for Diagnostic {
             Diagnostic::UndefinedVariable { name, .. } => {
                 write!(f, "'{name}' is used but not defined in this SystemBody")
             }
+            Diagnostic::LinearValueWidened { target, .. } => write!(
+                f,
+                "linear value cannot flow into unrestricted variable '{target}'"
+            ),
+            Diagnostic::LinearArgumentToUnrestrictedPort { operator, .. } => write!(
+                f,
+                "linear value cannot be passed to unrestricted operator '{operator}'"
+            ),
+            Diagnostic::LinearityUnsupportedHere { construct, .. } => write!(
+                f,
+                "linear values are not yet supported in {construct} expressions"
+            ),
         }
     }
 }
@@ -351,7 +384,10 @@ impl Diagnostic {
             | Diagnostic::InfinitelyRecursiveUseEquation { start, end, .. }
             | Diagnostic::OverlappingUseEquations { start, end, .. }
             | Diagnostic::IncompleteUseEquation { start, end, .. }
-            | Diagnostic::UndefinedVariable { start, end, .. } => (*start, *end),
+            | Diagnostic::UndefinedVariable { start, end, .. }
+            | Diagnostic::LinearValueWidened { start, end, .. }
+            | Diagnostic::LinearArgumentToUnrestrictedPort { start, end, .. }
+            | Diagnostic::LinearityUnsupportedHere { start, end, .. } => (*start, *end),
         }
     }
 }

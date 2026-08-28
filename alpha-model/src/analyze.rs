@@ -27,6 +27,10 @@ use alpha_syntax::ast::{self, Equation};
 pub fn analyze_system(resolver: &mut Resolver, system: &ast::System) -> Vec<Diagnostic> {
     let (domains, contexts, mut diagnostics) = resolver.analyze_system(system);
 
+    diagnostics.extend(crate::multiplicity::check_system(
+        resolver, system, &domains, &contexts,
+    ));
+
     diagnostics.extend(check_system_uniqueness(system));
     diagnostics.extend(check_system_bodies(resolver, system));
     diagnostics.extend(check_case_branches(system, &contexts));
