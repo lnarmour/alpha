@@ -47,12 +47,12 @@
 **Interfaces:**
 - Produces: `Multiplicity.LINEAR`, `Multiplicity.UNRESTRICTED`, `Variable.name`, `Variable.domain`, `Variable.multiplicity`, and tuple properties `inputs`, `outputs`, `locals` on all pipeline stages.
 
-- [ ] **Step 1: Add failing Python tests** for variable metadata, unrestricted metadata, and preservation through normalization/scheduling.
-- [ ] **Step 2: Reinstall and run the focused tests**, confirming the classes/properties are absent.
-- [ ] **Step 3: Implement frozen PyO3 `Multiplicity` and `Variable` snapshots**, conversion from transform IR, stable `repr`/equality, and interface properties shared across the three pipeline wrappers.
-- [ ] **Step 4: Re-export both types** from `alphalang/__init__.py` and update `__all__`.
-- [ ] **Step 5: Reinstall and run all Python binding and magic tests**.
-- [ ] **Step 6: Commit** with `git commit -m "feat: expose linear metadata in alphalang"`.
+- [x] **Step 1: Add failing Python tests** for variable metadata, unrestricted metadata, and preservation through normalization/scheduling.
+- [x] **Step 2: Reinstall and run the focused tests**, confirming the classes/properties are absent.
+- [x] **Step 3: Implement frozen PyO3 `Multiplicity` and `Variable` snapshots**, conversion from transform IR, stable `repr`/equality, and interface properties shared across the three pipeline wrappers.
+- [x] **Step 4: Re-export both types** from `alphalang/__init__.py` and update `__all__`.
+- [x] **Step 5: Reinstall and run all Python binding and magic tests**.
+- [x] **Step 6: Commit** with `git commit -m "feat: expose linear metadata in alphalang"`.
 
 ### Task 3: Linear Types And Scheduling Notebook
 

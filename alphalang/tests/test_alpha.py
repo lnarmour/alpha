@@ -107,6 +107,43 @@ def test_parse_treats_legacy_external_ports_as_unrestricted():
         alphalang.parse(source)
 
 
+def test_system_exposes_immutable_variable_multiplicity_metadata():
+    sys = alphalang.parse(LINEAR_TRANSFER)
+
+    assert isinstance(sys.inputs, tuple)
+    assert isinstance(sys.outputs, tuple)
+    assert sys.locals == ()
+    assert sys.inputs[0].name == "X"
+    assert sys.inputs[0].multiplicity == alphalang.Multiplicity.LINEAR
+    assert "[i]" in sys.inputs[0].domain
+    assert sys.outputs[0].name == "Y"
+    assert sys.outputs[0].multiplicity == alphalang.Multiplicity.LINEAR
+    assert repr(sys.inputs[0]).startswith("Variable(name='X'")
+    with pytest.raises(AttributeError):
+        sys.inputs[0].name = "changed"
+
+
+def test_unrestricted_variables_expose_unrestricted_multiplicity():
+    sys = alphalang.parse(PREFIX_SUM)
+
+    assert sys.inputs[0].multiplicity == alphalang.Multiplicity.UNRESTRICTED
+    assert sys.outputs[0].multiplicity == alphalang.Multiplicity.UNRESTRICTED
+    assert alphalang.Multiplicity.LINEAR is alphalang.Multiplicity.LINEAR
+    assert repr(alphalang.Multiplicity.LINEAR) == "Multiplicity.LINEAR"
+
+
+def test_variable_metadata_is_preserved_across_pipeline_stages():
+    sys = alphalang.parse(LINEAR_TRANSFER)
+    norm = alphalang.normalize(sys)
+    sched = norm.schedule("[N] -> { Y[i] -> [N - 1 - i]; }")
+
+    for stage in (sys, norm, sched):
+        assert tuple(variable.name for variable in stage.inputs) == ("X",)
+        assert tuple(variable.name for variable in stage.outputs) == ("Y",)
+        assert stage.inputs[0].multiplicity == alphalang.Multiplicity.LINEAR
+        assert stage.outputs[0].multiplicity == alphalang.Multiplicity.LINEAR
+
+
 def test_print_dumps_the_tree_with_domains():
     sys = alphalang.parse(PREFIX_SUM)
     text = alphalang.print(sys)
