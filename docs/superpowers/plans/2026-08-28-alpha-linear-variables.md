@@ -133,13 +133,13 @@ fn linear_value_cannot_flow_to_unrestricted_target() {
 - Consumes: `LinearUses` relation summaries.
 - Produces: domain-union semantics for `case` and alternative equality semantics for runtime `if`.
 
-- [ ] **Step 1: Add failing tests** for disjoint case reads passing, overlapping case reads failing through existing completeness diagnostics, equal runtime-if summaries passing, and differing branch variables/maps failing.
-- [ ] **Step 2: Run the focused branch tests** and confirm the expected failures.
-- [ ] **Step 3: Implement case combination** by retaining each branch's inferred context restriction and unioning all reachable branch summaries.
-- [ ] **Step 4: Add `LinearBranchMismatch` and implement runtime-if comparison** using exact ISL map equality per `VariableId`; ignore statically empty branch contexts and count an equal branch summary once.
-- [ ] **Step 5: Count condition uses in addition to the selected branch summary and rerun `cargo test -p alpha-model --test multiplicity`**.
-- [ ] **Step 6: Run `cargo test -p alpha-model`**.
-- [ ] **Step 7: Commit with `git commit -m "feat: analyze linear control flow"`**.
+- [x] **Step 1: Add failing tests** for disjoint case reads passing, overlapping case reads failing through existing completeness diagnostics, equal runtime-if summaries passing, and differing branch variables/maps failing.
+- [x] **Step 2: Run the focused branch tests** and confirm the expected failures.
+- [x] **Step 3: Implement case combination** by retaining each branch's inferred context restriction and unioning all reachable branch summaries.
+- [x] **Step 4: Add `LinearBranchMismatch` and implement runtime-if comparison** using exact ISL map equality per `VariableId`; ignore statically empty branch contexts and count an equal branch summary once.
+- [x] **Step 5: Count condition uses in addition to the selected branch summary and rerun `cargo test -p alpha-model --test multiplicity`**.
+- [x] **Step 6: Run `cargo test -p alpha-model`**.
+- [x] **Step 7: Commit with `git commit -m "feat: analyze linear control flow"`**.
 
 ### Task 5: System Calls, External Signatures, And Producer Accounting
 

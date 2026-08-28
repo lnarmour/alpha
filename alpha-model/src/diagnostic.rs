@@ -235,6 +235,13 @@ pub enum Diagnostic {
         start: u32,
         end: u32,
     },
+
+    /// Reachable runtime branches consume different linear resource relations.
+    LinearBranchMismatch {
+        detail: String,
+        start: u32,
+        end: u32,
+    },
 }
 
 impl std::fmt::Display for Diagnostic {
@@ -389,6 +396,10 @@ impl std::fmt::Display for Diagnostic {
                 f,
                 "linear variable '{variable}' has unconsumed points: {detail}"
             ),
+            Diagnostic::LinearBranchMismatch { detail, .. } => write!(
+                f,
+                "runtime branches consume different linear resources: {detail}"
+            ),
         }
     }
 }
@@ -432,7 +443,8 @@ impl Diagnostic {
             | Diagnostic::LinearityUnsupportedHere { start, end, .. }
             | Diagnostic::LinearUseNotInjective { start, end, .. }
             | Diagnostic::LinearUsesOverlap { start, end, .. }
-            | Diagnostic::LinearValueUnconsumed { start, end, .. } => (*start, *end),
+            | Diagnostic::LinearValueUnconsumed { start, end, .. }
+            | Diagnostic::LinearBranchMismatch { start, end, .. } => (*start, *end),
         }
     }
 }

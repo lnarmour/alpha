@@ -170,3 +170,91 @@ fn affine_permutation_consumes_each_linear_point_once() {
 
     assert!(diagnostics(&source).is_empty());
 }
+
+#[test]
+fn runtime_if_branches_must_consume_the_same_linear_resources() {
+    let source = r#"affine branch [N] -> {: N > 0}
+    inputs C : {[i] : 0 <= i < N};
+           linear X, A : {[i] : 0 <= i < N};
+    outputs linear Y : {[i] : 0 <= i < N};
+    let
+        Y[i] = if C[i] then X[i] else A[i];
+.
+"#;
+    let diagnostics = diagnostics(source);
+
+    assert!(diagnostics.iter().any(|diagnostic| matches!(
+        diagnostic,
+        Diagnostic::LinearBranchMismatch { .. }
+    )), "{diagnostics:#?}");
+}
+
+#[test]
+fn runtime_if_counts_equal_branch_resources_once() {
+    let source = r#"affine branch [N] -> {: N > 0}
+    inputs C : {[i] : 0 <= i < N};
+           linear X : {[i] : 0 <= i < N};
+    outputs linear Y : {[i] : 0 <= i < N};
+    let
+        Y[i] = if C[i] then X[i] else X[i];
+.
+"#;
+
+    let diagnostics = diagnostics(source);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn disjoint_case_branches_union_linear_uses() {
+    let source = r#"affine pieces [N] -> {: N > 1}
+    inputs linear X : {[i] : 0 <= i < N};
+    outputs linear Y : {[i] : 0 <= i < N};
+    let
+        Y[i] = case {
+            {: i < N - 1} : X[i];
+            {: i >= N - 1} : X[i];
+        };
+.
+"#;
+
+    let diagnostics = diagnostics(source);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn overlapping_case_branches_report_overlapping_linear_uses() {
+    let source = r#"affine overlapping_pieces [N] -> {: N > 1}
+    inputs linear X : {[i] : 0 <= i < N};
+    outputs linear Y : {[i] : 0 <= i < N};
+    let
+        Y[i] = case {
+            {: i < N} : X[i];
+            {: i >= N - 1} : X[i];
+        };
+.
+"#;
+    let diagnostics = diagnostics(source);
+
+    assert!(diagnostics
+        .iter()
+        .any(|diagnostic| matches!(diagnostic, Diagnostic::LinearUsesOverlap { .. })),
+        "{diagnostics:#?}");
+}
+
+#[test]
+fn runtime_if_compares_access_relations_not_only_variable_names() {
+    let source = r#"affine branch_map [N] -> {: N > 1}
+    inputs C : {[i] : 0 <= i < N};
+           linear X : {[i] : 0 <= i < N};
+    outputs linear Y : {[i] : 0 <= i < N};
+    let
+        Y[i] = if C[i] then X[i] else X[N - i - 1];
+.
+"#;
+    let diagnostics = diagnostics(source);
+
+    assert!(diagnostics
+        .iter()
+        .any(|diagnostic| matches!(diagnostic, Diagnostic::LinearBranchMismatch { .. })),
+        "{diagnostics:#?}");
+}

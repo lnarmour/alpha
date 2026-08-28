@@ -206,6 +206,43 @@ fn identity_relation(domain: &Set) -> Result<Map, isl::IslError> {
         .intersect_domain(domain.clone())
 }
 
+fn union_relations(resource_uses: &[ResourceUse]) -> Option<Map> {
+    let mut relations = resource_uses
+        .iter()
+        .map(|resource_use| resource_use.relation.clone());
+    let mut union = relations.next()?;
+    for relation in relations {
+        union = union.union(relation).ok()?;
+    }
+    Some(union)
+}
+
+fn same_use_summary(
+    left: &HashMap<VariableId, Vec<ResourceUse>>,
+    right: &HashMap<VariableId, Vec<ResourceUse>>,
+) -> bool {
+    let ids: HashSet<_> = left.keys().chain(right.keys()).copied().collect();
+    ids.into_iter().all(|id| {
+        match (
+            left.get(&id).and_then(|uses| union_relations(uses)),
+            right.get(&id).and_then(|uses| union_relations(uses)),
+        ) {
+            (None, None) => true,
+            (Some(left), Some(right)) => left.is_equal(&right).unwrap_or(false),
+            _ => false,
+        }
+    })
+}
+
+fn merge_uses(
+    destination: &mut HashMap<VariableId, Vec<ResourceUse>>,
+    source: HashMap<VariableId, Vec<ResourceUse>>,
+) {
+    for (id, mut resource_uses) in source {
+        destination.entry(id).or_default().append(&mut resource_uses);
+    }
+}
+
 fn collect_uses(
     resolver: &Resolver<'_>,
     expr: &Expr,
@@ -221,6 +258,9 @@ fn collect_uses(
                 return Ok(());
             };
             if resolver.variable_multiplicity(name.text()) == Some(Multiplicity::Linear) {
+                if relation.is_empty().unwrap_or(false) {
+                    return Ok(());
+                }
                 let id = resolver
                     .variable_id(name.text())
                     .expect("resolved linear variable has an ID");
@@ -355,9 +395,72 @@ fn collect_uses(
                 )?;
             }
         }
-        Expr::If(_) => {
-            if contains_linear_reference(resolver, expr) {
+        Expr::If(if_expr) => {
+            if let Some(condition) = if_expr.cond() {
+                collect_uses(
+                    resolver,
+                    &condition,
+                    relation.clone(),
+                    context_names,
+                    contexts,
+                    uses,
+                    blocked,
+                )?;
+            }
+
+            let mut summaries = Vec::new();
+            for branch in [if_expr.then_branch(), if_expr.else_branch()]
+                .into_iter()
+                .flatten()
+            {
+                let branch_relation = match contexts.get(branch.syntax()) {
+                    Some(context) => relation
+                        .clone()
+                        .intersect_range(context.clone())
+                        .map_err(|error| {
+                            let (start, end) = range_of(branch.syntax());
+                            Diagnostic::IslError {
+                                message: error.message,
+                                start,
+                                end,
+                            }
+                        })?,
+                    None => relation.clone(),
+                };
+                if branch_relation.is_empty().unwrap_or(false) {
+                    continue;
+                }
+                let mut branch_uses = HashMap::new();
+                let mut branch_blocked = HashSet::new();
+                collect_uses(
+                    resolver,
+                    &branch,
+                    branch_relation,
+                    context_names,
+                    contexts,
+                    &mut branch_uses,
+                    &mut branch_blocked,
+                )?;
+                summaries.push((branch_uses, branch_blocked));
+            }
+
+            if summaries.iter().any(|(_, branch_blocked)| !branch_blocked.is_empty()) {
+                for (_, branch_blocked) in summaries {
+                    blocked.extend(branch_blocked);
+                }
+                return Ok(());
+            }
+            if summaries.len() == 2 && !same_use_summary(&summaries[0].0, &summaries[1].0) {
                 mark_linear_references(resolver, expr, blocked);
+                let (start, end) = range_of(if_expr.syntax());
+                return Err(Diagnostic::LinearBranchMismatch {
+                    detail: "then and else access relations differ".to_string(),
+                    start,
+                    end,
+                });
+            }
+            if let Some((branch_uses, _)) = summaries.into_iter().next() {
+                merge_uses(uses, branch_uses);
             }
         }
         Expr::Unary(_) | Expr::Binary(_) | Expr::MultiArg(_) => {
@@ -563,6 +666,10 @@ pub fn check_system(
 ) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
     let mut linear_variables = Vec::new();
+    let parameter_domain = match resolver.param_domain() {
+        Ok(domain) => domain,
+        Err(diagnostic) => return vec![diagnostic],
+    };
     for (variables, is_output) in [
         (
             system
@@ -598,6 +705,17 @@ pub fn check_system(
                 resolver.variable_domain(name.text()),
             ) {
                 let (start, end) = range_of(variable.syntax());
+                let domain = match domain.intersect_params(parameter_domain.clone()) {
+                    Ok(domain) => domain,
+                    Err(error) => {
+                        diagnostics.push(Diagnostic::IslError {
+                            message: error.message,
+                            start,
+                            end,
+                        });
+                        continue;
+                    }
+                };
                 linear_variables.push(LinearVariable {
                     id,
                     name: name.text().to_string(),
