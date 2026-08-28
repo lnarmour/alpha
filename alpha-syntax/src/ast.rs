@@ -123,6 +123,37 @@ impl ExternalFunction {
     pub fn cardinality(&self) -> Option<SyntaxToken> {
         token(&self.0, K::INT_NUMBER)
     }
+    pub fn input_multiplicities(&self) -> impl Iterator<Item = Multiplicity> + '_ {
+        self.0
+            .children_with_tokens()
+            .filter_map(|element| element.into_token())
+            .take_while(|token| token.kind() != K::ARROW)
+            .filter_map(|token| Multiplicity::from_kind(token.kind()))
+    }
+    pub fn output_multiplicities(&self) -> impl Iterator<Item = Multiplicity> + '_ {
+        self.0
+            .children_with_tokens()
+            .filter_map(|element| element.into_token())
+            .skip_while(|token| token.kind() != K::ARROW)
+            .skip(1)
+            .filter_map(|token| Multiplicity::from_kind(token.kind()))
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Multiplicity {
+    Linear,
+    Unrestricted,
+}
+
+impl Multiplicity {
+    fn from_kind(kind: K) -> Option<Self> {
+        match kind {
+            K::KW_LINEAR => Some(Self::Linear),
+            K::KW_UNRESTRICTED => Some(Self::Unrestricted),
+            _ => None,
+        }
+    }
 }
 
 impl AlphaPackage {

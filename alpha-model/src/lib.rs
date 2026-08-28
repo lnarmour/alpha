@@ -32,7 +32,7 @@ pub use analyze::{analyze_root, analyze_system};
 pub use check::check_source;
 pub use diagnostic::Diagnostic;
 pub use domain::Domains;
-pub use multiplicity::{Multiplicity, VariableId};
+pub use multiplicity::{builtin_signature, Multiplicity, PortSignature, VariableId};
 pub use resolve::Resolver;
 pub use uniqueness::{check_program_uniqueness, check_system_uniqueness};
 pub use value::Value;

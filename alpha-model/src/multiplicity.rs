@@ -1,4 +1,4 @@
-use crate::{Diagnostic, Domains, Resolver};
+use crate::{domain::use_equation_context, Diagnostic, Domains, Resolver, Value};
 use alpha_syntax::ast::{self, AstNode, Equation, Expr};
 use isl::{Map, MultiAff, Set};
 use std::collections::{HashMap, HashSet};
@@ -16,6 +16,41 @@ pub struct VariableId(u32);
 impl VariableId {
     pub(crate) fn from_index(index: usize) -> Self {
         Self(index.try_into().expect("too many variables in one system"))
+    }
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct PortSignature {
+    pub inputs: Vec<Multiplicity>,
+    pub outputs: Vec<Multiplicity>,
+}
+
+pub fn builtin_signature(_operator: &str, arity: usize) -> PortSignature {
+    PortSignature {
+        inputs: vec![Multiplicity::Unrestricted; arity],
+        outputs: vec![Multiplicity::Unrestricted],
+    }
+}
+
+#[derive(Default)]
+pub(crate) struct PortSignatures {
+    signatures: HashMap<String, PortSignature>,
+}
+
+impl PortSignatures {
+    pub(crate) fn insert(&mut self, name: String, signature: PortSignature) {
+        self.signatures.insert(name, signature);
+    }
+
+    pub(crate) fn resolve(&self, scope: &str, name: &str) -> Option<&PortSignature> {
+        let scoped_name = if scope.is_empty() {
+            name.to_string()
+        } else {
+            format!("{scope}.{name}")
+        };
+        self.signatures
+            .get(&scoped_name)
+            .or_else(|| self.signatures.get(name))
     }
 }
 
@@ -41,10 +76,12 @@ fn range_of(node: &alpha_syntax::syntax_kind::SyntaxNode) -> (u32, u32) {
 
 fn contains_linear_reference(resolver: &Resolver<'_>, expr: &Expr) -> bool {
     match expr {
-        Expr::Variable(variable) => variable
-            .name()
-            .and_then(|name| resolver.variable_multiplicity(name.text()))
-            == Some(Multiplicity::Linear),
+        Expr::Variable(variable) => {
+            variable
+                .name()
+                .and_then(|name| resolver.variable_multiplicity(name.text()))
+                == Some(Multiplicity::Linear)
+        }
         Expr::Dependence(dependence) => dependence
             .applied_expr()
             .is_some_and(|operand| contains_linear_reference(resolver, &operand)),
@@ -66,24 +103,17 @@ fn contains_linear_reference(resolver: &Resolver<'_>, expr: &Expr) -> bool {
         Expr::Reduce(reduce) => reduce
             .body()
             .is_some_and(|body| contains_linear_reference(resolver, &body)),
-        Expr::Convolution(convolution) => [
-            convolution.kernel_expr(),
-            convolution.data_expr(),
-        ]
-        .into_iter()
-        .flatten()
-        .any(|operand| contains_linear_reference(resolver, &operand)),
+        Expr::Convolution(convolution) => [convolution.kernel_expr(), convolution.data_expr()]
+            .into_iter()
+            .flatten()
+            .any(|operand| contains_linear_reference(resolver, &operand)),
         Expr::Case(case) => case
             .branches()
             .any(|branch| contains_linear_reference(resolver, &branch)),
-        Expr::If(if_expr) => [
-            if_expr.cond(),
-            if_expr.then_branch(),
-            if_expr.else_branch(),
-        ]
-        .into_iter()
-        .flatten()
-        .any(|operand| contains_linear_reference(resolver, &operand)),
+        Expr::If(if_expr) => [if_expr.cond(), if_expr.then_branch(), if_expr.else_branch()]
+            .into_iter()
+            .flatten()
+            .any(|operand| contains_linear_reference(resolver, &operand)),
         Expr::MultiArg(call) => call
             .args()
             .any(|operand| contains_linear_reference(resolver, &operand)),
@@ -111,14 +141,13 @@ fn unsupported_if_linear(
     }
 }
 
-fn mark_linear_references(
-    resolver: &Resolver<'_>,
-    expr: &Expr,
-    blocked: &mut HashSet<VariableId>,
-) {
+fn mark_linear_references(resolver: &Resolver<'_>, expr: &Expr, blocked: &mut HashSet<VariableId>) {
     match expr {
         Expr::Variable(variable) => {
-            if let Some(id) = variable.name().and_then(|name| resolver.variable_id(name.text())) {
+            if let Some(id) = variable
+                .name()
+                .and_then(|name| resolver.variable_id(name.text()))
+            {
                 if resolver.variable_multiplicity(variable.name().unwrap().text())
                     == Some(Multiplicity::Linear)
                 {
@@ -175,13 +204,9 @@ fn mark_linear_references(
             }
         }
         Expr::If(if_expr) => {
-            for operand in [
-                if_expr.cond(),
-                if_expr.then_branch(),
-                if_expr.else_branch(),
-            ]
-            .into_iter()
-            .flatten()
+            for operand in [if_expr.cond(), if_expr.then_branch(), if_expr.else_branch()]
+                .into_iter()
+                .flatten()
             {
                 mark_linear_references(resolver, &operand, blocked);
             }
@@ -239,7 +264,10 @@ fn merge_uses(
     source: HashMap<VariableId, Vec<ResourceUse>>,
 ) {
     for (id, mut resource_uses) in source {
-        destination.entry(id).or_default().append(&mut resource_uses);
+        destination
+            .entry(id)
+            .or_default()
+            .append(&mut resource_uses);
     }
 }
 
@@ -310,14 +338,16 @@ fn collect_uses(
         Expr::Restrict(restrict) => {
             if let Some(operand) = restrict.expr() {
                 let narrowed = match contexts.get(operand.syntax()) {
-                    Some(context) => relation.intersect_range(context.clone()).map_err(|error| {
-                        let (start, end) = range_of(restrict.syntax());
-                        Diagnostic::IslError {
-                            message: error.message,
-                            start,
-                            end,
-                        }
-                    })?,
+                    Some(context) => {
+                        relation.intersect_range(context.clone()).map_err(|error| {
+                            let (start, end) = range_of(restrict.syntax());
+                            Diagnostic::IslError {
+                                message: error.message,
+                                start,
+                                end,
+                            }
+                        })?
+                    }
                     None => relation,
                 };
                 collect_uses(
@@ -334,14 +364,16 @@ fn collect_uses(
         Expr::AutoRestrict(restrict) => {
             if let Some(operand) = restrict.expr() {
                 let narrowed = match contexts.get(restrict.syntax()) {
-                    Some(context) => relation.intersect_range(context.clone()).map_err(|error| {
-                        let (start, end) = range_of(restrict.syntax());
-                        Diagnostic::IslError {
-                            message: error.message,
-                            start,
-                            end,
-                        }
-                    })?,
+                    Some(context) => {
+                        relation.intersect_range(context.clone()).map_err(|error| {
+                            let (start, end) = range_of(restrict.syntax());
+                            Diagnostic::IslError {
+                                message: error.message,
+                                start,
+                                end,
+                            }
+                        })?
+                    }
                     None => relation,
                 };
                 collect_uses(
@@ -370,20 +402,21 @@ fn collect_uses(
         }
         Expr::Case(case) => {
             for branch in case.branches() {
-                let narrowed = match contexts.get(branch.syntax()) {
-                    Some(context) => relation
-                        .clone()
-                        .intersect_range(context.clone())
-                        .map_err(|error| {
-                            let (start, end) = range_of(branch.syntax());
-                            Diagnostic::IslError {
-                                message: error.message,
-                                start,
-                                end,
-                            }
-                        })?,
-                    None => relation.clone(),
-                };
+                let narrowed =
+                    match contexts.get(branch.syntax()) {
+                        Some(context) => relation
+                            .clone()
+                            .intersect_range(context.clone())
+                            .map_err(|error| {
+                                let (start, end) = range_of(branch.syntax());
+                                Diagnostic::IslError {
+                                    message: error.message,
+                                    start,
+                                    end,
+                                }
+                            })?,
+                        None => relation.clone(),
+                    };
                 collect_uses(
                     resolver,
                     &branch,
@@ -413,20 +446,21 @@ fn collect_uses(
                 .into_iter()
                 .flatten()
             {
-                let branch_relation = match contexts.get(branch.syntax()) {
-                    Some(context) => relation
-                        .clone()
-                        .intersect_range(context.clone())
-                        .map_err(|error| {
-                            let (start, end) = range_of(branch.syntax());
-                            Diagnostic::IslError {
-                                message: error.message,
-                                start,
-                                end,
-                            }
-                        })?,
-                    None => relation.clone(),
-                };
+                let branch_relation =
+                    match contexts.get(branch.syntax()) {
+                        Some(context) => relation
+                            .clone()
+                            .intersect_range(context.clone())
+                            .map_err(|error| {
+                                let (start, end) = range_of(branch.syntax());
+                                Diagnostic::IslError {
+                                    message: error.message,
+                                    start,
+                                    end,
+                                }
+                            })?,
+                        None => relation.clone(),
+                    };
                 if branch_relation.is_empty().unwrap_or(false) {
                     continue;
                 }
@@ -444,7 +478,10 @@ fn collect_uses(
                 summaries.push((branch_uses, branch_blocked));
             }
 
-            if summaries.iter().any(|(_, branch_blocked)| !branch_blocked.is_empty()) {
+            if summaries
+                .iter()
+                .any(|(_, branch_blocked)| !branch_blocked.is_empty())
+            {
                 for (_, branch_blocked) in summaries {
                     blocked.extend(branch_blocked);
                 }
@@ -523,7 +560,10 @@ fn check_resources(
         let consumed = variable_uses
             .iter()
             .filter_map(|resource_use| resource_use.relation.clone().range().ok())
-            .reduce(|left, right| left.union(right).unwrap_or_else(|_| variable.domain.clone()));
+            .reduce(|left, right| {
+                left.union(right)
+                    .unwrap_or_else(|_| variable.domain.clone())
+            });
         let missing = match consumed {
             Some(consumed) => variable.domain.clone().subtract(consumed),
             None => Ok(variable.domain.clone()),
@@ -541,9 +581,113 @@ fn check_resources(
     }
 }
 
+fn check_definitions(
+    variables: &[LinearVariable],
+    definitions: &HashMap<VariableId, Vec<ResourceUse>>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    for variable in variables {
+        let Some(variable_definitions) = definitions.get(&variable.id) else {
+            continue;
+        };
+        let mut invalid = variable_definitions
+            .iter()
+            .any(|definition| !definition.relation.is_injective().unwrap_or(false));
+        for left in 0..variable_definitions.len() {
+            for right in left + 1..variable_definitions.len() {
+                let overlap = variable_definitions[left]
+                    .relation
+                    .clone()
+                    .range()
+                    .and_then(|left_range| {
+                        variable_definitions[right]
+                            .relation
+                            .clone()
+                            .range()
+                            .and_then(|right_range| left_range.intersect(right_range))
+                    });
+                invalid |= overlap.is_ok_and(|overlap| !overlap.is_empty().unwrap_or(true));
+            }
+        }
+        let produced = variable_definitions
+            .iter()
+            .filter_map(|definition| definition.relation.clone().range().ok())
+            .reduce(|left, right| {
+                left.union(right)
+                    .unwrap_or_else(|_| variable.domain.clone())
+            });
+        let missing = produced
+            .map(|produced| variable.domain.clone().subtract(produced))
+            .unwrap_or_else(|| Ok(variable.domain.clone()));
+        if let Ok(missing) = missing {
+            invalid |= !missing.is_empty().unwrap_or(true);
+            if invalid {
+                diagnostics.push(Diagnostic::LinearDefinitionIncomplete {
+                    variable: variable.name.clone(),
+                    detail: missing.to_string(),
+                    start: variable.start,
+                    end: variable.end,
+                });
+            }
+        }
+    }
+}
+
+fn qualified_name_text(name: &ast::QualifiedName) -> String {
+    name.segments()
+        .map(|segment| segment.text().to_string())
+        .collect::<Vec<_>>()
+        .join(".")
+}
+
+fn collect_use_equation_expr(
+    resolver: &mut Resolver<'_>,
+    expr: &Expr,
+    ambient_context: Option<&Set>,
+    context_names: &[String],
+    contexts: &Domains,
+    uses: &mut HashMap<VariableId, Vec<ResourceUse>>,
+    blocked: &mut HashSet<VariableId>,
+) -> Result<(), Diagnostic> {
+    let context = contexts
+        .get(expr.syntax())
+        .cloned()
+        .or_else(|| ambient_context.cloned())
+        .or_else(|| {
+            let Expr::Variable(variable) = expr else {
+                return None;
+            };
+            variable
+                .name()
+                .and_then(|name| resolver.variable_domain(name.text()).ok())
+        });
+    let Some(context) = context else {
+        return Ok(());
+    };
+    let relation = identity_relation(&context).map_err(|error| {
+        let (start, end) = range_of(expr.syntax());
+        Diagnostic::IslError {
+            message: error.message,
+            start,
+            end,
+        }
+    })?;
+    collect_uses(
+        resolver,
+        expr,
+        relation,
+        context_names,
+        contexts,
+        uses,
+        blocked,
+    )
+}
+
 fn expression_multiplicity(
     resolver: &Resolver<'_>,
     expr: &Expr,
+    signatures: &PortSignatures,
+    scope: &str,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Multiplicity {
     match expr {
@@ -553,35 +697,49 @@ fn expression_multiplicity(
             .unwrap_or_default(),
         Expr::Dependence(dependence) => dependence
             .applied_expr()
-            .map(|operand| expression_multiplicity(resolver, &operand, diagnostics))
+            .map(|operand| {
+                expression_multiplicity(resolver, &operand, signatures, scope, diagnostics)
+            })
             .unwrap_or_default(),
         Expr::Restrict(restrict) => restrict
             .expr()
-            .map(|operand| expression_multiplicity(resolver, &operand, diagnostics))
+            .map(|operand| {
+                expression_multiplicity(resolver, &operand, signatures, scope, diagnostics)
+            })
             .unwrap_or_default(),
         Expr::AutoRestrict(restrict) => restrict
             .expr()
-            .map(|operand| expression_multiplicity(resolver, &operand, diagnostics))
+            .map(|operand| {
+                expression_multiplicity(resolver, &operand, signatures, scope, diagnostics)
+            })
             .unwrap_or_default(),
         Expr::Paren(paren) => paren
             .inner()
-            .map(|operand| expression_multiplicity(resolver, &operand, diagnostics))
+            .map(|operand| {
+                expression_multiplicity(resolver, &operand, signatures, scope, diagnostics)
+            })
             .unwrap_or_default(),
         Expr::Case(case) => case
             .branches()
-            .map(|branch| expression_multiplicity(resolver, &branch, diagnostics))
+            .map(|branch| {
+                expression_multiplicity(resolver, &branch, signatures, scope, diagnostics)
+            })
             .find(|multiplicity| *multiplicity == Multiplicity::Linear)
             .unwrap_or_default(),
         Expr::If(if_expr) => [if_expr.then_branch(), if_expr.else_branch()]
             .into_iter()
             .flatten()
-            .map(|branch| expression_multiplicity(resolver, &branch, diagnostics))
+            .map(|branch| {
+                expression_multiplicity(resolver, &branch, signatures, scope, diagnostics)
+            })
             .find(|multiplicity| *multiplicity == Multiplicity::Linear)
             .unwrap_or_default(),
         Expr::Unary(unary) => {
             let operand = unary
                 .operand()
-                .map(|operand| expression_multiplicity(resolver, &operand, diagnostics))
+                .map(|operand| {
+                    expression_multiplicity(resolver, &operand, signatures, scope, diagnostics)
+                })
                 .unwrap_or_default();
             if operand == Multiplicity::Linear {
                 let (start, end) = range_of(unary.syntax());
@@ -602,7 +760,7 @@ fn expression_multiplicity(
                 .map(|operator| operator.text().to_string())
                 .unwrap_or_default();
             for operand in [binary.lhs(), binary.rhs()].into_iter().flatten() {
-                if expression_multiplicity(resolver, &operand, diagnostics)
+                if expression_multiplicity(resolver, &operand, signatures, scope, diagnostics)
                     == Multiplicity::Linear
                 {
                     let (start, end) = range_of(operand.syntax());
@@ -628,10 +786,15 @@ fn expression_multiplicity(
                     })
                 })
                 .unwrap_or_default();
-            for operand in call.args() {
-                if expression_multiplicity(resolver, &operand, diagnostics)
-                    == Multiplicity::Linear
-                {
+            let signature = signatures.resolve(scope, &operator);
+            for (index, operand) in call.args().enumerate() {
+                let actual =
+                    expression_multiplicity(resolver, &operand, signatures, scope, diagnostics);
+                let expected = signature
+                    .and_then(|signature| signature.inputs.get(index))
+                    .copied()
+                    .unwrap_or(Multiplicity::Unrestricted);
+                if actual == Multiplicity::Linear && expected == Multiplicity::Unrestricted {
                     let (start, end) = range_of(operand.syntax());
                     diagnostics.push(Diagnostic::LinearArgumentToUnrestrictedPort {
                         operator: operator.clone(),
@@ -640,7 +803,10 @@ fn expression_multiplicity(
                     });
                 }
             }
-            Multiplicity::Unrestricted
+            signature
+                .and_then(|signature| signature.outputs.first())
+                .copied()
+                .unwrap_or(Multiplicity::Unrestricted)
         }
         Expr::Reduce(_) => {
             unsupported_if_linear(resolver, expr, "reduce", diagnostics);
@@ -658,11 +824,13 @@ fn expression_multiplicity(
     }
 }
 
-pub fn check_system(
+pub(crate) fn check_system(
     resolver: &mut Resolver<'_>,
     system: &ast::System,
     _domains: &Domains,
     contexts: &Domains,
+    signatures: &PortSignatures,
+    scope: &str,
 ) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
     let mut linear_variables = Vec::new();
@@ -729,6 +897,7 @@ pub fn check_system(
     }
 
     let mut uses: HashMap<VariableId, Vec<ResourceUse>> = HashMap::new();
+    let mut definitions: HashMap<VariableId, Vec<ResourceUse>> = HashMap::new();
     let mut blocked = HashSet::new();
     for variable in &linear_variables {
         if variable.is_output {
@@ -744,19 +913,91 @@ pub fn check_system(
     for body in system.bodies() {
         for equation in body.equations() {
             let Equation::Standard(equation) = equation else {
-                if let Equation::Use(use_equation) = equation {
-                    for expr in use_equation
-                        .input_exprs()
-                        .chain(use_equation.output_exprs())
-                    {
-                        if contains_linear_reference(resolver, &expr) {
-                            let (start, end) = range_of(use_equation.syntax());
-                            diagnostics.push(Diagnostic::LinearityUnsupportedHere {
-                                construct: "use-equation".to_string(),
-                                start,
-                                end,
-                            });
-                            mark_linear_references(resolver, &expr, &mut blocked);
+                let Equation::Use(use_equation) = equation else {
+                    unreachable!()
+                };
+                let Some(callee) = use_equation.callee() else {
+                    continue;
+                };
+                let callee_name = qualified_name_text(&callee);
+                let Some(signature) = signatures.resolve(scope, &callee_name) else {
+                    continue;
+                };
+                let context_names = use_equation_context(&use_equation);
+                let ambient_context = use_equation.instantiation_domain().and_then(|domain| {
+                    match resolver.eval_calc_expr(&domain) {
+                        Ok(Value::Set(domain)) => Some(domain),
+                        _ => None,
+                    }
+                });
+                for (index, expr) in use_equation.input_exprs().enumerate() {
+                    let actual = expression_multiplicity(
+                        resolver,
+                        &expr,
+                        signatures,
+                        scope,
+                        &mut diagnostics,
+                    );
+                    let expected = signature
+                        .inputs
+                        .get(index)
+                        .copied()
+                        .unwrap_or(Multiplicity::Unrestricted);
+                    if actual == Multiplicity::Linear && expected == Multiplicity::Unrestricted {
+                        let (start, end) = range_of(expr.syntax());
+                        diagnostics.push(Diagnostic::LinearArgumentToUnrestrictedPort {
+                            operator: callee_name.clone(),
+                            start,
+                            end,
+                        });
+                        mark_linear_references(resolver, &expr, &mut blocked);
+                    } else if expected == Multiplicity::Linear {
+                        if let Err(diagnostic) = collect_use_equation_expr(
+                            resolver,
+                            &expr,
+                            ambient_context.as_ref(),
+                            &context_names,
+                            contexts,
+                            &mut uses,
+                            &mut blocked,
+                        ) {
+                            diagnostics.push(diagnostic);
+                        }
+                    }
+                }
+                for (index, expr) in use_equation.output_exprs().enumerate() {
+                    let actual = expression_multiplicity(
+                        resolver,
+                        &expr,
+                        signatures,
+                        scope,
+                        &mut diagnostics,
+                    );
+                    let expected = signature
+                        .outputs
+                        .get(index)
+                        .copied()
+                        .unwrap_or(Multiplicity::Unrestricted);
+                    if expected == Multiplicity::Linear && actual == Multiplicity::Unrestricted {
+                        let (start, end) = range_of(expr.syntax());
+                        diagnostics.push(Diagnostic::LinearValueWidened {
+                            target: expr.syntax().text().to_string(),
+                            start,
+                            end,
+                        });
+                    }
+                    if actual == Multiplicity::Linear {
+                        let mut output_blocked = HashSet::new();
+                        if let Err(diagnostic) = collect_use_equation_expr(
+                            resolver,
+                            &expr,
+                            ambient_context.as_ref(),
+                            &context_names,
+                            contexts,
+                            &mut definitions,
+                            &mut output_blocked,
+                        ) {
+                            diagnostics.push(diagnostic);
                         }
                     }
                 }
@@ -768,7 +1009,8 @@ pub fn check_system(
             let Some(expr) = equation.expr() else {
                 continue;
             };
-            if expression_multiplicity(resolver, &expr, &mut diagnostics) == Multiplicity::Linear
+            if expression_multiplicity(resolver, &expr, signatures, scope, &mut diagnostics)
+                == Multiplicity::Linear
                 && resolver.variable_multiplicity(target.text()) == Some(Multiplicity::Unrestricted)
             {
                 let (start, end) = range_of(equation.syntax());
@@ -810,5 +1052,6 @@ pub fn check_system(
         }
     }
     check_resources(&linear_variables, &uses, &blocked, &mut diagnostics);
+    check_definitions(&linear_variables, &definitions, &mut diagnostics);
     diagnostics
 }

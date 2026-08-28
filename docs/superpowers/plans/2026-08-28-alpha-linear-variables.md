@@ -155,14 +155,14 @@ fn linear_value_cannot_flow_to_unrestricted_target() {
 **Interfaces:**
 - Produces: `PortSignature { inputs, outputs }`, explicit external signature syntax, system port checks, and exact linear definition relations.
 
-- [ ] **Step 1: Add parser tests** for `external move(linear) -> linear`, `external observe(linear) -> unrestricted`, `external destroy(linear) -> ()`, and unchanged `external f(2)`.
-- [ ] **Step 2: Run the parser test and confirm signature syntax fails**.
-- [ ] **Step 3: Parse explicit port lists** into typed AST accessors while retaining integer cardinality. Resolve legacy cardinality to all-unrestricted inputs and one unrestricted output.
-- [ ] **Step 4: Add failing semantic tests** for matching system-call ports, linear arguments to unrestricted ports, multiple linear outputs, and incomplete linear use-equation production.
-- [ ] **Step 5: Implement `PortSignature` resolution** for built-ins, externals, and system declarations. Require linear use-equation output positions to reduce to affine dependence accesses over declared linear variables.
-- [ ] **Step 6: Add `LinearDefinitionIncomplete` and check definition maps** for injectivity, pairwise disjointness, and full target-domain coverage.
-- [ ] **Step 7: Run `cargo test -p alpha-syntax -p alpha-model`**.
-- [ ] **Step 8: Commit with `git commit -m "feat: add linear port signatures"`**.
+- [x] **Step 1: Add parser tests** for `external move(linear) -> linear`, `external observe(linear) -> unrestricted`, `external destroy(linear) -> ()`, and unchanged `external f(2)`.
+- [x] **Step 2: Run the parser test and confirm signature syntax fails**.
+- [x] **Step 3: Parse explicit port lists** into typed AST accessors while retaining integer cardinality. Resolve legacy cardinality to all-unrestricted inputs and one unrestricted output.
+- [x] **Step 4: Add failing semantic tests** for matching system-call ports, linear arguments to unrestricted ports, multiple linear outputs, and incomplete linear use-equation production.
+- [x] **Step 5: Implement `PortSignature` resolution** for built-ins, externals, and system declarations. Require linear use-equation output positions to reduce to affine dependence accesses over declared linear variables.
+- [x] **Step 6: Add `LinearDefinitionIncomplete` and check definition maps** for injectivity, pairwise disjointness, and full target-domain coverage.
+- [x] **Step 7: Run `cargo test -p alpha-syntax -p alpha-model`**.
+- [x] **Step 8: Commit with `git commit -m "feat: add linear port signatures"`**.
 
 ### Task 6: Regression And Schedule Independence
 

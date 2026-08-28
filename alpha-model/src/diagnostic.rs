@@ -242,6 +242,14 @@ pub enum Diagnostic {
         start: u32,
         end: u32,
     },
+
+    /// A linear target is not produced exactly once over its declared domain.
+    LinearDefinitionIncomplete {
+        variable: String,
+        detail: String,
+        start: u32,
+        end: u32,
+    },
 }
 
 impl std::fmt::Display for Diagnostic {
@@ -400,6 +408,12 @@ impl std::fmt::Display for Diagnostic {
                 f,
                 "runtime branches consume different linear resources: {detail}"
             ),
+            Diagnostic::LinearDefinitionIncomplete {
+                variable, detail, ..
+            } => write!(
+                f,
+                "linear variable '{variable}' is not defined exactly once: {detail}"
+            ),
         }
     }
 }
@@ -444,7 +458,8 @@ impl Diagnostic {
             | Diagnostic::LinearUseNotInjective { start, end, .. }
             | Diagnostic::LinearUsesOverlap { start, end, .. }
             | Diagnostic::LinearValueUnconsumed { start, end, .. }
-            | Diagnostic::LinearBranchMismatch { start, end, .. } => (*start, *end),
+            | Diagnostic::LinearBranchMismatch { start, end, .. }
+            | Diagnostic::LinearDefinitionIncomplete { start, end, .. } => (*start, *end),
         }
     }
 }

@@ -42,3 +42,31 @@ fn linear_modifier_is_rejected_inside_a_comma_group() {
     let parse = alpha_syntax::parse(&source);
     assert!(!parse.errors.is_empty());
 }
+
+#[test]
+fn external_functions_accept_explicit_multiplicity_signatures() {
+    for source in [
+        "external move(linear) -> linear\n",
+        "external observe(linear) -> unrestricted\n",
+        "external destroy(linear) -> ()\n",
+    ] {
+        let parse = alpha_syntax::parse(source);
+        assert!(parse.errors.is_empty(), "{source}: {:?}", parse.errors);
+        assert_eq!(parse.syntax_node().text().to_string(), source);
+
+        let external = parse.tree().external_functions().next().unwrap();
+        assert!(external.cardinality().is_none());
+        assert_eq!(external.input_multiplicities().count(), 1);
+    }
+}
+
+#[test]
+fn legacy_external_cardinality_remains_valid() {
+    let source = "external f(2)\n";
+    let parse = alpha_syntax::parse(source);
+    assert!(parse.errors.is_empty(), "{:?}", parse.errors);
+
+    let external = parse.tree().external_functions().next().unwrap();
+    assert_eq!(external.cardinality().unwrap().text(), "2");
+    assert_eq!(external.input_multiplicities().count(), 0);
+}

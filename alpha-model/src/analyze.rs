@@ -15,6 +15,7 @@ use crate::completeness::{
     check_case_branches, check_reduce_bounded, check_standard_equation_completeness,
     check_system_bodies, check_undefined_variables, check_use_equation_recursion,
 };
+use crate::multiplicity::{Multiplicity, PortSignature, PortSignatures};
 use crate::uniqueness::{check_program_uniqueness, check_system_uniqueness};
 use crate::{Diagnostic, Resolver};
 use alpha_syntax::ast::{self, Equation};
@@ -25,10 +26,19 @@ use alpha_syntax::ast::{self, Equation};
 /// [`check_program_uniqueness`] — that's a whole-file/whole-program check, not a per-system one;
 /// see [`analyze_root`].
 pub fn analyze_system(resolver: &mut Resolver, system: &ast::System) -> Vec<Diagnostic> {
+    analyze_system_with_signatures(resolver, system, &PortSignatures::default(), "")
+}
+
+fn analyze_system_with_signatures(
+    resolver: &mut Resolver,
+    system: &ast::System,
+    signatures: &PortSignatures,
+    scope: &str,
+) -> Vec<Diagnostic> {
     let (domains, contexts, mut diagnostics) = resolver.analyze_system(system);
 
     diagnostics.extend(crate::multiplicity::check_system(
-        resolver, system, &domains, &contexts,
+        resolver, system, &domains, &contexts, signatures, scope,
     ));
 
     diagnostics.extend(check_system_uniqueness(system));
@@ -55,18 +65,123 @@ pub fn analyze_system(resolver: &mut Resolver, system: &ast::System) -> Vec<Diag
     diagnostics
 }
 
-fn all_systems(root: &ast::Root) -> Vec<ast::System> {
-    let mut out: Vec<ast::System> = root.systems().collect();
-    fn walk_pkg(pkg: &ast::AlphaPackage, out: &mut Vec<ast::System>) {
-        out.extend(pkg.systems());
-        for sub in pkg.packages() {
-            walk_pkg(&sub, out);
+fn ast_multiplicity(multiplicity: alpha_syntax::ast::Multiplicity) -> Multiplicity {
+    match multiplicity {
+        alpha_syntax::ast::Multiplicity::Linear => Multiplicity::Linear,
+        alpha_syntax::ast::Multiplicity::Unrestricted => Multiplicity::Unrestricted,
+    }
+}
+
+fn collect_program(root: &ast::Root) -> (Vec<(String, ast::System)>, PortSignatures) {
+    let mut systems = Vec::new();
+    let mut signatures = PortSignatures::default();
+
+    fn walk(
+        scope: &str,
+        systems_here: impl Iterator<Item = ast::System>,
+        externals: impl Iterator<Item = ast::ExternalFunction>,
+        packages: impl Iterator<Item = ast::AlphaPackage>,
+        systems: &mut Vec<(String, ast::System)>,
+        signatures: &mut PortSignatures,
+    ) {
+        for external in externals {
+            let Some(name) = external.name() else {
+                continue;
+            };
+            let qualified = if scope.is_empty() {
+                name.text().to_string()
+            } else {
+                format!("{scope}.{}", name.text())
+            };
+            let signature = if let Some(cardinality) = external.cardinality() {
+                let count = cardinality.text().parse().unwrap_or(0);
+                PortSignature {
+                    inputs: vec![Multiplicity::Unrestricted; count],
+                    outputs: vec![Multiplicity::Unrestricted],
+                }
+            } else {
+                PortSignature {
+                    inputs: external
+                        .input_multiplicities()
+                        .map(ast_multiplicity)
+                        .collect(),
+                    outputs: external
+                        .output_multiplicities()
+                        .map(ast_multiplicity)
+                        .collect(),
+                }
+            };
+            signatures.insert(qualified, signature);
+        }
+        for system in systems_here {
+            let Some(name) = system.name() else { continue };
+            let qualified = if scope.is_empty() {
+                name.text().to_string()
+            } else {
+                format!("{scope}.{}", name.text())
+            };
+            let inputs = system
+                .inputs()
+                .into_iter()
+                .flat_map(|section| section.variables())
+                .map(|variable| {
+                    if variable.is_linear() {
+                        Multiplicity::Linear
+                    } else {
+                        Multiplicity::Unrestricted
+                    }
+                })
+                .collect();
+            let outputs = system
+                .outputs()
+                .into_iter()
+                .flat_map(|section| section.variables())
+                .map(|variable| {
+                    if variable.is_linear() {
+                        Multiplicity::Linear
+                    } else {
+                        Multiplicity::Unrestricted
+                    }
+                })
+                .collect();
+            signatures.insert(qualified, PortSignature { inputs, outputs });
+            systems.push((scope.to_string(), system));
+        }
+        for package in packages {
+            let package_name = package
+                .qualified_name()
+                .map(|name| {
+                    name.segments()
+                        .map(|segment| segment.text().to_string())
+                        .collect::<Vec<_>>()
+                        .join(".")
+                })
+                .unwrap_or_default();
+            let child_scope = if scope.is_empty() {
+                package_name
+            } else {
+                format!("{scope}.{package_name}")
+            };
+            walk(
+                &child_scope,
+                package.systems(),
+                package.external_functions(),
+                package.packages(),
+                systems,
+                signatures,
+            );
         }
     }
-    for pkg in root.packages() {
-        walk_pkg(&pkg, &mut out);
-    }
-    out
+
+    walk(
+        "",
+        root.systems(),
+        root.external_functions(),
+        root.packages(),
+        &mut systems,
+        &mut signatures,
+    );
+    (systems, signatures)
 }
 
 /// Runs [`analyze_system`] over every system in `root` (walking nested `AlphaPackage`s, same as
@@ -78,13 +193,14 @@ fn all_systems(root: &ast::Root) -> Vec<ast::System> {
 /// in otherwise) unless there are no systems at all, in which case they'd simply be lost — callers
 /// with a system-free root have nothing to analyze in the first place.
 pub fn analyze_root(ctx: &isl::Context, root: &ast::Root) -> Vec<(String, Vec<Diagnostic>)> {
-    let systems = all_systems(root);
+    let (systems, signatures) = collect_program(root);
     let mut program_diagnostics = check_program_uniqueness(std::slice::from_ref(root));
 
     let mut out = Vec::with_capacity(systems.len());
-    for system in &systems {
+    for (scope, system) in &systems {
         let mut resolver = Resolver::new(ctx.clone(), system);
-        let mut diagnostics = analyze_system(&mut resolver, system);
+        let mut diagnostics =
+            analyze_system_with_signatures(&mut resolver, system, &signatures, scope);
         diagnostics.append(&mut program_diagnostics);
         let name = system
             .name()

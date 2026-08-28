@@ -53,6 +53,8 @@ pub enum TokenKind {
     KwLocals,
     #[token("linear")]
     KwLinear,
+    #[token("unrestricted")]
+    KwUnrestricted,
     #[token("over")]
     KwOver,
     #[token("with")]

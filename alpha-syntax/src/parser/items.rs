@@ -94,9 +94,42 @@ fn external_function(p: &mut Parser) {
     p.bump(); // external
     p.expect(T::Ident);
     p.expect(T::LParen);
-    p.expect(T::IntNumber);
+    if p.at(T::IntNumber) {
+        p.bump();
+    } else if !p.at(T::RParen) {
+        multiplicity(p);
+        while p.at(T::Comma) {
+            p.bump();
+            multiplicity(p);
+        }
+    }
     p.expect(T::RParen);
+    if p.at(T::Arrow) {
+        p.bump();
+        if p.at(T::LParen) {
+            p.bump();
+            if !p.at(T::RParen) {
+                multiplicity(p);
+                while p.at(T::Comma) {
+                    p.bump();
+                    multiplicity(p);
+                }
+            }
+            p.expect(T::RParen);
+        } else {
+            multiplicity(p);
+        }
+    }
     p.finish_node();
+}
+
+fn multiplicity(p: &mut Parser) {
+    if p.at_any(&[T::KwLinear, T::KwUnrestricted]) {
+        p.bump();
+    } else {
+        p.error("expected 'linear' or 'unrestricted'");
+        p.tick();
+    }
 }
 
 fn alpha_package(p: &mut Parser) {
