@@ -65,10 +65,10 @@
 - Consumes: metadata API, `normalize`, `schedule`, `generate`, `ValueError`, and `ScheduleError`.
 - Produces: an executed `nbval` tutorial and documented test commands.
 
-- [ ] **Step 1: Create the notebook JSON** with markdown and executable Python cells covering metadata, exact-once failures, explicit external signatures, C generation, two legal transfer schedules, a legal producer-consumer schedule, and an illegal reversed dependence.
-- [ ] **Step 2: Execute the notebook in place** with `uv run jupyter nbconvert --to notebook --execute --inplace alphalang/notebooks/linear_types.ipynb` so saved output is real.
-- [ ] **Step 3: Run `uv run pytest --nbval alphalang/notebooks/linear_types.ipynb`** and repair only notebook/API mismatches until it passes.
-- [ ] **Step 4: Update both README files** to document metadata, the notebook, legal schedule properties, and notebook test commands.
-- [ ] **Step 5: Run final validation**: `uv run pytest alphalang/tests`, both notebook `nbval` tests, `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, and `cargo test --workspace --no-fail-fast`.
-- [ ] **Step 6: Confirm `git diff --check` and `git status --short`**, leaving `Cargo.lock` unstaged.
-- [ ] **Step 7: Commit** with `git commit -m "docs: add linear types notebook"`.
+- [x] **Step 1: Create the notebook JSON** with markdown and executable Python cells covering metadata, exact-once failures, explicit external signatures, C generation, two legal transfer schedules, a legal producer-consumer schedule, and an illegal reversed dependence.
+- [x] **Step 2: Execute the notebook in place** with `uv run jupyter nbconvert --to notebook --execute --inplace alphalang/notebooks/linear_types.ipynb` so saved output is real.
+- [x] **Step 3: Run `uv run pytest --nbval alphalang/notebooks/linear_types.ipynb`** and repair only notebook/API mismatches until it passes.
+- [x] **Step 4: Update both README files** to document metadata, the notebook, legal schedule properties, and notebook test commands.
+- [x] **Step 5: Run final validation**: `uv run pytest alphalang/tests`, both notebook `nbval` tests, `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, and `cargo test --workspace --no-fail-fast`.
+- [x] **Step 6: Confirm `git diff --check` and `git status --short`**, leaving `Cargo.lock` unstaged.
+- [x] **Step 7: Commit** with `git commit -m "docs: add linear types notebook"`.
