@@ -114,12 +114,12 @@ fn linear_value_cannot_flow_to_unrestricted_target() {
 - Consumes: structural `ExprFacts` and exact expression/context domains.
 - Produces: exact `ResourceUse { variable, relation, start, end }` collection and resource diagnostics.
 
-- [ ] **Step 1: Add failing tests** for one identity use, a broadcast/non-injective access, two overlapping reads, partial coverage, and output-boundary consumption.
-- [ ] **Step 2: Run the focused tests** and confirm accepted invalid programs or missing diagnostics.
-- [ ] **Step 3: Derive each variable access map** by composing the enclosing consumer domain with nested dependence functions and restrictions. Bare references use the identity map on their validated context.
-- [ ] **Step 4: Add `LinearUseNotInjective`, `LinearUsesOverlap`, and `LinearValueUnconsumed` diagnostics**. For each variable, use exact ISL `is_injective`, range intersection, union, and domain subtraction; render the exact offending set in `detail`.
-- [ ] **Step 5: Treat a linear output boundary as one full-domain consumer and suppress coverage cascades for variables already carrying `LinearityUnsupportedHere`**.
-- [ ] **Step 6: Run `cargo test -p alpha-model --test multiplicity` and `cargo test -p alpha-model`**.
+- [x] **Step 1: Add failing tests** for one identity use, a broadcast/non-injective access, two overlapping reads, partial coverage, and output-boundary consumption.
+- [x] **Step 2: Run the focused tests** and confirm accepted invalid programs or missing diagnostics.
+- [x] **Step 3: Derive each variable access map** by composing the enclosing consumer domain with nested dependence functions and restrictions. Bare references use the identity map on their validated context.
+- [x] **Step 4: Add `LinearUseNotInjective`, `LinearUsesOverlap`, and `LinearValueUnconsumed` diagnostics**. For each variable, use exact ISL `is_injective`, range intersection, union, and domain subtraction; render the exact offending set in `detail`.
+- [x] **Step 5: Treat a linear output boundary as one full-domain consumer and suppress coverage cascades for variables already carrying `LinearityUnsupportedHere`**.
+- [x] **Step 6: Run `cargo test -p alpha-model --test multiplicity` and `cargo test -p alpha-model`**.
 - [ ] **Step 7: Commit with `git commit -m "feat: check exact linear resource use"`**.
 
 ### Task 4: Branch-Sensitive Resource Summaries

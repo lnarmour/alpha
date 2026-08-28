@@ -211,6 +211,30 @@ pub enum Diagnostic {
         start: u32,
         end: u32,
     },
+
+    /// One occurrence maps multiple consumer instances to the same linear resource point.
+    LinearUseNotInjective {
+        variable: String,
+        detail: String,
+        start: u32,
+        end: u32,
+    },
+
+    /// Two simultaneously active occurrences consume overlapping linear resource points.
+    LinearUsesOverlap {
+        variable: String,
+        detail: String,
+        start: u32,
+        end: u32,
+    },
+
+    /// Some points in a linear variable's declared domain have no consumer.
+    LinearValueUnconsumed {
+        variable: String,
+        detail: String,
+        start: u32,
+        end: u32,
+    },
 }
 
 impl std::fmt::Display for Diagnostic {
@@ -347,6 +371,24 @@ impl std::fmt::Display for Diagnostic {
                 f,
                 "linear values are not yet supported in {construct} expressions"
             ),
+            Diagnostic::LinearUseNotInjective {
+                variable, detail, ..
+            } => write!(
+                f,
+                "one use of linear variable '{variable}' consumes points more than once: {detail}"
+            ),
+            Diagnostic::LinearUsesOverlap {
+                variable, detail, ..
+            } => write!(
+                f,
+                "uses of linear variable '{variable}' overlap on {detail}"
+            ),
+            Diagnostic::LinearValueUnconsumed {
+                variable, detail, ..
+            } => write!(
+                f,
+                "linear variable '{variable}' has unconsumed points: {detail}"
+            ),
         }
     }
 }
@@ -387,7 +429,10 @@ impl Diagnostic {
             | Diagnostic::UndefinedVariable { start, end, .. }
             | Diagnostic::LinearValueWidened { start, end, .. }
             | Diagnostic::LinearArgumentToUnrestrictedPort { start, end, .. }
-            | Diagnostic::LinearityUnsupportedHere { start, end, .. } => (*start, *end),
+            | Diagnostic::LinearityUnsupportedHere { start, end, .. }
+            | Diagnostic::LinearUseNotInjective { start, end, .. }
+            | Diagnostic::LinearUsesOverlap { start, end, .. }
+            | Diagnostic::LinearValueUnconsumed { start, end, .. } => (*start, *end),
         }
     }
 }

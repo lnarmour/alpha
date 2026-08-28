@@ -101,3 +101,72 @@ fn reduction_with_linear_reference_is_explicitly_unsupported() {
         Diagnostic::LinearityUnsupportedHere { construct, .. } if construct == "reduce"
     )), "{diagnostics:#?}");
 }
+
+#[test]
+fn identity_transfer_consumes_each_linear_point_once() {
+    let source = LINEAR_TO_UNRESTRICTED.replace("outputs Y", "outputs linear Y");
+
+    assert!(diagnostics(&source).is_empty());
+}
+
+#[test]
+fn two_reads_of_the_same_linear_points_overlap() {
+    let source = r#"affine duplicate [N] -> {: N > 0}
+    inputs linear X : {[i] : 0 <= i < N};
+    outputs linear Y, Z : {[i] : 0 <= i < N};
+    let
+        Y[i] = X[i];
+        Z[i] = X[i];
+.
+"#;
+    let diagnostics = diagnostics(source);
+
+    assert!(diagnostics.iter().any(|diagnostic| matches!(
+        diagnostic,
+        Diagnostic::LinearUsesOverlap { variable, .. } if variable == "X"
+    )), "{diagnostics:#?}");
+}
+
+#[test]
+fn broadcast_read_is_not_injective() {
+    let source = r#"affine broadcast [N] -> {: N > 0}
+    inputs linear X : {[i] : 0 <= i < N};
+    outputs linear Y : {[i, j] : 0 <= i < N and 0 <= j < 2};
+    let
+        Y[i, j] = X[i];
+.
+"#;
+    let diagnostics = diagnostics(source);
+
+    assert!(diagnostics.iter().any(|diagnostic| matches!(
+        diagnostic,
+        Diagnostic::LinearUseNotInjective { variable, .. } if variable == "X"
+    )), "{diagnostics:#?}");
+}
+
+#[test]
+fn partially_read_linear_input_reports_unconsumed_points() {
+    let source = r#"affine partial [N] -> {: N > 1}
+    inputs linear X : {[i] : 0 <= i < N};
+    outputs linear Y : {[i] : 0 <= i < N - 1};
+    let
+        Y[i] = X[i];
+.
+"#;
+    let diagnostics = diagnostics(source);
+
+    assert!(diagnostics.iter().any(|diagnostic| matches!(
+        diagnostic,
+        Diagnostic::LinearValueUnconsumed { variable, detail, .. }
+            if variable == "X" && detail.contains("N")
+    )), "{diagnostics:#?}");
+}
+
+#[test]
+fn affine_permutation_consumes_each_linear_point_once() {
+    let source = LINEAR_TO_UNRESTRICTED
+        .replace("outputs Y", "outputs linear Y")
+        .replace("X[i]", "X[N - i - 1]");
+
+    assert!(diagnostics(&source).is_empty());
+}
