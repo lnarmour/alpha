@@ -51,6 +51,8 @@ pub enum TokenKind {
     KwOutputs,
     #[token("locals")]
     KwLocals,
+    #[token("linear")]
+    KwLinear,
     #[token("over")]
     KwOver,
     #[token("with")]

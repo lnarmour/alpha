@@ -232,6 +232,9 @@ impl Variable {
     pub fn name(&self) -> Option<SyntaxToken> {
         name(&self.0)
     }
+    pub fn is_linear(&self) -> bool {
+        token(&self.0, K::KW_LINEAR).is_some()
+    }
     /// `None` for a bare name in a comma-separated list (e.g. the `A`, `B` in `inputs A, B :
     /// [N]`) — semantic analysis inherits the domain from the next sibling that has one, exactly
     /// as the source system's `JNIDomainCalculator.resolveVariableDeclaration` does.

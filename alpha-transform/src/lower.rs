@@ -78,6 +78,9 @@ pub fn lower_system(
                 out.push(ir::Variable {
                     name: name.text().to_string(),
                     domain,
+                    multiplicity: resolver
+                        .variable_multiplicity(name.text())
+                        .expect("lowered variable was registered by the resolver"),
                 });
             }
         }
@@ -92,6 +95,9 @@ pub fn lower_system(
                 out.push(ir::Variable {
                     name: name.text().to_string(),
                     domain,
+                    multiplicity: resolver
+                        .variable_multiplicity(name.text())
+                        .expect("lowered variable was registered by the resolver"),
                 });
             }
         }
@@ -106,6 +112,9 @@ pub fn lower_system(
                 out.push(ir::Variable {
                     name: name.text().to_string(),
                     domain,
+                    multiplicity: resolver
+                        .variable_multiplicity(name.text())
+                        .expect("lowered variable was registered by the resolver"),
                 });
             }
         }
