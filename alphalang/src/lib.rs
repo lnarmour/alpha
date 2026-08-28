@@ -79,13 +79,29 @@ fn parse_and_lower(source: &str) -> PyResult<alpha_transform::ir::System> {
         return Err(PyValueError::new_err("no systems found in source"));
     };
     let ctx = isl::Context::new();
-    let mut resolver = alpha_model::Resolver::new(ctx, &system);
-    let diagnostics = alpha_model::analyze_system(&mut resolver, &system);
+    let analyses = alpha_model::analyze_root(&ctx, &tree);
+    let diagnostics = analyses
+        .first()
+        .map(|(_, diagnostics)| diagnostics.as_slice())
+        .unwrap_or_default();
     if !diagnostics.is_empty() {
         let msgs: Vec<String> = diagnostics.iter().map(|d| d.to_string()).collect();
         return Err(PyValueError::new_err(format!(
             "{} diagnostic(s):\n{}",
             diagnostics.len(),
+            msgs.join("\n")
+        )));
+    }
+    let mut resolver = alpha_model::Resolver::new(ctx, &system);
+    let (_, _, resolver_diagnostics) = resolver.analyze_system(&system);
+    if !resolver_diagnostics.is_empty() {
+        let msgs: Vec<String> = resolver_diagnostics
+            .iter()
+            .map(|d| d.to_string())
+            .collect();
+        return Err(PyValueError::new_err(format!(
+            "{} diagnostic(s):\n{}",
+            resolver_diagnostics.len(),
             msgs.join("\n")
         )));
     }

@@ -31,11 +31,11 @@
 - Consumes: `alpha_model::analyze_root(ctx, root)` and `Resolver::analyze_system`.
 - Produces: unchanged `alphalang.parse(source) -> System` with root/package signature enforcement.
 
-- [ ] **Step 1: Add failing Python tests** proving `external move(linear) -> linear` succeeds and `external f(1)` rejects a linear argument.
-- [ ] **Step 2: Reinstall the extension and run the two tests**, confirming the explicit signature test fails under system-local analysis.
-- [ ] **Step 3: Change `parse_and_lower`** to run `analyze_root`, report first-system/whole-program diagnostics, then initialize a fresh resolver with `resolver.analyze_system(&system)` before lowering.
-- [ ] **Step 4: Reinstall and rerun the focused tests**, then run all `alphalang/tests/test_alpha.py` tests.
-- [ ] **Step 5: Commit** with `git commit -m "fix: enforce root signatures in alphalang"`.
+- [x] **Step 1: Add failing Python tests** proving `external move(linear) -> linear` succeeds and `external f(1)` rejects a linear argument.
+- [x] **Step 2: Reinstall the extension and run the two tests**, confirming the explicit signature test fails under system-local analysis.
+- [x] **Step 3: Change `parse_and_lower`** to run `analyze_root`, report first-system/whole-program diagnostics, then initialize a fresh resolver with `resolver.analyze_system(&system)` before lowering.
+- [x] **Step 4: Reinstall and rerun the focused tests**, then run all `alphalang/tests/test_alpha.py` tests.
+- [x] **Step 5: Commit** with `git commit -m "fix: enforce root signatures in alphalang"`.
 
 ### Task 2: Immutable Python Multiplicity Metadata
 

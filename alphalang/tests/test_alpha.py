@@ -17,6 +17,13 @@ PREFIX_SUM = """affine PrefixSum [N]->{:N>0}
 
 PREFIX_SUM_SCHEDULE = "{ Y__init[i] -> [i, 0, 0]; Y__reduce[i,j] -> [i, 1, j]; }"
 
+LINEAR_TRANSFER = """affine Transfer [N] -> {: N > 0}
+    inputs linear X : {[i] : 0 <= i < N};
+    outputs linear Y : {[i] : 0 <= i < N};
+    let Y[i] = X[i];
+.
+"""
+
 
 def test_parse_returns_a_system():
     sys = alphalang.parse(PREFIX_SUM)
@@ -81,6 +88,23 @@ def test_schedule_error_message_carries_the_diagnostic():
 def test_parse_with_syntax_error_raises_value_error():
     with pytest.raises(ValueError):
         alphalang.parse("this is not alpha source")
+
+
+def test_parse_uses_explicit_external_multiplicity_signature():
+    source = "external move(linear) -> linear\n" + LINEAR_TRANSFER.replace(
+        "X[i]", "move(X[i])"
+    )
+
+    assert isinstance(alphalang.parse(source), alphalang.System)
+
+
+def test_parse_treats_legacy_external_ports_as_unrestricted():
+    source = "external legacy(1)\n" + LINEAR_TRANSFER.replace(
+        "X[i]", "legacy(X[i])"
+    )
+
+    with pytest.raises(ValueError, match="unrestricted operator 'legacy'"):
+        alphalang.parse(source)
 
 
 def test_print_dumps_the_tree_with_domains():
