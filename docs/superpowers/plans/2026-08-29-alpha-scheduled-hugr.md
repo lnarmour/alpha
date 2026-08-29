@@ -911,7 +911,7 @@ git commit -m "feat: add HUGR emission primitives"
 - Produces: `generate_hugr_system(system, schedule_text, bindings) -> Result<String>` using HUGR envelope serialization.
 - Consumes: statement table, resource flow, scheduled IR, specialization, and realization.
 
-- [ ] **Step 1: Add failing end-to-end tests.**
+- [x] **Step 1: Add failing end-to-end tests.**
 
 Test an allocated `Q[t,i]` chain ending in measurement and an input/output `cx` program. For each:
 
@@ -925,19 +925,19 @@ Inspect operations to assert the expected counts of `QAlloc`, `H`, `CX`, `Measur
 return nodes. Assert the public function signature uses concrete arrays of the specialized sizes.
 Add a second legal schedule and assert both HUGRs validate but have different loop structure.
 
-- [ ] **Step 2: Run end-to-end tests and confirm failure.**
+- [x] **Step 2: Run end-to-end tests and confirm failure.**
 
 Run: `cargo test -p alpha-codegen --test hugr_scheduled`
 
 Expected: failure because whole-program emission is absent.
 
-- [ ] **Step 3: Build HUGR boundary state.**
+- [x] **Step 3: Build HUGR boundary state.**
 
 Create a DFG with concrete input/output array types. Convert input resource groups to borrow arrays,
 create allocation-root groups with `new_all_borrowed`, and create empty borrow arrays for
 write-once classical outputs. Store group wires in a deterministic `ResourceGroupId` map.
 
-- [ ] **Step 4: Walk scheduled IR with explicit live state.**
+- [x] **Step 4: Walk scheduled IR with explicit live state.**
 
 For `Sequence`, thread the state map through children. For `Loop`, compute values live across the
 back edge and place them in the `TailLoop.rest` row. For `If`, pass identical typed rows into both
@@ -945,14 +945,14 @@ cases and merge their outputs. For `Invoke`, evaluate lane indices, borrow input
 operation, and return continuity outputs. A consuming input remains borrowed; a root output is
 returned into its initially empty group.
 
-- [ ] **Step 5: Finish boundaries and validate.**
+- [x] **Step 5: Finish boundaries and validate.**
 
 Convert proved-full quantum and classical output groups to ordinary arrays. Discard proved-empty
 consumed groups. Finish the HUGR, run `validate`, and map validation failures to
 `CodegenError::Hugr`. Serialize with `hugr::envelope::EnvelopeConfig` in
 `generate_hugr_system`.
 
-- [ ] **Step 6: Pin unsupported behavior.**
+- [x] **Step 6: Pin unsupported behavior.**
 
 Add tests asserting dedicated errors for:
 
@@ -966,7 +966,7 @@ Name the first three tests `rejects_missing_specialization`, `rejects_triangular
 `rejects_unproved_compact_realization`. Measurement-controlled gate expressions are rejected in
 Task 3 before codegen and remain covered by `rejects_measurement_controlled_gate_expression`.
 
-- [ ] **Step 7: Run HUGR and full codegen suites.**
+- [x] **Step 7: Run HUGR and full codegen suites.**
 
 Run:
 
@@ -979,7 +979,7 @@ cargo test -p alpha-codegen
 Expected: all tests pass. Read every new HUGR snapshot and verify that qubit wires are consumed
 exactly once; do not approve snapshots solely because `UPDATE_INSTA=1` generated them.
 
-- [ ] **Step 8: Commit.**
+- [x] **Step 8: Commit.**
 
 ```bash
 git add alpha-codegen/src/hugr.rs alpha-codegen/src/lib.rs \
