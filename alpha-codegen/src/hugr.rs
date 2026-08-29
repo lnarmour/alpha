@@ -991,8 +991,9 @@ pub fn generate_hugr_system(
     schedule_text: &str,
     bindings: &ParameterBindings,
 ) -> Result<String> {
-    generate_hugr(system, schedule_text, bindings)?
-        .store_str(EnvelopeConfig::text())
+    let hugr = generate_hugr(system, schedule_text, bindings)?;
+    let extensions = hugr.extensions().clone();
+    hugr.store_str_with_exts(EnvelopeConfig::text(), &extensions)
         .map_err(build_error)
 }
 

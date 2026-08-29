@@ -66,7 +66,17 @@ fn emits_scheduled_cx_boundaries() {
     assert_eq!(signature.out_port_type(0), Some(&array_type(4, qb_t())));
     assert_eq!(count_tket(&hugr, TketOp::CX), 1);
     let envelope = alpha_codegen::generate_hugr_system(&system, "", &bindings).unwrap();
-    assert!(envelope.contains("HUGRiHJ"));
+    let decoded = hugr::Hugr::load_str(&envelope, None).unwrap();
+    decoded.validate().unwrap();
+    assert_eq!(
+        decoded
+            .get_optype(decoded.entrypoint())
+            .dataflow_signature(),
+        hugr
+            .get_optype(hugr.entrypoint())
+            .dataflow_signature()
+    );
+    assert_eq!(count_tket(&decoded, TketOp::CX), 1);
 }
 
 #[test]
