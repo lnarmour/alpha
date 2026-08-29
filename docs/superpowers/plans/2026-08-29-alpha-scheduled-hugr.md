@@ -723,7 +723,7 @@ git commit -m "feat: specialize scheduled Alpha programs"
 - Produces: `ResourceGroup`, `LogicalLaneMap`, concrete shape/size, root occupancy, and sink occupancy.
 - Produces: `CodegenError::Realization(String)`.
 
-- [ ] **Step 1: Add failing compact-realization tests.**
+- [x] **Step 1: Add failing compact-realization tests.**
 
 For the `Q[t,i]` chain with `T=3, N=4`, assert:
 
@@ -738,13 +738,13 @@ assert_eq!(realization.logical_lane_map("Q").unwrap().to_string(),
 Add tests for input-root/output-sink, allocation-root/measurement-sink, `cx` preserving two lanes,
 operand alias rejection, triangular-domain rejection, and mixed non-rectangular sink rejection.
 
-- [ ] **Step 2: Run the focused test and confirm failure.**
+- [x] **Step 2: Run the focused test and confirm failure.**
 
 Run: `cargo test -p alpha-codegen --test realization`
 
 Expected: compile failure because realization types are absent.
 
-- [ ] **Step 3: Define realization data.**
+- [x] **Step 3: Define realization data.**
 
 ```rust
 pub struct ResourceGroup {
@@ -777,14 +777,14 @@ impl Realization {
 }
 ```
 
-- [ ] **Step 4: Implement trajectory propagation.**
+- [x] **Step 4: Implement trajectory propagation.**
 
 Assign each system-input domain and each unpaired operation-output root a distinct root lane space.
 Propagate its lane map through each continuity relation. At joins, require exact equality of the
 maps already inferred; reject branching, convergence, cycles without a boundary root, and
 unreachable logical points with a witness relation.
 
-- [ ] **Step 5: Implement rectangular grouping and boundary checks.**
+- [x] **Step 5: Implement rectangular grouping and boundary checks.**
 
 Accept a group only when its specialized root domain is a zero-based rectangular product and the
 logical-to-lane map is an affine projection/permutation onto that product. Compute row-major size
@@ -792,20 +792,20 @@ with checked `u64` multiplication. Partition by element type, root kind, sink ki
 shape; reject a remainder that is not itself rectangular. Never create a dense group over a full
 logical version domain as fallback.
 
-- [ ] **Step 6: Prove operation occupancy preconditions.**
+- [x] **Step 6: Prove operation occupancy preconditions.**
 
 For each scheduled call, prove each borrow follows its trajectory root and predecessor, each return
 is paired with the same invocation's borrow or an empty allocation-root lane, gate operands map to
 distinct lanes, output groups are full, and consumed groups are empty. Store the per-statement
 `ResolvedAccess { group, lane: MultiAff }` needed by HUGR emission.
 
-- [ ] **Step 7: Run realization and schedule regressions.**
+- [x] **Step 7: Run realization and schedule regressions.**
 
 Run: `cargo test -p alpha-codegen --test realization && cargo test -p alpha-codegen`
 
 Expected: all tests pass.
 
-- [ ] **Step 8: Commit.**
+- [x] **Step 8: Commit.**
 
 ```bash
 git add alpha-codegen/src/realize.rs alpha-codegen/src/lib.rs \

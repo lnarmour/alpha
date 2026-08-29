@@ -1,5 +1,6 @@
 //! `isl_map`: relations between sets — Alpha's `JNIRelation`, and the workhorse behind
 //! dependence-expression domain propagation (`apply`/`preimage`) in `alpha-model`.
+use crate::aff::MultiAff;
 use crate::ctx::{take_c_string, Context, Result};
 use crate::set::{Format, Set};
 use crate::space::{DimType, Space};
@@ -106,6 +107,14 @@ impl Map {
         let ctx = self.ctx.clone();
         let ptr = unsafe { isl_sys::isl_map_reverse(self.into_raw()) };
         Ok(unsafe { Map::from_raw(ctx.clone(), ctx.check(ptr)?) })
+    }
+
+    pub fn transitive_closure(self) -> Result<(Map, bool)> {
+        let ctx = self.ctx.clone();
+        let mut exact = isl_sys::isl_bool::isl_bool_false;
+        let ptr = unsafe { isl_sys::isl_map_transitive_closure(self.into_raw(), &mut exact) };
+        let map = unsafe { Map::from_raw(ctx.clone(), ctx.check(ptr)?) };
+        Ok((map, ctx.check_bool(exact)?))
     }
 
     pub fn is_empty(&self) -> Result<bool> {
@@ -221,6 +230,39 @@ impl Map {
         let ctx = self.ctx.clone();
         let ptr = unsafe { isl_sys::isl_map_project_out(self.into_raw(), ty.to_raw(), first, n) };
         Ok(unsafe { Map::from_raw(ctx.clone(), ctx.check(ptr)?) })
+    }
+
+    pub fn as_multi_aff(self) -> Result<Option<MultiAff>> {
+        let ctx = self.ctx.clone();
+        let piecewise = unsafe { isl_sys::isl_map_as_pw_multi_aff(self.into_raw()) };
+        let piecewise = ctx.check(piecewise)?;
+        let pieces = unsafe { isl_sys::isl_pw_multi_aff_n_piece(piecewise) };
+        if pieces != 1 {
+            unsafe { isl_sys::isl_pw_multi_aff_free(piecewise) };
+            return Ok(None);
+        }
+        unsafe extern "C" fn take_piece(
+            set: *mut isl_sys::isl_set,
+            multi_aff: *mut isl_sys::isl_multi_aff,
+            user: *mut std::ffi::c_void,
+        ) -> isl_sys::isl_stat::Type {
+            isl_sys::isl_set_free(set);
+            *(user as *mut *mut isl_sys::isl_multi_aff) = multi_aff;
+            isl_sys::isl_stat::isl_stat_ok
+        }
+        let mut result = std::ptr::null_mut();
+        let stat = unsafe {
+            isl_sys::isl_pw_multi_aff_foreach_piece(
+                piecewise,
+                Some(take_piece),
+                &mut result as *mut *mut isl_sys::isl_multi_aff as *mut std::ffi::c_void,
+            )
+        };
+        unsafe { isl_sys::isl_pw_multi_aff_free(piecewise) };
+        ctx.check_stat(stat)?;
+        Ok(Some(unsafe {
+            MultiAff::from_raw(ctx.clone(), ctx.check(result)?)
+        }))
     }
 
     pub fn to_string_fmt(&self, format: Format) -> String {

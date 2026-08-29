@@ -25,6 +25,7 @@ pub enum CodegenError {
     /// check. Carries a diagnostic naming the two statements and the dependence between them.
     IllegalSchedule(String),
     Specialization(String),
+    Realization(String),
 }
 
 impl fmt::Display for CodegenError {
@@ -35,6 +36,7 @@ impl fmt::Display for CodegenError {
             CodegenError::InvalidSchedule(msg) => write!(f, "invalid target mapping: {msg}"),
             CodegenError::IllegalSchedule(msg) => write!(f, "illegal schedule: {msg}"),
             CodegenError::Specialization(msg) => write!(f, "specialization failed: {msg}"),
+            CodegenError::Realization(msg) => write!(f, "realization failed: {msg}"),
         }
     }
 }

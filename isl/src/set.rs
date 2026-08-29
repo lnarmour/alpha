@@ -115,6 +115,11 @@ impl Set {
             .check_bool(unsafe { isl_sys::isl_set_is_subset(self.ptr, other.ptr) })
     }
 
+    pub fn is_box(&self) -> Result<bool> {
+        self.ctx
+            .check_bool(unsafe { isl_sys::isl_set_is_box(self.ptr) })
+    }
+
     pub fn intersect(self, other: Set) -> Result<Set> {
         let ctx = self.ctx.clone();
         let ptr = unsafe { isl_sys::isl_set_intersect(self.into_raw(), other.into_raw()) };

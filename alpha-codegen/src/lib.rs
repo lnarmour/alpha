@@ -11,6 +11,7 @@ pub mod error;
 mod expr;
 pub mod layout;
 mod legality;
+pub mod realize;
 mod schedule;
 pub mod scheduled_ir;
 mod scheduledc;
