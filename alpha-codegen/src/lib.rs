@@ -12,9 +12,10 @@ mod expr;
 pub mod layout;
 mod legality;
 mod schedule;
+pub mod scheduled_ir;
 mod scheduledc;
 pub mod simplec;
-mod stmt;
+pub mod stmt;
 #[cfg(test)]
 mod test_util;
 pub mod writec;

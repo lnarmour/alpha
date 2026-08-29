@@ -557,7 +557,7 @@ git commit -m "feat: derive logical quantum resource flow"
 - Produces: typed `ScheduledNode`, `IndexExpr`, `Predicate`, and `StatementId`.
 - Changes: ScheduledC renders `ScheduledProgram` rather than walking `isl::AstNode` directly.
 
-- [ ] **Step 1: Add failing scheduled-IR snapshots.**
+- [x] **Step 1: Add failing scheduled-IR snapshots.**
 
 Cover identity, reverse, skewed two-dimensional, affine guard, reduction, and operation-call
 schedules. Assert structure directly, for example:
@@ -570,13 +570,13 @@ assert!(matches!(program.root, ScheduledNode::Loop { .. }));
 
 Include an operation invocation assertion using `StatementId` rather than a name string.
 
-- [ ] **Step 2: Run the focused tests and confirm failure.**
+- [x] **Step 2: Run the focused tests and confirm failure.**
 
 Run: `cargo test -p alpha-codegen --test scheduled_ir`
 
 Expected: compile failure because `scheduled_ir` is absent.
 
-- [ ] **Step 3: Define the typed IR and ISL expression conversion.**
+- [x] **Step 3: Define the typed IR and ISL expression conversion.**
 
 Use owned enums:
 
@@ -587,6 +587,7 @@ pub enum IndexExpr {
     Add(Box<IndexExpr>, Box<IndexExpr>),
     Sub(Box<IndexExpr>, Box<IndexExpr>),
     Mul(Box<IndexExpr>, Box<IndexExpr>),
+    Div(Box<IndexExpr>, Box<IndexExpr>),
     FloorDiv(Box<IndexExpr>, Box<IndexExpr>),
     CeilDiv(Box<IndexExpr>, Box<IndexExpr>),
     Mod(Box<IndexExpr>, Box<IndexExpr>),
@@ -606,18 +607,18 @@ pub enum Predicate {
 Map every `isl::AstExprKind` and supported `isl::AstOpType` explicitly. Reject call/select/address
 operators in loop bounds and predicates except the user-call expression handled by `AstNode::User`.
 
-- [ ] **Step 4: Translate the ISL AST once.**
+- [x] **Step 4: Translate the ISL AST once.**
 
 Move parameter-context construction and `AstBuild::generate` out of `scheduledc.rs`. Convert
 `For`, `If`, `Block`, and `User` into `ScheduledNode`; resolve user tuple names to stable
 `StatementId`s during translation. Return the statements and root together as `ScheduledProgram`.
 
-- [ ] **Step 5: Migrate ScheduledC to the typed IR.**
+- [x] **Step 5: Migrate ScheduledC to the typed IR.**
 
 Replace its ISL walker with renderers for `IndexExpr`, `Predicate`, and `ScheduledNode`. Keep
 statement body generation, storage layout, and expression rendering unchanged.
 
-- [ ] **Step 6: Run all scheduled-C checks.**
+- [x] **Step 6: Run all scheduled-C checks.**
 
 Run:
 
@@ -631,7 +632,7 @@ cargo test -p alpha-codegen
 Expected: existing snapshots and executable behavior pass unchanged. Review any intentional
 snapshot diff before accepting it.
 
-- [ ] **Step 7: Commit.**
+- [x] **Step 7: Commit.**
 
 ```bash
 git add alpha-codegen/src/scheduled_ir.rs alpha-codegen/src/lib.rs \

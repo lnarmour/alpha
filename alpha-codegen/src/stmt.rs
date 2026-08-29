@@ -18,7 +18,7 @@ use std::collections::HashMap;
 /// statement's `name`/`domain`; `operator`/`body`/`body_context`/`projection`/`equations` are read
 /// by the legality checker (§7, next phase) and `ScheduledC`'s own body codegen (§8, after that).
 #[allow(dead_code)]
-pub(crate) enum StatementKind<'a> {
+pub enum StatementKind<'a> {
     /// §4.1: one or more piecewise equations for an ordinary output/local variable, guarded by
     /// their own `SystemBody` domain — the same `(domain, equation)` pairs `WriteC`'s own
     /// `equations_by_var` groups (decision 2, §2).
@@ -50,7 +50,7 @@ pub(crate) enum StatementKind<'a> {
     OperationCall(&'a ir::OperationCall),
 }
 
-pub(crate) struct Statement<'a> {
+pub struct Statement<'a> {
     pub name: String,
     pub domain: Set,
     pub kind: StatementKind<'a>,
