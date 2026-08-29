@@ -26,6 +26,7 @@ pub enum CodegenError {
     IllegalSchedule(String),
     Specialization(String),
     Realization(String),
+    Hugr(String),
 }
 
 impl fmt::Display for CodegenError {
@@ -37,6 +38,7 @@ impl fmt::Display for CodegenError {
             CodegenError::IllegalSchedule(msg) => write!(f, "illegal schedule: {msg}"),
             CodegenError::Specialization(msg) => write!(f, "specialization failed: {msg}"),
             CodegenError::Realization(msg) => write!(f, "realization failed: {msg}"),
+            CodegenError::Hugr(msg) => write!(f, "HUGR generation failed: {msg}"),
         }
     }
 }

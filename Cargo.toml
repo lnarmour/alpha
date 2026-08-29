@@ -28,3 +28,5 @@ alpha-syntax = { path = "alpha-syntax" }
 alpha-model = { path = "alpha-model" }
 alpha-transform = { path = "alpha-transform" }
 alpha-codegen = { path = "alpha-codegen" }
+hugr = "=0.29.3"
+tket = "=0.21.2"

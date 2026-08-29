@@ -831,7 +831,7 @@ git commit -m "feat: infer compact quantum realizations"
 - Produces: private helpers for borrow-array conversion/access, `TketOp` gates, typed index arithmetic, and counted `TailLoop` construction.
 - Produces: `CodegenError::Hugr(String)`.
 
-- [ ] **Step 1: Add dependencies and a failing primitive test.**
+- [x] **Step 1: Add dependencies and a failing primitive test.**
 
 Add the two exact versions to `[workspace.dependencies]` and reference them with `.workspace = true`
 in `alpha-codegen`. Do not add `tket-qsystem`: the required operations are `TketOp::{QAlloc, H,
@@ -840,13 +840,13 @@ CX, MeasureFree, QFree}`.
 Write a test that creates `borrow_array<4, qubit>`, borrows index 1, applies `H`, returns the output,
 finishes the DFG, and calls HUGR validation.
 
-- [ ] **Step 2: Run the primitive test and confirm failure.**
+- [x] **Step 2: Run the primitive test and confirm failure.**
 
 Run: `cargo test -p alpha-codegen --test hugr_primitives`
 
 Expected: compile failure because the HUGR module/helpers do not exist.
 
-- [ ] **Step 3: Implement borrow-array and gate helpers.**
+- [x] **Step 3: Implement borrow-array and gate helpers.**
 
 Use `BArrayOpBuilder::{add_borrow_array_borrow, add_borrow_array_return,
 add_new_all_borrowed, add_discard_all_borrowed}`. Add dataflow ops using:
@@ -863,25 +863,29 @@ For `MeasureFree`, use the TKET measurement extension's read operation to conver
 value to the Alpha `bool` result expected by the registry. Keep this conversion inside the HUGR
 backend; the Alpha operation signature remains `qubit -> bool`.
 
-- [ ] **Step 4: Implement typed index-expression lowering.**
+- [x] **Step 4: Implement typed index-expression lowering.**
 
 Map `IndexExpr` to HUGR integer constants/arithmetic and `Predicate` to comparison/logic ops. Use
 checked conversions for negative values and division semantics; add a test for every variant
 produced by the scheduled-IR fixture suite.
 
-- [ ] **Step 5: Implement a counted TailLoop skeleton.**
+- [x] **Step 5: Implement a counted TailLoop skeleton.**
 
 Build a `TailLoop` carrying an iterator plus one borrow array in its `rest` row. Emit condition,
 continue, increment, and break paths from a `ScheduledNode::Loop`; assert the resulting HUGR
 contains a `TailLoop` and validates.
 
-- [ ] **Step 6: Run primitive tests and strict linting for the crate.**
+- [x] **Step 6: Run primitive tests and strict linting for the crate.**
 
 Run: `cargo test -p alpha-codegen --test hugr_primitives && cargo clippy -p alpha-codegen --all-targets -- -D warnings`
 
 Expected: all tests and clippy pass.
 
-- [ ] **Step 7: Commit.**
+The exact clippy command also lints local dependencies and is blocked by the pre-existing
+`clippy::too_many_arguments` finding in `alpha-model/src/multiplicity.rs`. The Task 9 crate itself
+passes `cargo clippy -p alpha-codegen --all-targets --no-deps -- -D warnings`.
+
+- [x] **Step 7: Commit.**
 
 ```bash
 git add Cargo.toml Cargo.lock alpha-codegen/Cargo.toml alpha-codegen/src/hugr.rs \

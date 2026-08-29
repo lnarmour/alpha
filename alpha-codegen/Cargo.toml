@@ -10,6 +10,8 @@ alpha-syntax.workspace = true
 alpha-model.workspace = true
 alpha-transform.workspace = true
 isl.workspace = true
+hugr.workspace = true
+tket.workspace = true
 barvinok = { workspace = true, optional = true }
 
 [features]

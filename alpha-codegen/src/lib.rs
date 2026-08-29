@@ -9,6 +9,7 @@
 pub mod describe;
 pub mod error;
 mod expr;
+pub mod hugr;
 pub mod layout;
 mod legality;
 pub mod realize;
