@@ -166,6 +166,14 @@ A resolved call records its statement domain, input access relations, output def
 operation identity, and typed signature. Calls are schedulable statements; gates are not embedded
 inside scalar expressions.
 
+Each operation call receives a deterministic schedule-visible statement name. Its base is the
+first output target variable when one exists, otherwise the registered operation name. The
+compiler appends `__call<n>`, choosing the first source-order ordinal that does not collide with
+another real or synthesized statement name. For example, a sole call producing `Q1` becomes
+`Q1__call0`, while a sole zero-output `discard` becomes `discard__call0`. The normalized schedule
+description exposes these names before users write a target mapping. Explicit source-level call
+labels are deferred until concrete use shows that synthesized names are inadequate.
+
 ## Operation Signatures
 
 The operation registry is backend-independent:
