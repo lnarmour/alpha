@@ -7,8 +7,8 @@ front end for driving it interactively from a Jupyter notebook. The Python packa
 `Cargo.toml` — PyO3's `extension-module` feature, so it links against no libpython at build time
 and is resolved by the interpreter at import time).
 
-`alphac`'s `WriteC` CLI path is untouched by any of this — `ScheduledC` has no CLI of its own and is
-driven entirely through this crate.
+`alphac` keeps `WriteC` as its default output and also exposes concrete scheduled HUGR generation
+through `--emit hugr`.
 
 ## Layout
 
@@ -29,6 +29,8 @@ driven entirely through this crate.
   regression fixture — see its own `notebooks/README.md`).
 - **`notebooks/linear_types.ipynb`**: an executed tutorial for linear metadata, exact resource
   diagnostics, explicit external signatures, C generation, and legal/illegal schedules.
+- **`notebooks/quantum_hugr.ipynb`**: an executed tutorial for linear qubits, quantum operations,
+  schedule selection, concrete parameter specialization, and HUGR generation.
 
 ## Python API
 
@@ -39,15 +41,18 @@ driven entirely through this crate.
 | `alphalang.normalize(sys)` | `NormalizedSystem` | runs `normalize_reduction::apply` then `normalize::apply` (that order is required — see `alpha-transform`'s own README) against a clone; `sys` is untouched |
 | `norm.schedule(text)` | `ScheduledSystem` | parses + validates (§6) + legality-checks (§7) a target mapping against a clone of `norm`; raises `alphalang.ScheduleError` and binds nothing on any failure |
 | `alphalang.generate(system)` | `str` | `NormalizedSystem` or `ScheduledSystem`; a bare `NormalizedSystem` is sugar for `generate(norm.schedule(""))` (§6's identity-schedule default) |
+| `alphalang.generate_hugr(system, parameters)` | `str` | generates a validated HUGR envelope from a `NormalizedSystem` or `ScheduledSystem`; all symbolic parameters require concrete integer bindings |
 | `repr(sys)` / `repr(norm)` / `repr(sched)` | `str` | the ISL union-map skeleton, no precondition — always safe to print |
 | `alphalang.print(system)` | `str` | an indented debug tree dump — every node's own kind plus its `expression_domain`/`context_domain` (ported from alpha-language's `PrintAST`); accepts `System`, `NormalizedSystem`, or `ScheduledSystem` |
 | `alphalang.show(system)` | `str` | reconstructs Alpha-like source syntax from the model, `f@X` point-free `Dependence` notation (ported from `Show.xtend`); same three accepted types |
 | `alphalang.ashow(system)` | `str` | like `show`, but array-index notation (`X[f]`) for a `Dependence` over a `Variable`/constant, and explicit ambient index names on each equation (ported from `AShow.xtend`) |
 
 Every pipeline-stage object exposes immutable `inputs`, `outputs`, and `locals` tuples. Their
-`alphalang.Variable` entries provide `name`, the resolved ISL `domain` string, and
+`alphalang.Variable` entries provide `name`, the resolved ISL `domain` string, `element_type`, and
 `multiplicity`, which is either `alphalang.Multiplicity.LINEAR` or
 `alphalang.Multiplicity.UNRESTRICTED`. Metadata is preserved by normalization and scheduling.
+Element types are exposed as `alphalang.ElementType.UNSPECIFIED`, `BOOL`, `INT`, `REAL`, and
+`QUBIT`.
 
 `parse` and `read` analyze the complete source root before lowering the first system. Explicit
 external signatures such as `external move(linear) -> linear` and subsystem port signatures are
@@ -90,8 +95,9 @@ sched = norm.schedule(
 print(alphalang.generate(sched))
 ```
 
-Or work interactively in Jupyter. See `notebooks/prefix_sum.ipynb` for the cell-magic pipeline and
-`notebooks/linear_types.ipynb` for linear resources, code generation, and schedule legality.
+Or work interactively in Jupyter. See `notebooks/prefix_sum.ipynb` for the cell-magic pipeline,
+`notebooks/linear_types.ipynb` for linear resources, and `notebooks/quantum_hugr.ipynb` for the
+scheduled quantum backend.
 
 **After changing Rust code**, `uv sync` alone won't pick it up — it only rebuilds a workspace
 member when it decides a reinstall is warranted, and mtime-only/no-op edits don't trigger that.
@@ -112,6 +118,7 @@ loop since it skips uv's dependency resolution step — but isn't required any m
 pytest alphalang/tests/                                 # 28 tests: plain API + magics
 pytest --nbval alphalang/notebooks/prefix_sum.ipynb
 pytest --nbval alphalang/notebooks/linear_types.ipynb  # 10 linear/schedule cells
+pytest --nbval alphalang/notebooks/quantum_hugr.ipynb
 ```
 
 `tests/test_magics.py` drives a real in-process IPython shell

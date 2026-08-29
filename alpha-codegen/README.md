@@ -3,6 +3,11 @@
 The `simpleC` model and the `WriteC` demand-driven C code generator — turns a normalized
 [`alpha-transform`](../alpha-transform) IR into compilable C source.
 
+The crate also provides a scheduled HUGR backend for first-class linear qubits. It validates a
+target mapping, specializes every symbolic parameter to an integer point, infers compact
+rectangular quantum resource groups, and emits a validated HUGR with concrete array boundaries.
+Registered operations currently include `qalloc`, `h`, `cx`, `measure`, and `discard`.
+
 **Fidelity target: semantic equivalence, not bit-for-bit output matching** — the generated C
 computes the same result with the same overall strategy (memoized demand-driven evaluation) as
 the source project, but takes Rust-idiomatic liberties in naming, statement ordering, and
@@ -28,6 +33,23 @@ formatting.
   schedule, never hand-rolled; `case` branches become a right-nested ternary.
 - **`error`**: `CodegenError`/`Result` — every unsupported construct raises a named error, never a
   panic or a bare isl error.
+- **`scheduled_ir`**, **`specialize`**, **`realize`**, and **`hugr`**: backend-neutral schedule
+  trees, exact parameter specialization, compact resource realization, and recursive HUGR
+  emission with `TailLoop`/`Conditional` state threading.
+
+## Scheduled HUGR API
+
+```rust
+let bindings = alpha_codegen::specialize::ParameterBindings::from([
+    ("T".to_string(), 3),
+    ("N".to_string(), 4),
+]);
+let envelope = alpha_codegen::generate_hugr_system(&system, schedule, &bindings)?;
+```
+
+The emitted ABI uses ordinary concrete arrays. Internally, qubit arrays become borrow arrays so
+each dynamic lane remains linear across loops and conditionals. Parametric HUGR and
+measurement-dependent control are intentionally deferred.
 
 ## Cardinality counting (`barvinok` feature)
 

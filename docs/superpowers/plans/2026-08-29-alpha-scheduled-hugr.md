@@ -1009,7 +1009,7 @@ git commit -m "feat: emit scheduled quantum HUGRs"
 - Python: `alphalang.generate_hugr(system, parameters) -> str`, accepting `NormalizedSystem` or `ScheduledSystem` and using the latter's stored schedule.
 - Python metadata: `Variable.element_type` and exported `ElementType` enum.
 
-- [ ] **Step 1: Add failing Python API tests.**
+- [x] **Step 1: Add failing Python API tests.**
 
 ```python
 def test_qubit_metadata_and_hugr_generation():
@@ -1030,26 +1030,26 @@ def test_hugr_generation_requires_parameters():
 Also assert bare `System` raises `TypeError`, invalid schedules remain `ScheduleError`, and
 realization/HUGR failures become `ValueError` with the Rust diagnostic intact.
 
-- [ ] **Step 2: Add failing CLI integration tests.**
+- [x] **Step 2: Add failing CLI integration tests.**
 
 Add `alphac/tests/cli_hugr.rs` if the crate has no CLI test target yet. Invoke the binary with the
 quantum fixture, schedule file, and repeated `--param`; assert success and parse/validate the
 serialized envelope. Assert omitted `N` exits unsuccessfully and names the missing binding.
 
-- [ ] **Step 3: Run binding and CLI tests to confirm failure.**
+- [x] **Step 3: Run binding and CLI tests to confirm failure.**
 
 Run: `uv run pytest alphalang/tests/test_alpha.py -q && cargo test -p alphac --test cli_hugr`
 
 Expected: failures because the APIs and flags are absent.
 
-- [ ] **Step 4: Implement Python bindings.**
+- [x] **Step 4: Implement Python bindings.**
 
 Add frozen `ElementType` values mirroring Rust. Extend `Variable` snapshots with `element_type`.
 Implement `generate_hugr` with the same stage checks as `generate`: a `ScheduledSystem` uses its
 stored schedule, and a `NormalizedSystem` uses the identity schedule. Convert `dict[str, int]` to
 `BTreeMap<String, i64>` and return the serialized envelope.
 
-- [ ] **Step 5: Implement CLI flags without changing the default C path.**
+- [x] **Step 5: Implement CLI flags without changing the default C path.**
 
 Extend `Args` with:
 
@@ -1068,7 +1068,7 @@ Default `--emit` to `c`. For `hugr`, read schedule text when supplied, otherwise
 schedule, and call `generate_hugr_system`. Reject duplicate/malformed `--param NAME=VALUE` entries
 with usage errors.
 
-- [ ] **Step 6: Add an executed notebook and documentation.**
+- [x] **Step 6: Add an executed notebook and documentation.**
 
 The notebook must show:
 
@@ -1083,7 +1083,7 @@ The notebook must show:
 
 Execute it in place and preserve deterministic outputs and cell IDs/language metadata.
 
-- [ ] **Step 7: Run public-surface validation.**
+- [x] **Step 7: Run public-surface validation.**
 
 Run:
 
@@ -1098,7 +1098,7 @@ cargo test -p alphac --test cli_hugr
 
 Expected: all tests pass.
 
-- [ ] **Step 8: Commit.**
+- [x] **Step 8: Commit.**
 
 ```bash
 git add alphac/src/main.rs alphac/Cargo.toml alphac/tests/cli_hugr.rs \
