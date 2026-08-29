@@ -306,6 +306,7 @@ pub struct Variable {
     pub name: String,
     pub domain: Set,
     pub multiplicity: alpha_model::Multiplicity,
+    pub element_type: alpha_model::ElementType,
 }
 
 #[derive(Clone)]

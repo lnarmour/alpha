@@ -191,6 +191,13 @@ pub enum Diagnostic {
     /// equation — neither a `StandardEquation` nor a `UseEquation` output — in a `SystemBody`.
     UndefinedVariable { name: String, start: u32, end: u32 },
 
+    /// A qubit declaration is missing the explicit linear multiplicity required for ownership.
+    QubitMustBeLinear {
+        variable: String,
+        start: u32,
+        end: u32,
+    },
+
     /// A linear expression was assigned to an unrestricted variable.
     LinearValueWidened {
         target: String,
@@ -374,6 +381,9 @@ impl std::fmt::Display for Diagnostic {
             Diagnostic::UndefinedVariable { name, .. } => {
                 write!(f, "'{name}' is used but not defined in this SystemBody")
             }
+            Diagnostic::QubitMustBeLinear { variable, .. } => {
+                write!(f, "qubit variable '{variable}' must be declared linear")
+            }
             Diagnostic::LinearValueWidened { target, .. } => write!(
                 f,
                 "linear value cannot flow into unrestricted variable '{target}'"
@@ -452,6 +462,7 @@ impl Diagnostic {
             | Diagnostic::OverlappingUseEquations { start, end, .. }
             | Diagnostic::IncompleteUseEquation { start, end, .. }
             | Diagnostic::UndefinedVariable { start, end, .. }
+            | Diagnostic::QubitMustBeLinear { start, end, .. }
             | Diagnostic::LinearValueWidened { start, end, .. }
             | Diagnostic::LinearArgumentToUnrestrictedPort { start, end, .. }
             | Diagnostic::LinearityUnsupportedHere { start, end, .. }

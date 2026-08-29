@@ -17,8 +17,8 @@ use crate::completeness::{
 };
 use crate::multiplicity::{Multiplicity, PortSignature, PortSignatures};
 use crate::uniqueness::{check_program_uniqueness, check_system_uniqueness};
-use crate::{Diagnostic, Resolver};
-use alpha_syntax::ast::{self, Equation};
+use crate::{Diagnostic, ElementType, Resolver};
+use alpha_syntax::ast::{self, AstNode, Equation};
 
 /// Runs every phase against one already-`Resolver::new`'d system: phase 1 (via `resolver` itself,
 /// threaded lazily through the calls below), phases 3–4 (`Resolver::analyze_system`), phase 5
@@ -36,6 +36,38 @@ fn analyze_system_with_signatures(
     scope: &str,
 ) -> Vec<Diagnostic> {
     let (domains, contexts, mut diagnostics) = resolver.analyze_system(system);
+
+    for variable in system
+        .inputs()
+        .into_iter()
+        .flat_map(|section| section.variables())
+        .chain(
+            system
+                .outputs()
+                .into_iter()
+                .flat_map(|section| section.variables()),
+        )
+        .chain(
+            system
+                .locals()
+                .into_iter()
+                .flat_map(|section| section.variables()),
+        )
+    {
+        let Some(name) = variable.name() else {
+            continue;
+        };
+        if resolver.variable_type(name.text()) == Some(ElementType::Qubit)
+            && resolver.variable_multiplicity(name.text()) != Some(Multiplicity::Linear)
+        {
+            let range = variable.syntax().text_range();
+            diagnostics.push(Diagnostic::QubitMustBeLinear {
+                variable: name.text().to_string(),
+                start: range.start().into(),
+                end: range.end().into(),
+            });
+        }
+    }
 
     diagnostics.extend(crate::multiplicity::check_system(
         resolver, system, &domains, &contexts, signatures, scope,

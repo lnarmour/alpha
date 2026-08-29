@@ -167,7 +167,7 @@ git commit -m "feat: parse Alpha element types"
 - Changes: `alpha_transform::ir::Variable` gains `element_type: ElementType`.
 - Preserves: existing untyped declarations resolve to `ElementType::Unspecified`.
 
-- [ ] **Step 1: Add failing model tests.**
+- [x] **Step 1: Add failing model tests.**
 
 ```rust
 #[test]
@@ -199,13 +199,13 @@ fn unrestricted_qubits_are_rejected() {
 
 Also assert comma-group type inheritance and that existing untyped fixtures remain diagnostic-free.
 
-- [ ] **Step 2: Run the focused tests and confirm failure.**
+- [x] **Step 2: Run the focused tests and confirm failure.**
 
 Run: `cargo test -p alpha-model --test element_types`
 
 Expected: compile failure because model element types and the diagnostic are absent.
 
-- [ ] **Step 3: Implement model type resolution.**
+- [x] **Step 3: Implement model type resolution.**
 
 Create `ty.rs`:
 
@@ -225,19 +225,19 @@ Populate `Resolver::variable_types` in the same comma-group scan as multipliciti
 inherits the terminating declaration's type. Add `QubitMustBeLinear { variable, start, end }` and
 run the check after declarations are resolved and before multiplicity expression analysis.
 
-- [ ] **Step 4: Carry types through transform IR and printers.**
+- [x] **Step 4: Carry types through transform IR and printers.**
 
 Set each lowered variable's `element_type` from `Resolver::variable_type`. Make `show`/`ashow`
 render ` of bool|int|real|qubit` only when the type is not `Unspecified`; include the type in the
 debug printer.
 
-- [ ] **Step 5: Run model and transform tests.**
+- [x] **Step 5: Run model and transform tests.**
 
 Run: `cargo test -p alpha-model --test element_types && cargo test -p alpha-model && cargo test -p alpha-transform`
 
 Expected: all tests pass, including existing untyped fixtures.
 
-- [ ] **Step 6: Commit.**
+- [x] **Step 6: Commit.**
 
 ```bash
 git add alpha-model/src/ty.rs alpha-model/src/lib.rs alpha-model/src/resolve.rs \

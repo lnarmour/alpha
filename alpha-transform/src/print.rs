@@ -74,7 +74,14 @@ pub fn print_ast(system: &System) -> String {
         }
         push(&mut out, 1, label);
         for v in vars {
-            push(&mut out, 2, &format!("{} : {}", v.name, v.domain));
+            push(
+                &mut out,
+                2,
+                &format!(
+                    "{} : {} multiplicity={:?} element_type={:?}",
+                    v.name, v.domain, v.multiplicity, v.element_type
+                ),
+            );
         }
     }
     for (bi, body) in system.bodies.iter().enumerate() {
@@ -635,8 +642,19 @@ impl ShowPrinter {
         }
         out.push_str(&format!("    {label}\n"));
         for v in vars {
+            let multiplicity = match v.multiplicity {
+                alpha_model::Multiplicity::Linear => "linear ",
+                alpha_model::Multiplicity::Unrestricted => "",
+            };
+            let element_type = match v.element_type {
+                alpha_model::ElementType::Unspecified => "",
+                alpha_model::ElementType::Bool => " of bool",
+                alpha_model::ElementType::Int => " of int",
+                alpha_model::ElementType::Real => " of real",
+                alpha_model::ElementType::Qubit => " of qubit",
+            };
             out.push_str(&format!(
-                "        {} : {}\n",
+                "        {multiplicity}{} : {}{element_type}\n",
                 v.name,
                 ensure_domain_colon(strip_params_prefix(&v.domain.to_string()))
             ));

@@ -81,6 +81,9 @@ pub fn lower_system(
                     multiplicity: resolver
                         .variable_multiplicity(name.text())
                         .expect("lowered variable was registered by the resolver"),
+                    element_type: resolver
+                        .variable_type(name.text())
+                        .expect("lowered variable was registered by the resolver"),
                 });
             }
         }
@@ -98,6 +101,9 @@ pub fn lower_system(
                     multiplicity: resolver
                         .variable_multiplicity(name.text())
                         .expect("lowered variable was registered by the resolver"),
+                    element_type: resolver
+                        .variable_type(name.text())
+                        .expect("lowered variable was registered by the resolver"),
                 });
             }
         }
@@ -114,6 +120,9 @@ pub fn lower_system(
                     domain,
                     multiplicity: resolver
                         .variable_multiplicity(name.text())
+                        .expect("lowered variable was registered by the resolver"),
+                    element_type: resolver
+                        .variable_type(name.text())
                         .expect("lowered variable was registered by the resolver"),
                 });
             }

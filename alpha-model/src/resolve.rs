@@ -12,7 +12,7 @@
 
 use crate::diagnostic::Diagnostic;
 use crate::value::{eval_binary, eval_unary, Value};
-use crate::{Multiplicity, VariableId};
+use crate::{ElementType, Multiplicity, VariableId};
 use alpha_syntax::ast::{self, AstNode, CalcExpr};
 use alpha_syntax::syntax_kind::SyntaxNode;
 use isl::{Context, Set};
@@ -90,6 +90,7 @@ pub struct Resolver<'a> {
     variables_by_name: HashMap<String, ast::Variable>,
     variable_ids: HashMap<String, VariableId>,
     variable_multiplicities: HashMap<String, Multiplicity>,
+    variable_types: HashMap<String, ElementType>,
     variable_cache: HashMap<String, Set>,
     variable_state: HashMap<String, State>,
 }
@@ -107,6 +108,7 @@ impl<'a> Resolver<'a> {
         let mut variables_by_name = HashMap::new();
         let mut variable_ids = HashMap::new();
         let mut variable_multiplicities = HashMap::new();
+        let mut variable_types = HashMap::new();
         let mut next_variable_id = 0;
         for section_vars in [
             system.inputs().map(|s| s.variables().collect::<Vec<_>>()),
@@ -117,6 +119,7 @@ impl<'a> Resolver<'a> {
         .flatten()
         {
             let mut group_multiplicity = Multiplicity::Unrestricted;
+            let mut group_names = Vec::new();
             for v in section_vars {
                 if let Some(name) = v.name() {
                     if v.is_linear() {
@@ -125,10 +128,15 @@ impl<'a> Resolver<'a> {
                     let name = name.text().to_string();
                     variable_ids.insert(name.clone(), VariableId::from_index(next_variable_id));
                     variable_multiplicities.insert(name.clone(), group_multiplicity);
+                    group_names.push(name.clone());
                     next_variable_id += 1;
                     let ends_group = v.domain().is_some();
+                    let group_type = v.element_type().map(ElementType::from).unwrap_or_default();
                     variables_by_name.insert(name, v);
                     if ends_group {
+                        for group_name in group_names.drain(..) {
+                            variable_types.insert(group_name, group_type);
+                        }
                         group_multiplicity = Multiplicity::Unrestricted;
                     }
                 }
@@ -148,6 +156,7 @@ impl<'a> Resolver<'a> {
             variables_by_name,
             variable_ids,
             variable_multiplicities,
+            variable_types,
             variable_cache: HashMap::new(),
             variable_state: HashMap::new(),
         }
@@ -166,6 +175,10 @@ impl<'a> Resolver<'a> {
 
     pub fn variable_multiplicity(&self, name: &str) -> Option<Multiplicity> {
         self.variable_multiplicities.get(name).copied()
+    }
+
+    pub fn variable_type(&self, name: &str) -> Option<ElementType> {
+        self.variable_types.get(name).copied()
     }
 
     /// The system's declared parameter domain (`[N,M]->{:N>0 and M>0}` or bare `{:...}`) — this
