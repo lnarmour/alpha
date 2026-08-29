@@ -24,6 +24,7 @@ pub enum CodegenError {
     /// A target mapping parsed and validated (§6) but reorders a real dependence — §7's legality
     /// check. Carries a diagnostic naming the two statements and the dependence between them.
     IllegalSchedule(String),
+    Specialization(String),
 }
 
 impl fmt::Display for CodegenError {
@@ -33,6 +34,7 @@ impl fmt::Display for CodegenError {
             CodegenError::Unsupported(msg) => write!(f, "unsupported: {msg}"),
             CodegenError::InvalidSchedule(msg) => write!(f, "invalid target mapping: {msg}"),
             CodegenError::IllegalSchedule(msg) => write!(f, "illegal schedule: {msg}"),
+            CodegenError::Specialization(msg) => write!(f, "specialization failed: {msg}"),
         }
     }
 }

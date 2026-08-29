@@ -4,7 +4,8 @@
 use crate::ctx::{take_c_string, Context, Result};
 use crate::map::Map;
 use crate::set::Format;
-use crate::space::Space;
+use crate::set::Set;
+use crate::space::{DimType, Space};
 use std::ffi::CString;
 
 pub struct UnionMap {
@@ -51,6 +52,26 @@ impl UnionMap {
     pub fn union(self, other: UnionMap) -> Result<UnionMap> {
         let ctx = self.ctx.clone();
         let ptr = unsafe { isl_sys::isl_union_map_union(self.into_raw(), other.into_raw()) };
+        Ok(UnionMap {
+            ctx: ctx.clone(),
+            ptr: ctx.check(ptr)?,
+        })
+    }
+
+    pub fn intersect_params(self, params: Set) -> Result<UnionMap> {
+        let ctx = self.ctx.clone();
+        let ptr =
+            unsafe { isl_sys::isl_union_map_intersect_params(self.into_raw(), params.into_raw()) };
+        Ok(UnionMap {
+            ctx: ctx.clone(),
+            ptr: ctx.check(ptr)?,
+        })
+    }
+
+    pub fn project_out(self, ty: DimType, first: u32, n: u32) -> Result<UnionMap> {
+        let ctx = self.ctx.clone();
+        let ptr =
+            unsafe { isl_sys::isl_union_map_project_out(self.into_raw(), ty.to_raw(), first, n) };
         Ok(UnionMap {
             ctx: ctx.clone(),
             ptr: ctx.check(ptr)?,

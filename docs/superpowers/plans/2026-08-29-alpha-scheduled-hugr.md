@@ -661,43 +661,44 @@ git commit -m "refactor: add backend-neutral scheduled IR"
 - Produces: exact ISL restriction helpers needed to intersect sets/maps/union maps with one parameter point.
 - Produces: `CodegenError::Specialization(String)`.
 
-- [ ] **Step 1: Add failing ISL wrapper and specialization tests.**
+- [x] **Step 1: Add failing ISL wrapper and specialization tests.**
 
 In `specializes_parameter_point`, assert `[N] -> { [i] : 0 <= i < N }` specialized with `N=4`
 equals `{ [i] : 0 <= i <= 3 }` after parameter projection. At codegen level, assert missing `N`,
 `N=0` outside `N>0`, and unknown `M` each yield distinct `CodegenError::Specialization` messages.
 
-- [ ] **Step 2: Run focused tests and confirm failure.**
+- [x] **Step 2: Run focused tests and confirm failure.**
 
 Run: `cargo test -p isl --test smoke specializes_parameter_point && cargo test -p alpha-codegen --test specialization`
 
 Expected: failure because parameter restriction APIs and specialization do not exist.
 
-- [ ] **Step 3: Add safe ISL parameter-restriction wrappers.**
+- [x] **Step 3: Add safe ISL parameter-restriction wrappers.**
 
 Wrap the relevant `isl_*_intersect_params` and parameter projection calls for `Set`, `Map`, and
 `UnionMap`, following existing ownership/error patterns. Build a singleton parameter set from the
 system's ordered parameter names and supplied integer values; do not perform textual substitution
 inside arbitrary ISL expressions.
 
-- [ ] **Step 4: Implement specialization validation.**
+- [x] **Step 4: Implement specialization validation.**
 
 `specialize::apply` must:
 
 1. reject missing bindings for referenced parameters;
 2. reject unknown binding names;
 3. prove the singleton point is contained in `system.parameter_domain`;
-4. intersect statement domains, resource relations, and the validated schedule with that point;
+4. intersect statement domains and the validated schedule with that point, retaining the point so
+    Task 8 can apply it to its separately supplied resource relations;
 5. project fixed parameter dimensions where required by HUGR shape computation;
 6. retain the concrete values for index-expression lowering.
 
-- [ ] **Step 5: Run focused and codegen tests.**
+- [x] **Step 5: Run focused and codegen tests.**
 
 Run: `cargo test -p isl && cargo test -p alpha-codegen --test specialization && cargo test -p alpha-codegen`
 
 Expected: all tests pass.
 
-- [ ] **Step 6: Commit.**
+- [x] **Step 6: Commit.**
 
 ```bash
 git add isl/src/set.rs isl/src/map.rs isl/src/union_map.rs isl/tests/smoke.rs \

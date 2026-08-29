@@ -15,6 +15,7 @@ mod schedule;
 pub mod scheduled_ir;
 mod scheduledc;
 pub mod simplec;
+pub mod specialize;
 pub mod stmt;
 #[cfg(test)]
 mod test_util;

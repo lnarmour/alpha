@@ -169,6 +169,12 @@ impl Map {
         Ok(unsafe { Map::from_raw(ctx.clone(), ctx.check(ptr)?) })
     }
 
+    pub fn intersect_params(self, params: Set) -> Result<Map> {
+        let ctx = self.ctx.clone();
+        let ptr = unsafe { isl_sys::isl_map_intersect_params(self.into_raw(), params.into_raw()) };
+        Ok(unsafe { Map::from_raw(ctx.clone(), ctx.check(ptr)?) })
+    }
+
     pub fn subtract_domain(self, set: Set) -> Result<Map> {
         let ctx = self.ctx.clone();
         let ptr = unsafe { isl_sys::isl_map_subtract_domain(self.into_raw(), set.into_raw()) };

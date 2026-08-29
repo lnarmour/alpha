@@ -26,6 +26,29 @@ fn set_parsing_and_boolean_algebra() {
 }
 
 #[test]
+fn specializes_parameter_point() {
+    let ctx = Context::new();
+    let domain = Set::read_from_str(&ctx, "[N] -> { [i] : 0 <= i < N }").unwrap();
+    let point = Set::read_from_str(&ctx, "[N] -> { : N = 4 }").unwrap();
+    let specialized = domain
+        .intersect_params(point)
+        .unwrap()
+        .project_out(DimType::Param, 0, 1)
+        .unwrap();
+    let expected = Set::read_from_str(&ctx, "{ [i] : 0 <= i <= 3 }").unwrap();
+    assert!(specialized.is_equal(&expected).unwrap());
+
+    let map = Map::read_from_str(&ctx, "[N] -> { [i] -> [i+N] : 0 <= i < N }")
+        .unwrap()
+        .intersect_params(Set::read_from_str(&ctx, "[N] -> { : N = 4 }").unwrap())
+        .unwrap()
+        .project_out(DimType::Param, 0, 1)
+        .unwrap();
+    let expected_map = Map::read_from_str(&ctx, "{ [i] -> [i+4] : 0 <= i <= 3 }").unwrap();
+    assert!(map.is_equal(&expected_map).unwrap());
+}
+
+#[test]
 fn set_read_from_str_reports_isl_errors_not_panics() {
     let ctx = Context::new();
     let err = match Set::read_from_str(&ctx, "not a valid isl set at all !!!") {
