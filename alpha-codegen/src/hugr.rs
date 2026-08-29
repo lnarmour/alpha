@@ -520,7 +520,6 @@ fn bool_output_shape(program: &SpecializedProgram<'_>, name: &str) -> Result<Vec
 fn set_bool_output(
     builder: &mut impl Dataflow,
     state: &mut [StateSlot],
-    group_count: usize,
     program: &SpecializedProgram<'_>,
     call: &ir::OperationCall,
     indices: &[IndexExpr],
@@ -543,6 +542,14 @@ fn set_bool_output(
                 output.variable
             ))
         })?;
+    let output_count = program
+        .program
+        .system
+        .outputs
+        .iter()
+        .filter(|variable| variable.element_type == alpha_model::ElementType::Bool)
+        .count();
+    let group_count = state.len() - output_count;
     let shape = bool_output_shape(program, &output.variable)?;
     let components = lower_affine_components(builder, &output.function, indices, variables)?;
     let index = flatten_lane(builder, components, &shape)?;
@@ -676,14 +683,7 @@ fn emit_invoke(
                     .map_err(build_error)?
                     .out_wire(0);
                 set_bool_output(
-                    builder,
-                    &mut state,
-                    realization.groups.len(),
-                    program,
-                    call,
-                    indices,
-                    variables,
-                    value,
+                    builder, &mut state, program, call, indices, variables, value,
                 )?;
             } else {
                 builder

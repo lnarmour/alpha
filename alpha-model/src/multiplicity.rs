@@ -806,21 +806,26 @@ fn validate_registered_call(
     }
 }
 
+struct UseEquationContext<'a> {
+    ambient: Option<&'a Set>,
+    names: &'a [String],
+    domains: &'a Domains,
+    contexts: &'a Domains,
+}
+
 fn collect_use_equation_expr(
     resolver: &mut Resolver<'_>,
     expr: &Expr,
-    ambient_context: Option<&Set>,
-    context_names: &[String],
-    domains: &Domains,
-    contexts: &Domains,
+    context: &UseEquationContext<'_>,
     uses: &mut HashMap<VariableId, Vec<ResourceUse>>,
     blocked: &mut HashSet<VariableId>,
 ) -> Result<(), Diagnostic> {
-    let context = contexts
+    let relation_domain = context
+        .contexts
         .get(expr.syntax())
         .cloned()
-        .or_else(|| ambient_context.cloned())
-        .or_else(|| domains.get(expr.syntax()).cloned())
+        .or_else(|| context.ambient.cloned())
+        .or_else(|| context.domains.get(expr.syntax()).cloned())
         .or_else(|| {
             let Expr::Variable(variable) = expr else {
                 return None;
@@ -829,10 +834,10 @@ fn collect_use_equation_expr(
                 .name()
                 .and_then(|name| resolver.variable_domain(name.text()).ok())
         });
-    let Some(context) = context else {
+    let Some(relation_domain) = relation_domain else {
         return Ok(());
     };
-    let relation = identity_relation(&context).map_err(|error| {
+    let relation = identity_relation(&relation_domain).map_err(|error| {
         let (start, end) = range_of(expr.syntax());
         Diagnostic::IslError {
             message: error.message,
@@ -844,8 +849,8 @@ fn collect_use_equation_expr(
         resolver,
         expr,
         relation,
-        context_names,
-        contexts,
+        context.names,
+        context.contexts,
         uses,
         blocked,
     )
@@ -1113,6 +1118,12 @@ pub(crate) fn check_system(
                         _ => None,
                     }
                 });
+                let use_context = UseEquationContext {
+                    ambient: ambient_context.as_ref(),
+                    names: &context_names,
+                    domains,
+                    contexts,
+                };
                 for (index, expr) in use_equation.input_exprs().enumerate() {
                     let actual = expression_multiplicity(
                         resolver,
@@ -1138,10 +1149,7 @@ pub(crate) fn check_system(
                         if let Err(diagnostic) = collect_use_equation_expr(
                             resolver,
                             &expr,
-                            ambient_context.as_ref(),
-                            &context_names,
-                            domains,
-                            contexts,
+                            &use_context,
                             &mut uses,
                             &mut blocked,
                         ) {
@@ -1175,10 +1183,7 @@ pub(crate) fn check_system(
                         if let Err(diagnostic) = collect_use_equation_expr(
                             resolver,
                             &expr,
-                            ambient_context.as_ref(),
-                            &context_names,
-                            domains,
-                            contexts,
+                            &use_context,
                             &mut definitions,
                             &mut output_blocked,
                         ) {

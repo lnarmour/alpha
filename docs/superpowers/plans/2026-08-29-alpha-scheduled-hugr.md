@@ -1120,7 +1120,7 @@ git commit -m "feat: expose scheduled HUGR generation"
 - Consumes: the complete scheduled HUGR pipeline.
 - Produces: a fully validated branch with every task checkbox updated and deferred behavior pinned by tests.
 
-- [ ] **Step 1: Run formatting and strict linting.**
+- [x] **Step 1: Run formatting and strict linting.**
 
 ```bash
 cargo fmt --all -- --check
@@ -1129,13 +1129,17 @@ cargo clippy --workspace --all-targets -- -D warnings
 
 Expected: both commands pass without warnings.
 
-- [ ] **Step 2: Run the full Rust workspace suite.**
+Actual: formatting and strict workspace clippy pass. The `too_many_arguments` warning in
+`alpha-model/src/multiplicity.rs` was resolved by grouping the invariant use-equation analysis
+inputs into a borrowed context object.
+
+- [x] **Step 2: Run the full Rust workspace suite.**
 
 Run: `cargo test --workspace --no-fail-fast`
 
 Expected: all unit, integration, and doc tests pass.
 
-- [ ] **Step 3: Run the complete Python and notebook suite.**
+- [x] **Step 3: Run the complete Python and notebook suite.**
 
 ```bash
 uv run pytest alphalang/tests -q
@@ -1146,7 +1150,7 @@ uv run pytest --nbval alphalang/notebooks/quantum_hugr.ipynb -q
 
 Expected: all tests pass.
 
-- [ ] **Step 4: Verify deferred-feature diagnostics remain explicit.**
+- [x] **Step 4: Verify deferred-feature diagnostics remain explicit.**
 
 Run the focused tests that assert rejection of irregular realization, missing specialization,
 measurement-dependent control, and unknown HUGR operations:
@@ -1160,7 +1164,7 @@ cargo test -p alpha-model --test quantum_calls rejects_measurement_controlled_ga
 
 Expected: all diagnostic assertions pass.
 
-- [ ] **Step 5: Check repository scope and plan completion.**
+- [x] **Step 5: Check repository scope and plan completion.**
 
 ```bash
 git diff --check
@@ -1171,7 +1175,7 @@ git diff --stat a6ea94a..HEAD
 Confirm no unrelated files are staged or modified. Mark completed task steps in this plan as work
 lands; the final plan-only checkbox update belongs in the last implementation commit.
 
-- [ ] **Step 6: Commit any final task-related corrections and plan status.**
+- [x] **Step 6: Commit any final task-related corrections and plan status.**
 
 ```bash
 git add docs/superpowers/plans/2026-08-29-alpha-scheduled-hugr.md
