@@ -110,6 +110,32 @@ fn dump_equation(eq: &Equation, out: &mut String, indent: usize) {
             );
             dump_expr(&s.expr, out, indent + 1);
         }
+        Equation::OperationCall(call) => {
+            push(
+                out,
+                indent,
+                &format!(
+                    "OperationCall operation={} index_names={:?} domain={}",
+                    call.operation.name(),
+                    call.index_names,
+                    call.domain
+                ),
+            );
+            for access in &call.outputs {
+                push(
+                    out,
+                    indent + 1,
+                    &format!("output {} via {}", access.variable, access.function),
+                );
+            }
+            for access in &call.inputs {
+                push(
+                    out,
+                    indent + 1,
+                    &format!("input {} via {}", access.variable, access.function),
+                );
+            }
+        }
         Equation::Use(u) => {
             push(out, indent, &format!("UseEquation callee={}", u.callee));
             push(out, indent + 1, "outputs");
@@ -693,7 +719,42 @@ impl ShowPrinter {
                 };
                 format!("{lhs} = {};", self.expr(&s.expr, &s.index_names))
             }
+            Equation::OperationCall(call) => {
+                let outputs: Vec<_> = call
+                    .outputs
+                    .iter()
+                    .map(|access| self.access(access, &call.index_names))
+                    .collect();
+                let inputs: Vec<_> = call
+                    .inputs
+                    .iter()
+                    .map(|access| self.access(access, &call.index_names))
+                    .collect();
+                format!(
+                    "over {} with [{}] : ({}) = {}({});",
+                    ensure_domain_colon(strip_params_prefix(&call.domain.to_string())),
+                    call.index_names.join(","),
+                    outputs.join(", "),
+                    call.operation.name(),
+                    inputs.join(", ")
+                )
+            }
             Equation::Use(u) => self.use_equation(u),
+        }
+    }
+
+    fn access(&self, access: &crate::ir::Access, context: &[String]) -> String {
+        let Some(indices) = multi_aff_output_exprs(&access.function, context) else {
+            return format!(
+                "{} @ {}",
+                function_str(&access.function, context),
+                access.variable
+            );
+        };
+        if indices.is_empty() {
+            access.variable.clone()
+        } else {
+            format!("{}[{}]", access.variable, indices.join(","))
         }
     }
 

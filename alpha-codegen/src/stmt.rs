@@ -47,6 +47,7 @@ pub(crate) enum StatementKind<'a> {
         body_context: &'a [String],
         projection: &'a MultiAff,
     },
+    OperationCall(&'a ir::OperationCall),
 }
 
 pub(crate) struct Statement<'a> {
@@ -70,6 +71,7 @@ pub(crate) fn statements(system: &ir::System) -> Result<Vec<Statement<'_>>> {
                         .or_default()
                         .push((&body.domain, s));
                 }
+                ir::Equation::OperationCall(_) => {}
                 ir::Equation::Use(_) => {
                     return Err(CodegenError::Unsupported(
                         "UseEquation has no codegen backend — matches WriteC, which doesn't \
@@ -90,6 +92,37 @@ pub(crate) fn statements(system: &ir::System) -> Result<Vec<Statement<'_>>> {
             continue;
         };
         push_statements_for_variable(v, eqs, &mut result)?;
+    }
+
+    let mut occupied: std::collections::HashSet<String> = result
+        .iter()
+        .map(|statement| statement.name.clone())
+        .collect();
+    let mut next_suffix: HashMap<String, usize> = HashMap::new();
+    for body in &system.bodies {
+        for equation in &body.equations {
+            let ir::Equation::OperationCall(call) = equation else {
+                continue;
+            };
+            let base = call
+                .outputs
+                .first()
+                .map(|access| access.variable.as_str())
+                .unwrap_or_else(|| call.operation.name());
+            let suffix = next_suffix.entry(base.to_string()).or_default();
+            let name = loop {
+                let candidate = format!("{base}__call{suffix}");
+                *suffix += 1;
+                if occupied.insert(candidate.clone()) {
+                    break candidate;
+                }
+            };
+            result.push(Statement {
+                name,
+                domain: call.domain.clone(),
+                kind: StatementKind::OperationCall(call),
+            });
+        }
     }
 
     for stmt in &result {

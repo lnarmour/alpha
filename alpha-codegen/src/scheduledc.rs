@@ -400,6 +400,10 @@ fn gen_statement_body(g: &mut Gen, stmt: &Statement, idx_exprs: &[String]) -> Re
             });
             Ok(out)
         }
+        StatementKind::OperationCall(call) => Err(CodegenError::Unsupported(format!(
+            "registered operation '{}' has no Scheduled C backend",
+            call.operation.name()
+        ))),
     }
 }
 

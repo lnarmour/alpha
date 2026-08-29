@@ -375,7 +375,7 @@ git commit -m "feat: type registered quantum operations"
 - Changes: `ir::Equation` gains `OperationCall`; unresolved subsystem calls remain `Use`.
 - Produces: `StatementKind::OperationCall(&ir::OperationCall)` with deterministic names such as `Q1__call0` and `discard__call0`.
 
-- [ ] **Step 1: Add failing lowering and statement tests.**
+- [x] **Step 1: Add failing lowering and statement tests.**
 
 Use this fixture:
 
@@ -393,13 +393,13 @@ its four accesses are identity maps over `i`, and statement extraction yields `Q
 Add a zero-output discard fixture and assert `discard__call0`. Add two disjoint calls targeting the
 same first output and assert collision-free source-order suffixes.
 
-- [ ] **Step 2: Run focused tests and confirm failure.**
+- [x] **Step 2: Run focused tests and confirm failure.**
 
 Run: `cargo test -p alpha-transform --test quantum_calls && cargo test -p alpha-codegen --test quantum_statements`
 
 Expected: compile failure because the operation-call IR does not exist.
 
-- [ ] **Step 3: Add explicit operation-call IR.**
+- [x] **Step 3: Add explicit operation-call IR.**
 
 ```rust
 #[derive(Clone)]
@@ -419,31 +419,30 @@ pub struct OperationCall {
 ```
 
 Lower registered calls to this variant. Derive the call domain from the explicit `over` domain
-them. Preserve ordinary `UseEquation` lowering for subsystem calls.
 when present; otherwise use the equal consumer domain already proved by Task 3. Treat a mismatch at
 this point as an internal lowering invariant violation. Preserve ordinary `UseEquation` lowering
 for subsystem calls.
 
-- [ ] **Step 4: Preserve operation calls through normalization and printing.**
+- [x] **Step 4: Preserve operation calls through normalization and printing.**
 
 Normalization copies access maps and domains unchanged. `show`/`ashow` reconstruct the existing
 `with [indices] : (outputs) = operation(inputs);` syntax. The debug printer includes operation,
 domain, and access maps.
 
-- [ ] **Step 5: Add operation statements and deterministic naming.**
+- [x] **Step 5: Add operation statements and deterministic naming.**
 
 Extend statement extraction to include every operation call. Use the first output variable as the
 base, or the operation name for zero-output calls, append `__call<n>`, and increment `n` until the
 name avoids every ordinary, reduction, and earlier call statement. Update `describe` so users see
 the generated names and exact domains before writing schedules.
 
-- [ ] **Step 6: Run transform and statement tests.**
+- [x] **Step 6: Run transform and statement tests.**
 
 Run: `cargo test -p alpha-transform && cargo test -p alpha-codegen --test quantum_statements`
 
 Expected: all tests pass.
 
-- [ ] **Step 7: Commit.**
+- [x] **Step 7: Commit.**
 
 ```bash
 git add alpha-transform/src/ir.rs alpha-transform/src/lower.rs \
