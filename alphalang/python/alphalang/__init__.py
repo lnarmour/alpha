@@ -19,6 +19,13 @@ Alpha-like source syntax, ``ashow`` is ``show`` in array-index notation (``X[i+1
     >>> code = alphalang.generate(sched)
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from hugr.package import Package
+
 from ._alpha import (
     ElementType,
     Multiplicity,
@@ -27,6 +34,7 @@ from ._alpha import (
     ScheduleError,
     System,
     Variable,
+    _link_alpha_function,
     ashow,
     generate,
     generate_hugr,
@@ -36,6 +44,16 @@ from ._alpha import (
     read,
     show,
 )
+
+
+def link_alpha_function(
+    wrapper: Package,
+    implementation: str,
+    symbol: str = "foo",
+) -> Package:
+    """Replace a package symbol with a compiled Alpha HUGR function."""
+    linked = _link_alpha_function(wrapper.to_bytes(), implementation, symbol)
+    return type(wrapper).from_bytes(linked)
 
 __all__ = [
     "ElementType",
@@ -50,6 +68,7 @@ __all__ = [
     "normalize",
     "generate",
     "generate_hugr",
+    "link_alpha_function",
     "print",
     "show",
     "ashow",

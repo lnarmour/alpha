@@ -11,7 +11,7 @@ mod linking;
 
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::PyTuple;
+use pyo3::types::{PyBytes, PyTuple};
 use std::collections::{BTreeMap, HashMap};
 use std::path::Path;
 
@@ -494,6 +494,18 @@ fn ashow(system: &Bound<'_, PyAny>) -> PyResult<String> {
     Ok(alpha_transform::print::ashow(&extract_ir_system(system)?))
 }
 
+#[pyfunction]
+fn _link_alpha_function(
+    py: Python<'_>,
+    wrapper_package: &[u8],
+    implementation: &str,
+    symbol: &str,
+) -> PyResult<Py<PyBytes>> {
+    let linked = linking::link_alpha_function_bytes(wrapper_package, implementation, symbol)
+        .map_err(|error| PyValueError::new_err(error.to_string()))?;
+    Ok(PyBytes::new(py, &linked).unbind())
+}
+
 #[pymodule]
 fn _alpha(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<Multiplicity>()?;
@@ -511,5 +523,6 @@ fn _alpha(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(print, m)?)?;
     m.add_function(wrap_pyfunction!(show, m)?)?;
     m.add_function(wrap_pyfunction!(ashow, m)?)?;
+    m.add_function(wrap_pyfunction!(_link_alpha_function, m)?)?;
     Ok(())
 }
