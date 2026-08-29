@@ -265,7 +265,7 @@ git commit -m "feat: type Alpha qubit variables"
 - Produces: typed `Port`, `Continuity`, and `OperationSignature` shared by analysis and lowering.
 - Changes: existing `PortSignature` data is represented with typed ports; legacy external and system ports use `ElementType::Unspecified`.
 
-- [ ] **Step 1: Add failing registry and source-analysis tests.**
+- [x] **Step 1: Add failing registry and source-analysis tests.**
 
 ```rust
 #[test]
@@ -296,13 +296,13 @@ operation as a scalar expression. Add `rejects_measurement_controlled_gate_expre
 `Q1[i] = if M[i] then h(Q[i]) else Q[i];`; it must report that registered quantum operations are
 call equations, not assign accidental measurement-control semantics.
 
-- [ ] **Step 2: Run the focused tests and confirm failure.**
+- [x] **Step 2: Run the focused tests and confirm failure.**
 
 Run: `cargo test -p alpha-model --test quantum_calls`
 
 Expected: failures because registered operations do not resolve.
 
-- [ ] **Step 3: Implement the registry types and fixed signatures.**
+- [x] **Step 3: Implement the registry types and fixed signatures.**
 
 ```rust
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -329,7 +329,7 @@ pub struct OperationSignature {
 Return the five signatures exactly as specified in the design. Keep signature lookup independent
 of HUGR crates.
 
-- [ ] **Step 4: Integrate typed call validation.**
+- [x] **Step 4: Integrate typed call validation.**
 
 Resolve registered names before falling back to source-declared systems/externals. Reject a
 source declaration that reserves `qalloc`, `h`, `cx`, `measure`, or `discard`. Add explicit
@@ -339,13 +339,13 @@ diagnostics for call arity, port element-type mismatch, invalid operation contex
 instead of intersecting domains silently. Reuse `collect_use_equation_expr` for exact affine
 resource relations; do not add a parallel approximate traversal.
 
-- [ ] **Step 5: Run model regressions.**
+- [x] **Step 5: Run model regressions.**
 
 Run: `cargo test -p alpha-model --test quantum_calls && cargo test -p alpha-model`
 
 Expected: all tests pass, including legacy external multiplicity tests.
 
-- [ ] **Step 6: Commit.**
+- [x] **Step 6: Commit.**
 
 ```bash
 git add alpha-model/src/operation.rs alpha-model/src/lib.rs alpha-model/src/analyze.rs \

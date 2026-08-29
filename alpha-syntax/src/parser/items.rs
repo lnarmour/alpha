@@ -360,7 +360,9 @@ fn use_equation(p: &mut Parser) {
     p.expect(T::RParen);
     p.expect(T::Eq);
     qualified_name(p); // system reference
-    calculator::array_function(p); // callParamsExpr: JNIFunctionInArrayNotation
+    if p.at(T::LBrack) {
+        calculator::array_function(p); // callParamsExpr: JNIFunctionInArrayNotation
+    }
     p.expect(T::LParen);
     expr_list_until(p, T::RParen);
     p.expect(T::RParen);
