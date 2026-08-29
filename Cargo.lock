@@ -98,6 +98,7 @@ dependencies = [
  "alpha-model",
  "alpha-syntax",
  "alpha-transform",
+ "hugr",
  "isl",
  "pyo3",
  "pyo3-build-config",

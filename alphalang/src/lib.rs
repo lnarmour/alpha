@@ -7,6 +7,8 @@
 //! Python types is what turns §5.1's normalized-IR precondition into a `TypeError` the binding
 //! raises before any Rust code runs, rather than a runtime diagnostic deep inside the pipeline.
 
+mod linking;
+
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::PyTuple;
