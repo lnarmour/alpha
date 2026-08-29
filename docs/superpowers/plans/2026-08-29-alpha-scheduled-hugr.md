@@ -43,7 +43,7 @@
 - Produces: `alpha_syntax::ast::ElementType::{Bool, Int, Real, Qubit}`.
 - Produces: `Variable::element_type() -> Option<ast::ElementType>` with comma-group inheritance left to the semantic resolver, matching domain and multiplicity inheritance.
 
-- [ ] **Step 1: Add parser tests for typed variable groups and lossless round-tripping.**
+- [x] **Step 1: Add parser tests for typed variable groups and lossless round-tripping.**
 
 ```rust
 use alpha_syntax::ast::ElementType;
@@ -81,17 +81,17 @@ fn untyped_variables_remain_valid() {
 
 Also test `of int`, `of real`, malformed `of`, and `linear A, B : [N] of qubit` where only the terminating declaration owns the CST type token.
 
-- [ ] **Step 2: Run the focused syntax test and confirm it fails.**
+- [x] **Step 2: Run the focused syntax test and confirm it fails.**
 
 Run: `cargo test -p alpha-syntax --test element_types`
 
 Expected: compile failure because `ast::ElementType` and `Variable::element_type` do not exist.
 
-- [ ] **Step 3: Add type tokens and syntax kinds.**
+- [x] **Step 3: Add type tokens and syntax kinds.**
 
 Add `KwOf`, `KwBool`, `KwInt`, `KwReal`, and `KwQubit` in both token enums and their conversion match. Add `ELEMENT_TYPE` as a node kind.
 
-- [ ] **Step 4: Parse an optional type suffix after the terminating variable domain.**
+- [x] **Step 4: Parse an optional type suffix after the terminating variable domain.**
 
 Extend `variable_clause` after the domain/range parse:
 
@@ -130,13 +130,13 @@ impl Variable {
 }
 ```
 
-- [ ] **Step 5: Run syntax tests.**
+- [x] **Step 5: Run syntax tests.**
 
 Run: `cargo test -p alpha-syntax --test element_types && cargo test -p alpha-syntax`
 
 Expected: all tests pass.
 
-- [ ] **Step 6: Commit.**
+- [x] **Step 6: Commit.**
 
 ```bash
 git add alpha-syntax/src/token_kind.rs alpha-syntax/src/syntax_kind.rs \

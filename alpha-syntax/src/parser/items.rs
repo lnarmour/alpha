@@ -254,6 +254,16 @@ fn variable_clause(p: &mut Parser) {
                 p.expect(T::Arrow);
                 calculator::calculator_expr(p);
             }
+            if p.at(T::KwOf) {
+                p.start_node(SyntaxKind::ELEMENT_TYPE);
+                p.bump();
+                if p.at_any(&[T::KwBool, T::KwInt, T::KwReal, T::KwQubit]) {
+                    p.bump();
+                } else {
+                    p.error("expected 'bool', 'int', 'real', or 'qubit' after 'of'");
+                }
+                p.finish_node();
+            }
             p.finish_node();
             if p.at(T::Semicolon) {
                 p.bump();
