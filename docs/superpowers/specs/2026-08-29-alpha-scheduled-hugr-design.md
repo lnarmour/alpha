@@ -132,7 +132,7 @@ outputs
 locals
     linear Q1 : {[i] : 0 <= i < N} of qubit;
 let
-    (Q1[i]) = h(Q_in[i]);
+    with [i] : (Q1[i]) = h(Q_in[i]);
     Q_out[i] = Q1[i];
 .
 ```
@@ -147,11 +147,15 @@ Alpha's existing multi-output `UseEquation` surface form is generalized semantic
 call equation. A callee may resolve to either another Alpha system or a registered operation:
 
 ```alpha
-(Q1[i]) = h(Q0[i]);
-(Q2[i], R2[i]) = cx(Q1[i], R1[i]);
-(M[i]) = measure(Q2[i]);
-() = discard(R2[i]);
+with [i] : (Q1[i]) = h(Q0[i]);
+with [i] : (Q2[i], R2[i]) = cx(Q1[i], R1[i]);
+with [i] : (M[i]) = measure(Q2[i]);
+with [i] : () = discard(R2[i]);
 ```
+
+Call-equation index names use the existing `with [i,...] :` binder. An explicit `over` domain may
+further restrict the statement instances. A call without bound index names remains valid for
+whole-value and scalar calls, as it is today.
 
 Calls with linear outputs require each output to be an exact affine access into a declared target
 variable. Calls with linear inputs require exact affine input accesses. These restrictions give the
