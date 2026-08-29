@@ -467,7 +467,7 @@ git commit -m "feat: lower quantum call statements"
 - Produces: `resource_flow::analyze(&ir::System) -> Result<ResourceFlow, ResourceFlowError>`.
 - Produces: exact `ContinuityEdge`, `ResourceRoot`, and `ResourceSink` relations over logical variable domains.
 
-- [ ] **Step 1: Add failing trajectory tests.**
+- [x] **Step 1: Add failing trajectory tests.**
 
 Create a fixture with allocation, two time steps of `h`, and consuming measurement:
 
@@ -490,13 +490,13 @@ Assert one allocation-root relation over `i`, one measurement-sink relation, and
 
 Add a `cx` test proving two independent continuity relations and a direct input-to-output test.
 
-- [ ] **Step 2: Run the focused tests and confirm failure.**
+- [x] **Step 2: Run the focused tests and confirm failure.**
 
 Run: `cargo test -p alpha-transform --test resource_flow`
 
 Expected: compile failure because `resource_flow` is absent.
 
-- [ ] **Step 3: Implement relational flow extraction.**
+- [x] **Step 3: Implement relational flow extraction.**
 
 Define:
 
@@ -520,19 +520,19 @@ pub struct ResourceFlow {
 
 For continuity `p -> q`, compute `input.function.into_map().reverse()?.apply_range(output.function.into_map()?)` and restrict it to the call domain. Classify unpaired operation outputs as roots and unpaired inputs as sinks. Add system-boundary roots/sinks for linear qubit variables.
 
-- [ ] **Step 4: Validate flow invariants exactly.**
+- [x] **Step 4: Validate flow invariants exactly.**
 
 Use ISL injectivity, range intersections, and domain/range equality to reject branching,
 convergence, incomplete endpoint coverage, or type-changing continuity. Return errors containing
 the statement and witness relation. Do not enumerate specialized points.
 
-- [ ] **Step 5: Run resource-flow and linearity regressions.**
+- [x] **Step 5: Run resource-flow and linearity regressions.**
 
 Run: `cargo test -p alpha-transform --test resource_flow && cargo test -p alpha-transform && cargo test -p alpha-model --test multiplicity`
 
 Expected: all tests pass.
 
-- [ ] **Step 6: Commit.**
+- [x] **Step 6: Commit.**
 
 ```bash
 git add alpha-transform/src/resource_flow.rs alpha-transform/src/lib.rs \

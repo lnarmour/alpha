@@ -752,10 +752,22 @@ fn validate_registered_call(
     }
 
     if call.instantiation_domain().is_none() {
+        let parameter_domain = resolver.param_domain().ok();
         let port_domains: Vec<_> = outputs
             .iter()
             .chain(&inputs)
             .filter_map(|expr| domains.get(expr.syntax()))
+            .map(|domain| {
+                parameter_domain.as_ref().map_or_else(
+                    || domain.clone(),
+                    |parameters| {
+                        domain
+                            .clone()
+                            .intersect_params(parameters.clone())
+                            .unwrap_or_else(|_| domain.clone())
+                    },
+                )
+            })
             .collect();
         if let Some(first) = port_domains.first() {
             if let Some(other) = port_domains

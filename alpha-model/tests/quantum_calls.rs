@@ -170,3 +170,18 @@ fn implicit_call_domains_must_agree() {
         "{diagnostics:#?}"
     );
 }
+
+#[test]
+fn implicit_call_domains_are_compared_under_parameter_constraints() {
+    let source = r#"affine constrained [T,N] -> {:T>0 and N>0}
+    outputs M : {[i] : 0 <= i < N} of bool;
+    locals linear Q : {[t,i] : 0 <= t < T and 0 <= i < N} of qubit;
+    let
+        over {[t,i] : t=0 and 0<=i<N} with [t,i] : (Q[t,i]) = qalloc();
+        over {[t,i] : 0<t<T and 0<=i<N} with [t,i] : (Q[t,i]) = h(Q[t-1,i]);
+        with [i] : (M[i]) = measure(Q[T-1,i]);
+.
+"#;
+    let diagnostics = diagnostics(source);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}

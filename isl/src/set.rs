@@ -84,6 +84,12 @@ impl Set {
         Ok(unsafe { Set::from_raw(ctx.clone(), ctx.check(ptr)?) })
     }
 
+    pub fn reset_tuple_name(self) -> Result<Set> {
+        let ctx = self.ctx.clone();
+        let ptr = unsafe { isl_sys::isl_set_set_tuple_name(self.into_raw(), std::ptr::null()) };
+        Ok(unsafe { Set::from_raw(ctx.clone(), ctx.check(ptr)?) })
+    }
+
     pub fn dim(&self, ty: DimType) -> u32 {
         let n = unsafe { isl_sys::isl_set_dim(self.ptr, ty.to_raw()) };
         n.max(0) as u32
