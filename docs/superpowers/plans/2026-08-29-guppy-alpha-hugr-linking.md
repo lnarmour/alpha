@@ -15,8 +15,10 @@
 - Work directly on branch `louis/hugr`; do not create a worktree.
 - The public first surface is Python: `alphalang.link_alpha_function(wrapper, implementation, symbol="foo")`.
 - Accept a package containing exactly one wrapper module and an Alpha text envelope containing exactly one DFG-rooted HUGR.
-- Replace exactly one public, monomorphic `FuncDecl` or `FuncDefn`; reject zero, duplicate, private, and polymorphic targets.
-- Require exact HUGR signature equality; do not adapt types, reorder ports, or instantiate type parameters.
+- Replace exactly one monomorphic public `FuncDecl` or public/private `FuncDefn`; reject zero,
+    duplicate, private declarations, and polymorphic targets.
+- Require exact HUGR signature equality except for concrete ordinary-array/borrow-array boundaries
+    with equal sizes and element types; do not reorder ports or instantiate type parameters.
 - Preserve the Guppy module's entry point, unrelated definitions, call sites, and packaged extensions.
 - Return a new package; do not mutate the caller's Python object.
 - Keep Rust and runtime Python code independent of Guppy.
@@ -296,7 +298,9 @@ git commit -m "feat: package Alpha DFGs as functions"
 **Interfaces:**
 - Consumes: binary wrapper package bytes, a self-contained Alpha text envelope, and a symbol.
 - Produces: `pub(crate) fn link_alpha_function_bytes(wrapper: &[u8], implementation: &str, symbol: &str) -> Result<Vec<u8>, LinkError>`.
-- Guarantees: exactly one public monomorphic target, exact signature equality, source-definition replacement, preserved wrapper entry point and extensions, and a validated binary package result.
+- Guarantees: exactly one supported monomorphic target, exact or explicitly array-adaptable
+    signatures, source-definition replacement, preserved wrapper entry point and extensions, and a
+    validated binary package result.
 
 - [ ] **Step 1: Add wrapper builders and failing success-path tests.**
 
@@ -458,18 +462,21 @@ fn find_target(module: &Hugr, symbol: &str) -> Result<Target, LinkError> {
 ```
 
 Implement both `FuncDecl` and `FuncDefn` arms using `func_name()`, `visibility()`, and
-`signature()`. Clone the selected `PolyFuncType`. If no public match exists but a private match
-does, return the private-symbol error; otherwise return not-found. Reject more than one public
-match before HUGR's duplicate-export validator obscures the boundary error.
+`signature()`. Clone the selected `PolyFuncType` and record its node and whether it is a public
+declaration, public definition, or private definition. Reject a private declaration. Reject more
+than one same-name function before HUGR's duplicate-export validator obscures the boundary error.
 
-Compare the target with the Alpha DFG before constructing the implementation module:
+Compare the target with the Alpha DFG before constructing the implementation module. Permit each
+port to differ only by concrete `array<N, T>` versus `borrow_array<N, T>` and insert
+`BArrayFromArray`/`BArrayToArray` operations around the nested Alpha DFG. Retain this error for all
+other mismatches:
 
 ```rust
 let alpha_signature = match alpha.entrypoint_optype() {
     OpType::DFG(dfg) => dfg.signature.clone(),
     _ => return Err(LinkError::new("Alpha HUGR entry point must be a DFG")),
 };
-if target.signature.body() != &alpha_signature {
+    if !signatures_are_equal_or_array_adaptable(target.signature.body(), &alpha_signature) {
     return Err(LinkError::new(format!(
         "signature mismatch for '{symbol}': wrapper has {}, Alpha has {}",
         target.signature.body(),
@@ -515,9 +522,23 @@ pub(crate) fn link_alpha_function_bytes(
         .on_new_names(OnNewFunc::RaiseError)
         .on_signature_conflict(OnNewFunc::RaiseError)
         .on_multiple_defn(OnMultiDefn::UseSource);
-    wrapper_module
-        .link_module(implementation_module, &policy)
-        .map_err(|error| LinkError::new(format!("cannot link '{symbol}': {error}")))?;
+    if target.is_private_definition {
+        let source = implementation_module
+            .children(implementation_module.module_root())
+            .exactly_one()
+            .unwrap();
+        wrapper_module
+            .insert_link_hugr_by_node(
+                None,
+                implementation_module,
+                HashMap::from([(source, NodeLinkingDirective::replace([target.node]))]),
+            )
+            .map_err(|error| LinkError::new(format!("cannot replace '{symbol}': {error}")))?;
+    } else {
+        wrapper_module
+            .link_module(implementation_module, &policy)
+            .map_err(|error| LinkError::new(format!("cannot link '{symbol}': {error}")))?;
+    }
     if wrapper_module.entrypoint() != old_entrypoint {
         return Err(LinkError::new("HUGR linker changed the wrapper entry point"));
     }

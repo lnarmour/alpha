@@ -24,9 +24,11 @@ execution.
 
 ## Design Principles
 
-1. Link by public function symbol instead of rewriting individual call nodes.
+1. Resolve a unique function symbol and use HUGR's supported static-edge replacement machinery
+    instead of rewriting individual call nodes.
 2. Use HUGR's supported module linker to redirect static function edges.
-3. Require exact function-signature equality; do not insert implicit adapters or reorder ports.
+3. Require exact function-signature equality except for explicit ordinary-array/borrow-array
+    boundary conversions with identical sizes and element types; do not reorder ports.
 4. Preserve the Guppy package as the executable artifact, including its entry point and bundled
    extensions.
 5. Keep the Rust implementation independent of Guppy. Guppy is one producer of standard HUGR
@@ -71,14 +73,15 @@ This native function is not part of the stable public API.
 The first version accepts a package containing exactly one HUGR module. That module may have any
 valid Guppy entry point and arbitrary functions besides the selected target.
 
-The selected symbol must identify exactly one public, monomorphic module child that is either:
+The selected symbol must identify exactly one monomorphic module child that is either:
 
-- a `FuncDecl`, typically produced by `@guppy.declare`; or
-- a `FuncDefn`, including a no-op or dummy implementation.
+- a public `FuncDecl`, typically produced by `@guppy.declare`; or
+- a public or private `FuncDefn`, including a no-op or dummy implementation.
 
 Callers can use Guppy's `@link_name("foo")` to make the HUGR symbol independent of the Python
-function name. Private functions are not link targets because HUGR name linking operates on public
-module symbols.
+function name. Guppy emits a referenced dummy definition as private when compiling an executable
+entry point directly, so the utility permits a unique private definition target. Private
+declarations remain unsupported because they do not represent Guppy's wrapper workflow.
 
 Zero matching targets is an error. Multiple matching targets is also an error, even if HUGR
 validation would reject the duplicate exports later. Diagnosing this before mutation produces a
@@ -95,10 +98,12 @@ the Alpha HUGR into a temporary implementation module:
 
 1. Deserialize and validate the Alpha envelope.
 2. Require its entry point to be a `DFG` with a monomorphic function signature.
-3. Create a module with one public `FuncDefn` named `symbol` and that signature.
-4. Embed the Alpha DFG beneath the function body, connecting each function input to the
-   corresponding DFG input and each DFG output to the corresponding function output.
-5. Validate the temporary module before linking.
+3. Compare each Alpha port with its Guppy counterpart and derive the Guppy-visible signature.
+4. Create a module with one public `FuncDefn` named `symbol` and the Guppy-visible signature.
+5. Embed the Alpha DFG beneath the function body, connecting each function input to the
+    corresponding DFG input and each DFG output to the corresponding function output. Insert the
+    explicit array conversion operations described below where required.
+6. Validate the temporary module before linking.
 
 The DFG is embedded without changing port order, types, operation semantics, or metadata within
 the copied subtree. The temporary module has no executable entry point of its own; the Guppy
@@ -107,13 +112,24 @@ package remains the owner of execution.
 ## Linking Semantics
 
 Before linking, the utility compares the Alpha function signature with the selected Guppy target's
-signature. Equality is exact at the HUGR type level, including linearity, extension types, input
-order, output order, and extension requirements.
+signature. Arity and port order must match. Corresponding port types must either be exactly equal,
+or be concrete `collections.array.array<N, T>` and
+`collections.borrow_arr.borrow_array<N, T>` types with equal `N` and `T`. This exception is needed
+because Guppy exposes source `array[T, N]` values as borrow arrays while Alpha's kernel ABI exports
+ordinary arrays.
+
+The promoted implementation has the Guppy target's signature. For inputs, `BArrayToArray` converts
+a Guppy borrow array before an Alpha ordinary-array port, and `BArrayFromArray` performs the reverse
+case. Outputs use the corresponding inverse direction after the Alpha DFG. No conversion is added
+for equal types. Parametric arrays, different lengths or element types, non-array differences,
+different arities, and any other mismatch are rejected.
 
 The temporary Alpha module is then linked into the Guppy module with HUGR's name-linking policy:
 
 - same-name declaration: replace it with the Alpha definition;
-- same-name dummy definition: retain the source Alpha definition with `OnMultiDefn::UseSource`;
+- same-name public dummy definition: retain the source Alpha definition with
+    `OnMultiDefn::UseSource`;
+- same-name private dummy definition: use `NodeLinkingDirective::replace` for that exact node;
 - same-name conflicting signature: fail;
 - unrelated Guppy symbols: retain them unchanged;
 - new public symbols from the Alpha module: reject them.
@@ -137,9 +153,9 @@ that identify the symbol and relevant signatures where possible. Error categorie
 - wrapper package with other than one module;
 - malformed or invalid Alpha HUGR envelope;
 - Alpha artifact whose entry point is not a standalone DFG;
-- missing, private, duplicated, or unsupported wrapper target;
+- missing, duplicated, or unsupported wrapper target, including a private declaration;
 - polymorphic wrapper target;
-- exact signature mismatch;
+- signature mismatch outside the explicit ordinary-array/borrow-array conversion rule;
 - implementation-module construction failure;
 - HUGR name-linking failure;
 - final package validation failure.
@@ -165,6 +181,8 @@ Rust tests cover the representation boundary and linker behavior:
 - package a standalone Alpha DFG as a public function;
 - replace a matching `FuncDecl`;
 - replace a matching dummy `FuncDefn`;
+- replace the private dummy emitted by direct Guppy entry-point compilation;
+- insert ordinary-array/borrow-array conversions on compatible inputs and outputs;
 - redirect multiple static call edges to the Alpha definition;
 - preserve the original wrapper entry point;
 - reject missing and duplicate symbols;
@@ -186,7 +204,8 @@ The first version does not provide:
 - multiple symbol replacements in one call;
 - selecting among multiple modules in either package;
 - polymorphic Alpha functions or target instantiation;
-- structural type conversion, argument reordering, or wrapper synthesis;
+- structural type conversion beyond concrete ordinary-array/borrow-array boundaries, argument
+    reordering, or general wrapper synthesis;
 - inlining the Alpha body at Guppy call sites;
 - linking arbitrary non-function module children;
 - mutating the caller's input `Package` in place.
