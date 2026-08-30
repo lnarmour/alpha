@@ -72,9 +72,7 @@ fn emits_scheduled_cx_boundaries() {
         decoded
             .get_optype(decoded.entrypoint())
             .dataflow_signature(),
-        hugr
-            .get_optype(hugr.entrypoint())
-            .dataflow_signature()
+        hugr.get_optype(hugr.entrypoint()).dataflow_signature()
     );
     assert_eq!(count_tket(&decoded, TketOp::CX), 1);
 }

@@ -14,4 +14,4 @@ members = ["alphalang"]
 alphalang = { workspace = true }
 
 [dependency-groups]
-dev = ["prek", "pytest", "nbval", "ipython", "jupyterlab"]
+dev = ["prek", "pytest", "nbval", "ipython", "jupyterlab", "guppylang==1.0.1 ; python_full_version >= '3.12'"]

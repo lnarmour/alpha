@@ -79,9 +79,14 @@ The selected symbol must identify exactly one monomorphic module child that is e
 - a public or private `FuncDefn`, including a no-op or dummy implementation.
 
 Callers can use Guppy's `@link_name("foo")` to make the HUGR symbol independent of the Python
-function name. Guppy emits a referenced dummy definition as private when compiling an executable
-entry point directly, so the utility permits a unique private definition target. Private
-declarations remain unsupported because they do not represent Guppy's wrapper workflow.
+function name. The utility permits a unique private definition target for packages produced by
+other valid HUGR workflows. Private declarations remain unsupported.
+
+Guppy's direct `main.compile()` path may inline or eliminate a referenced dummy definition, leaving
+no `foo` node for any linker to replace. To use a concrete dummy, compile both `foo` and `main` as
+members of a `GuppyLibrary`, give them stable `@link_name` values, and select the resulting `main`
+function as the module entry point. A Guppy declaration remains present when referenced by direct
+entry-point compilation and does not require this retention step.
 
 Zero matching targets is an error. Multiple matching targets is also an error, even if HUGR
 validation would reject the duplicate exports later. Diagnosing this before mutation produces a
@@ -129,7 +134,8 @@ The temporary Alpha module is then linked into the Guppy module with HUGR's name
 - same-name declaration: replace it with the Alpha definition;
 - same-name public dummy definition: retain the source Alpha definition with
     `OnMultiDefn::UseSource`;
-- same-name private dummy definition: use `NodeLinkingDirective::replace` for that exact node;
+- same-name private dummy definition: use `NodeLinkingDirective::replace` for that exact node and
+    expose the replacement as the public Alpha symbol;
 - same-name conflicting signature: fail;
 - unrelated Guppy symbols: retain them unchanged;
 - new public symbols from the Alpha module: reject them.
@@ -181,7 +187,7 @@ Rust tests cover the representation boundary and linker behavior:
 - package a standalone Alpha DFG as a public function;
 - replace a matching `FuncDecl`;
 - replace a matching dummy `FuncDefn`;
-- replace the private dummy emitted by direct Guppy entry-point compilation;
+- replace a private dummy when the input HUGR actually contains one;
 - insert ordinary-array/borrow-array conversions on compatible inputs and outputs;
 - redirect multiple static call edges to the Alpha definition;
 - preserve the original wrapper entry point;

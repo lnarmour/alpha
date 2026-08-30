@@ -865,14 +865,18 @@ def test_replaces_guppy_dummy_definition():
 
     @guppy
     @link_name("foo")
-    def dummy() -> array[bool, 4]:
+    def foo() -> array[bool, 4]:
         return array(False, False, False, False)
 
     @guppy
+    @link_name("main")
     def main() -> array[bool, 4]:
-        return dummy()
+        return foo()
 
-    wrapper = GuppyLibrary.from_members(dummy, main).compile()
+    wrapper = GuppyLibrary.from_members(foo, main).compile()
+    main_nodes = named_functions(wrapper.modules[0], "main")
+    assert len(main_nodes) == 1
+    wrapper.modules[0].entrypoint = main_nodes[0]
     linked = alphalang.link_alpha_function(wrapper, alpha_bool_array_hugr())
 
     targets = named_functions(linked.modules[0], "foo")

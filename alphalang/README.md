@@ -42,6 +42,7 @@ through `--emit hugr`.
 | `norm.schedule(text)` | `ScheduledSystem` | parses + validates (§6) + legality-checks (§7) a target mapping against a clone of `norm`; raises `alphalang.ScheduleError` and binds nothing on any failure |
 | `alphalang.generate(system)` | `str` | `NormalizedSystem` or `ScheduledSystem`; a bare `NormalizedSystem` is sugar for `generate(norm.schedule(""))` (§6's identity-schedule default) |
 | `alphalang.generate_hugr(system, parameters)` | `str` | generates a validated HUGR envelope from a `NormalizedSystem` or `ScheduledSystem`; all symbolic parameters require concrete integer bindings |
+| `alphalang.link_alpha_function(wrapper, implementation, symbol="foo")` | `hugr.package.Package` | replaces one Guppy/HUGR declaration or dummy definition with an Alpha HUGR function; returns a new package and leaves `wrapper` unchanged |
 | `repr(sys)` / `repr(norm)` / `repr(sched)` | `str` | the ISL union-map skeleton, no precondition — always safe to print |
 | `alphalang.print(system)` | `str` | an indented debug tree dump — every node's own kind plus its `expression_domain`/`context_domain` (ported from alpha-language's `PrintAST`); accepts `System`, `NormalizedSystem`, or `ScheduledSystem` |
 | `alphalang.show(system)` | `str` | reconstructs Alpha-like source syntax from the model, `f@X` point-free `Dependence` notation (ported from `Show.xtend`); same three accepted types |
@@ -98,6 +99,41 @@ print(alphalang.generate(sched))
 Or work interactively in Jupyter. See `notebooks/prefix_sum.ipynb` for the cell-magic pipeline,
 `notebooks/linear_types.ipynb` for linear resources, and `notebooks/quantum_hugr.ipynb` for the
 scheduled quantum backend.
+
+## Linking a Guppy wrapper
+
+Compile an Alpha system and a Guppy wrapper separately, then replace a declared Guppy symbol:
+
+```python
+from guppylang import guppy
+from guppylang.library import link_name
+from guppylang.std.builtins import array
+import alphalang
+
+@guppy.declare
+@link_name("foo")
+def foo() -> array[bool, 4]: ...
+
+@guppy
+def main() -> array[bool, 4]:
+  return foo()
+
+wrapper = main.compile()
+alpha_hugr = alphalang.generate_hugr(scheduled_alpha_system, {"N": 4})
+linked = alphalang.link_alpha_function(wrapper, alpha_hugr, symbol="foo")
+```
+
+The wrapper package must contain exactly one module and exactly one monomorphic function with the
+selected name. Declarations must be public; definitions may be public or private. The linked Alpha
+function is public, including when it replaces a private dummy. Port order and types must match,
+except that the linker inserts explicit conversions between concrete
+`array<N, T>` and `borrow_array<N, T>` boundary types with the same `N` and `T`. This accommodates
+Guppy's borrow-array ABI without permitting general type coercion.
+
+Guppy's direct `main.compile()` may inline a concrete dummy body, leaving no function node to
+replace. To retain a dummy, compile `foo` and `main` as public `GuppyLibrary` members with stable
+`@link_name` values and set the compiled module's entrypoint to the `main` node before linking.
+Using `@guppy.declare` avoids that retention step. The input package is never mutated.
 
 **After changing Rust code**, `uv sync` alone won't pick it up — it only rebuilds a workspace
 member when it decides a reinstall is warranted, and mtime-only/no-op edits don't trigger that.
