@@ -305,6 +305,7 @@ impl std::fmt::Debug for ExprKind {
 pub struct Variable {
     pub name: String,
     pub domain: Set,
+    pub multiplicity: alpha_model::Multiplicity,
 }
 
 #[derive(Clone)]

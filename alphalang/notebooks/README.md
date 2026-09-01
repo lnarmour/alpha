@@ -1,13 +1,17 @@
 # Notebook fixtures
 
-`prefix_sum.ipynb` is `docs/scheduled-codegen-design.md` §5.2's own worked example, executed for
-real and checked in with its real outputs — a regression fixture, not just documentation (§5.3,
-§12 step 8).
+Both notebooks are executed for real and checked in with their outputs. They are regression
+fixtures, not just documentation:
+
+- `prefix_sum.ipynb` is `docs/scheduled-codegen-design.md` §5.2's worked pipeline example.
+- `linear_types.ipynb` covers immutable multiplicity metadata, exact-once diagnostics, explicit
+	external signatures, generated C, and legal versus illegal schedules.
 
 Run it:
 
 ```
 pytest --nbval alphalang/notebooks/prefix_sum.ipynb
+pytest --nbval alphalang/notebooks/linear_types.ipynb
 ```
 
 `--nbval` re-executes every code cell against a live kernel and diffs the result against the
@@ -24,6 +28,7 @@ To regenerate after an intentional change, re-execute and overwrite in place:
 
 ```
 jupyter nbconvert --to notebook --execute --inplace alphalang/notebooks/prefix_sum.ipynb
+jupyter nbconvert --to notebook --execute --inplace alphalang/notebooks/linear_types.ipynb
 ```
 
 then review the diff like any other fixture update — every output line changing is exactly what

@@ -94,9 +94,42 @@ fn external_function(p: &mut Parser) {
     p.bump(); // external
     p.expect(T::Ident);
     p.expect(T::LParen);
-    p.expect(T::IntNumber);
+    if p.at(T::IntNumber) {
+        p.bump();
+    } else if !p.at(T::RParen) {
+        multiplicity(p);
+        while p.at(T::Comma) {
+            p.bump();
+            multiplicity(p);
+        }
+    }
     p.expect(T::RParen);
+    if p.at(T::Arrow) {
+        p.bump();
+        if p.at(T::LParen) {
+            p.bump();
+            if !p.at(T::RParen) {
+                multiplicity(p);
+                while p.at(T::Comma) {
+                    p.bump();
+                    multiplicity(p);
+                }
+            }
+            p.expect(T::RParen);
+        } else {
+            multiplicity(p);
+        }
+    }
     p.finish_node();
+}
+
+fn multiplicity(p: &mut Parser) {
+    if p.at_any(&[T::KwLinear, T::KwUnrestricted]) {
+        p.bump();
+    } else {
+        p.error("expected 'linear' or 'unrestricted'");
+        p.tick();
+    }
 }
 
 fn alpha_package(p: &mut Parser) {
@@ -184,7 +217,7 @@ fn polyhedral_object(p: &mut Parser) {
 fn variable_section(p: &mut Parser, wrapper: SyntaxKind) {
     p.start_node(wrapper);
     p.bump(); // inputs | outputs | locals
-    while p.at_any(&[T::Ident, T::KwFuzzy]) {
+    while p.at_any(&[T::Ident, T::KwFuzzy, T::KwLinear]) {
         p.tick();
         variable_clause(p);
     }
@@ -197,6 +230,7 @@ fn variable_section(p: &mut Parser, wrapper: SyntaxKind) {
 /// module's design note above `clause_is_fuzzy` for why fuzziness is decided by lookahead.
 fn variable_clause(p: &mut Parser) {
     let is_fuzzy = clause_is_fuzzy(p);
+    let mut has_linear_prefix = p.at(T::KwLinear);
     let kind = if is_fuzzy {
         SyntaxKind::FUZZY_VARIABLE
     } else {
@@ -205,6 +239,10 @@ fn variable_clause(p: &mut Parser) {
     loop {
         p.tick();
         p.start_node(kind);
+        if has_linear_prefix {
+            p.bump();
+            has_linear_prefix = false;
+        }
         if is_fuzzy && p.at(T::KwFuzzy) {
             p.bump();
         }
@@ -237,7 +275,7 @@ fn variable_clause(p: &mut Parser) {
 /// `fuzzy`/`:`/`->`, so the source grammar itself needs lookahead all the way to that entry to
 /// know whether the whole group is fuzzy. This scans past the `Ident ','` run to find it.
 fn clause_is_fuzzy(p: &Parser) -> bool {
-    let mut i = 0;
+    let mut i = usize::from(p.at(T::KwLinear));
     while p.nth(i) == Some(T::Ident) && p.nth(i + 1) == Some(T::Comma) {
         i += 2;
     }

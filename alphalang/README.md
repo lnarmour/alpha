@@ -27,6 +27,8 @@ driven entirely through this crate.
   `%%schedule <var> <source-system-var>` IPython cell magics, self-registering on `import alphalang`.
 - **`notebooks/prefix_sum.ipynb`**: a real, executed-and-checked-in worked example (also a
   regression fixture — see its own `notebooks/README.md`).
+- **`notebooks/linear_types.ipynb`**: an executed tutorial for linear metadata, exact resource
+  diagnostics, explicit external signatures, C generation, and legal/illegal schedules.
 
 ## Python API
 
@@ -41,6 +43,22 @@ driven entirely through this crate.
 | `alphalang.print(system)` | `str` | an indented debug tree dump — every node's own kind plus its `expression_domain`/`context_domain` (ported from alpha-language's `PrintAST`); accepts `System`, `NormalizedSystem`, or `ScheduledSystem` |
 | `alphalang.show(system)` | `str` | reconstructs Alpha-like source syntax from the model, `f@X` point-free `Dependence` notation (ported from `Show.xtend`); same three accepted types |
 | `alphalang.ashow(system)` | `str` | like `show`, but array-index notation (`X[f]`) for a `Dependence` over a `Variable`/constant, and explicit ambient index names on each equation (ported from `AShow.xtend`) |
+
+Every pipeline-stage object exposes immutable `inputs`, `outputs`, and `locals` tuples. Their
+`alphalang.Variable` entries provide `name`, the resolved ISL `domain` string, and
+`multiplicity`, which is either `alphalang.Multiplicity.LINEAR` or
+`alphalang.Multiplicity.UNRESTRICTED`. Metadata is preserved by normalization and scheduling.
+
+`parse` and `read` analyze the complete source root before lowering the first system. Explicit
+external signatures such as `external move(linear) -> linear` and subsystem port signatures are
+therefore enforced consistently with `alpha-model`; legacy `external f(n)` ports remain
+unrestricted.
+
+Schedule checking is separate from linear resource checking. A target mapping must cover every
+statement instance, be injective, use compatible schedule widths, and name real statements. It is
+legal only when every producer is scheduled strictly before its consumers. Reordering independent
+pointwise instances, including reversing `Y[i] = X[i]`, does not change the source-level linear
+resource relation and is legal.
 
 `alphalang.ScheduleError` is defined via `pyo3::create_exception!`, not a hand-rolled
 `#[pyclass(extends = PyException)]` unit struct — the latter compiles and even raises without
@@ -72,8 +90,8 @@ sched = norm.schedule(
 print(alphalang.generate(sched))
 ```
 
-Or interactively in Jupyter, using the cell magics instead of `parse`/`schedule` strings directly —
-see `notebooks/prefix_sum.ipynb` for the full worked version.
+Or work interactively in Jupyter. See `notebooks/prefix_sum.ipynb` for the cell-magic pipeline and
+`notebooks/linear_types.ipynb` for linear resources, code generation, and schedule legality.
 
 **After changing Rust code**, `uv sync` alone won't pick it up — it only rebuilds a workspace
 member when it decides a reinstall is warranted, and mtime-only/no-op edits don't trigger that.
@@ -91,8 +109,9 @@ loop since it skips uv's dependency resolution step — but isn't required any m
 ## Testing
 
 ```
-pytest alphalang/tests/                              # 18 tests: plain API + magics
-pytest --nbval alphalang/notebooks/prefix_sum.ipynb  # 8 more: the notebook fixture
+pytest alphalang/tests/                                 # 28 tests: plain API + magics
+pytest --nbval alphalang/notebooks/prefix_sum.ipynb
+pytest --nbval alphalang/notebooks/linear_types.ipynb  # 10 linear/schedule cells
 ```
 
 `tests/test_magics.py` drives a real in-process IPython shell

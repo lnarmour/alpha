@@ -162,6 +162,7 @@ fn extract_top_level(
         new_locals.push(Variable {
             name: name.clone(),
             domain,
+            multiplicity: alpha_model::Multiplicity::Unrestricted,
         });
         new_equations.push(StandardEquation {
             variable: name,

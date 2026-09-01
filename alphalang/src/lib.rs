@@ -9,7 +9,89 @@
 
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
+use pyo3::types::PyTuple;
 use std::path::Path;
+
+#[pyclass(module = "alpha", frozen)]
+#[derive(Clone, Copy, PartialEq, Eq)]
+struct Multiplicity(alpha_model::Multiplicity);
+
+#[pymethods]
+impl Multiplicity {
+    #[classattr]
+    #[pyo3(name = "LINEAR")]
+    fn linear() -> Self {
+        Self(alpha_model::Multiplicity::Linear)
+    }
+
+    #[classattr]
+    #[pyo3(name = "UNRESTRICTED")]
+    fn unrestricted() -> Self {
+        Self(alpha_model::Multiplicity::Unrestricted)
+    }
+
+    fn __repr__(&self) -> &'static str {
+        match self.0 {
+            alpha_model::Multiplicity::Linear => "Multiplicity.LINEAR",
+            alpha_model::Multiplicity::Unrestricted => "Multiplicity.UNRESTRICTED",
+        }
+    }
+
+    fn __eq__(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+
+#[pyclass(module = "alpha", frozen)]
+struct Variable {
+    name: String,
+    domain: String,
+    multiplicity: Multiplicity,
+}
+
+impl From<&alpha_transform::ir::Variable> for Variable {
+    fn from(variable: &alpha_transform::ir::Variable) -> Self {
+        Self {
+            name: variable.name.clone(),
+            domain: variable.domain.to_string(),
+            multiplicity: Multiplicity(variable.multiplicity),
+        }
+    }
+}
+
+#[pymethods]
+impl Variable {
+    #[getter]
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    #[getter]
+    fn domain(&self) -> &str {
+        &self.domain
+    }
+
+    #[getter]
+    fn multiplicity(&self) -> Multiplicity {
+        self.multiplicity
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "Variable(name='{}', domain='{}', multiplicity={})",
+            self.name,
+            self.domain,
+            self.multiplicity.__repr__()
+        )
+    }
+}
+
+fn variable_tuple<'py>(
+    py: Python<'py>,
+    variables: &[alpha_transform::ir::Variable],
+) -> PyResult<Bound<'py, PyTuple>> {
+    PyTuple::new(py, variables.iter().map(Variable::from))
+}
 
 /// A parsed-and-lowered system, pre-normalization. `%%alphalang`'s own return type (§5.2) —
 /// `System.__repr__` shows one entry per output/local variable at its identity schedule, no
@@ -79,13 +161,26 @@ fn parse_and_lower(source: &str) -> PyResult<alpha_transform::ir::System> {
         return Err(PyValueError::new_err("no systems found in source"));
     };
     let ctx = isl::Context::new();
-    let mut resolver = alpha_model::Resolver::new(ctx, &system);
-    let diagnostics = alpha_model::analyze_system(&mut resolver, &system);
+    let analyses = alpha_model::analyze_root(&ctx, &tree);
+    let diagnostics = analyses
+        .first()
+        .map(|(_, diagnostics)| diagnostics.as_slice())
+        .unwrap_or_default();
     if !diagnostics.is_empty() {
         let msgs: Vec<String> = diagnostics.iter().map(|d| d.to_string()).collect();
         return Err(PyValueError::new_err(format!(
             "{} diagnostic(s):\n{}",
             diagnostics.len(),
+            msgs.join("\n")
+        )));
+    }
+    let mut resolver = alpha_model::Resolver::new(ctx, &system);
+    let (_, _, resolver_diagnostics) = resolver.analyze_system(&system);
+    if !resolver_diagnostics.is_empty() {
+        let msgs: Vec<String> = resolver_diagnostics.iter().map(|d| d.to_string()).collect();
+        return Err(PyValueError::new_err(format!(
+            "{} diagnostic(s):\n{}",
+            resolver_diagnostics.len(),
             msgs.join("\n")
         )));
     }
@@ -105,6 +200,21 @@ fn parse_and_lower(source: &str) -> PyResult<alpha_transform::ir::System> {
 
 #[pymethods]
 impl System {
+    #[getter]
+    fn inputs<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
+        variable_tuple(py, &self.0.inputs)
+    }
+
+    #[getter]
+    fn outputs<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
+        variable_tuple(py, &self.0.outputs)
+    }
+
+    #[getter]
+    fn locals<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
+        variable_tuple(py, &self.0.locals)
+    }
+
     fn __repr__(&self) -> PyResult<String> {
         alpha_codegen::describe_system(&self.0).map_err(codegen_err_to_py)
     }
@@ -112,6 +222,21 @@ impl System {
 
 #[pymethods]
 impl NormalizedSystem {
+    #[getter]
+    fn inputs<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
+        variable_tuple(py, &self.0.inputs)
+    }
+
+    #[getter]
+    fn outputs<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
+        variable_tuple(py, &self.0.outputs)
+    }
+
+    #[getter]
+    fn locals<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
+        variable_tuple(py, &self.0.locals)
+    }
+
     fn __repr__(&self) -> PyResult<String> {
         alpha_codegen::describe_normalized_system(&self.0, "").map_err(codegen_err_to_py)
     }
@@ -132,6 +257,21 @@ impl NormalizedSystem {
 
 #[pymethods]
 impl ScheduledSystem {
+    #[getter]
+    fn inputs<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
+        variable_tuple(py, &self.system.inputs)
+    }
+
+    #[getter]
+    fn outputs<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
+        variable_tuple(py, &self.system.outputs)
+    }
+
+    #[getter]
+    fn locals<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
+        variable_tuple(py, &self.system.locals)
+    }
+
     fn __repr__(&self) -> PyResult<String> {
         alpha_codegen::describe_normalized_system(&self.system, &self.schedule_text)
             .map_err(codegen_err_to_py)
@@ -234,6 +374,8 @@ fn ashow(system: &Bound<'_, PyAny>) -> PyResult<String> {
 
 #[pymodule]
 fn _alpha(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_class::<Multiplicity>()?;
+    m.add_class::<Variable>()?;
     m.add_class::<System>()?;
     m.add_class::<NormalizedSystem>()?;
     m.add_class::<ScheduledSystem>()?;

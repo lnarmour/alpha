@@ -20,10 +20,12 @@ Alpha-like source syntax, ``ashow`` is ``show`` in array-index notation (``X[i+1
 """
 
 from ._alpha import (
+    Multiplicity,
     NormalizedSystem,
     ScheduledSystem,
     ScheduleError,
     System,
+    Variable,
     ashow,
     generate,
     normalize,
@@ -34,6 +36,8 @@ from ._alpha import (
 )
 
 __all__ = [
+    "Multiplicity",
+    "Variable",
     "System",
     "NormalizedSystem",
     "ScheduledSystem",
