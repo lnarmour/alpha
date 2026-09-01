@@ -49,80 +49,140 @@ pub enum Diagnostic {
 
     /// A system, variable, or `define`d object references a name (via `DefinedObject`) that
     /// doesn't resolve to anything in scope.
-    UndefinedReference { name: String, start: u32, end: u32 },
+    UndefinedReference {
+        name: String,
+        start: u32,
+        end: u32,
+    },
 
     /// A `define`d object's value depends on itself, directly or transitively (mirrors the
     /// source system's `CyclicDefinitionException`).
-    CyclicDefinition { name: String, start: u32, end: u32 },
+    CyclicDefinition {
+        name: String,
+        start: u32,
+        end: u32,
+    },
 
     /// A `DependenceExpression`'s function output arity doesn't match its operand's expression
     /// domain dimension (§6, phase 3: `outDependenceExpression`'s explicit arity check — the one
     /// case the source system diagnoses before ever calling into isl, rather than letting isl's
     /// own space-mismatch error surface as [`Self::IslError`]).
-    IncompatibleContextAndExpressionDomain { start: u32, end: u32 },
+    IncompatibleContextAndExpressionDomain {
+        start: u32,
+        end: u32,
+    },
 
     /// An `AutoRestrictExpression` appears somewhere other than a direct child of a
     /// `CaseExpression` — the only place the source system allows it (§6, phase 4).
-    AutoRestrictNotInCase { start: u32, end: u32 },
+    AutoRestrictNotInCase {
+        start: u32,
+        end: u32,
+    },
 
     /// More than one `AutoRestrictExpression` appears as a direct child of the same
     /// `CaseExpression` — at most one `else`-like branch is allowed per case.
-    MultipleAutoRestrict { start: u32, end: u32 },
+    MultipleAutoRestrict {
+        start: u32,
+        end: u32,
+    },
 
     /// An `AutoRestrictExpression`'s inferred domain (parent context minus the other branches'
     /// domains) came out empty — the `else` branch is unreachable. A warning in the source
     /// system (computation continues); this port treats it as a hard error for now, consistent
     /// with every other diagnostic here failing the containing equation's analysis rather than
     /// silently continuing with a partial result.
-    EmptyAutoRestrict { start: u32, end: u32 },
+    EmptyAutoRestrict {
+        start: u32,
+        end: u32,
+    },
 
     /// More than one `SystemBody` in a system lacks a `when` guard — at most one implicit
     /// `else` body is allowed (§6, phase 4: `completeSystemBody`'s syntactic check).
-    MultipleUnrestrictedSystemBody { start: u32, end: u32 },
+    MultipleUnrestrictedSystemBody {
+        start: u32,
+        end: u32,
+    },
 
     /// A `RestrictExpression`'s explicit-tuple domain (`{[x,y]:...}`) has a different number of
     /// dimensions than the ambient index-name context it would replace (`inRestrictExpression`'s
     /// "only when the dimensions match the context, new indices can replace the context" rule).
-    RestrictDomainDimensionMismatch { start: u32, end: u32 },
+    RestrictDomainDimensionMismatch {
+        start: u32,
+        end: u32,
+    },
 
     /// A `SelectExpression`'s relation has a domain-side dimension count that doesn't match the
     /// ambient index-name context (the same rule as
     /// [`Self::RestrictDomainDimensionMismatch`], for `inSelectExpression`).
-    SelectRelationDimensionMismatch { start: u32, end: u32 },
+    SelectRelationDimensionMismatch {
+        start: u32,
+        end: u32,
+    },
 
     /// Two systems (possibly in different files) share the same fully-qualified name (§6, phase
     /// 5: `AlphaNameUniquenessChecker.check`'s `systemNameMap`).
-    DuplicateSystem { name: String, start: u32, end: u32 },
+    DuplicateSystem {
+        name: String,
+        start: u32,
+        end: u32,
+    },
 
     /// Two `external` function declarations share the same fully-qualified name.
-    DuplicateExternalFunction { name: String, start: u32, end: u32 },
+    DuplicateExternalFunction {
+        name: String,
+        start: u32,
+        end: u32,
+    },
 
     /// A variable (or `FuzzyVariable`, which shares this diagnostic in the source system too)
     /// and/or a `define`d object share the same name within one system — they're one namespace.
-    DuplicateVariable { name: String, start: u32, end: u32 },
+    DuplicateVariable {
+        name: String,
+        start: u32,
+        end: u32,
+    },
 
     /// Two `define`d objects (or a `define`d object and a variable — see
     /// [`Self::DuplicateVariable`]) share the same name within one system.
-    DuplicatePolyhedralObject { name: String, start: u32, end: u32 },
+    DuplicatePolyhedralObject {
+        name: String,
+        start: u32,
+        end: u32,
+    },
 
     /// A `StandardEquation` defines a variable that another equation in the same `SystemBody`
     /// also defines. `UseEquation`s writing to the same variable are fine on their own (their
     /// domains only need to be disjoint, checked elsewhere) — this only fires when at least one
     /// of the conflicting definitions is a `StandardEquation`.
-    DuplicateStandardEquation { name: String, start: u32, end: u32 },
+    DuplicateStandardEquation {
+        name: String,
+        start: u32,
+        end: u32,
+    },
 
     /// A `UseEquation` writes to a variable that a `StandardEquation` (or another `UseEquation`,
     /// alongside at least one `StandardEquation`) in the same `SystemBody` also defines — see
     /// [`Self::DuplicateStandardEquation`].
-    DuplicateUseEquation { name: String, start: u32, end: u32 },
+    DuplicateUseEquation {
+        name: String,
+        start: u32,
+        end: u32,
+    },
 
     /// Two `constant` declarations visible to the same system share the same name.
-    DuplicateAlphaConstant { name: String, start: u32, end: u32 },
+    DuplicateAlphaConstant {
+        name: String,
+        start: u32,
+        end: u32,
+    },
 
     /// A `SystemBody`'s own parameter domain (its `when` guard, or the inferred `else` domain)
     /// came out empty — a warning in the source system (`emptySystemBody`), kept as an error here
     /// for consistency with every other diagnostic in this port (§6, phase 6).
-    EmptySystemBody { start: u32, end: u32 },
+    EmptySystemBody {
+        start: u32,
+        end: u32,
+    },
 
     /// Two or more `SystemBody`s in a system have overlapping parameter domains — every parameter
     /// value must select exactly one body (§6, phase 6: `checkSystemBodyConsistency`).
@@ -163,11 +223,17 @@ pub enum Diagnostic {
 
     /// A `ReduceExpression`'s body ranges over an index whose bounds isl can't establish as
     /// finite in both directions — the reduction wouldn't terminate.
-    UnboundedReductionBody { start: u32, end: u32 },
+    UnboundedReductionBody {
+        start: u32,
+        end: u32,
+    },
 
     /// A `UseEquation` calls its own enclosing system with call parameters that are the identity
     /// function on the caller's own parameters — unconditional infinite recursion.
-    InfinitelyRecursiveUseEquation { start: u32, end: u32 },
+    InfinitelyRecursiveUseEquation {
+        start: u32,
+        end: u32,
+    },
 
     /// Two or more `UseEquation`s in the same `SystemBody` write overlapping regions of the same
     /// output variable — their instantiation domains must be disjoint.
@@ -189,7 +255,64 @@ pub enum Diagnostic {
 
     /// An output variable (or a local variable that's referenced somewhere) has no defining
     /// equation — neither a `StandardEquation` nor a `UseEquation` output — in a `SystemBody`.
-    UndefinedVariable { name: String, start: u32, end: u32 },
+    UndefinedVariable {
+        name: String,
+        start: u32,
+        end: u32,
+    },
+
+    /// A qubit declaration is missing the explicit linear multiplicity required for ownership.
+    QubitMustBeLinear {
+        variable: String,
+        start: u32,
+        end: u32,
+    },
+
+    OperationArityMismatch {
+        operation: String,
+        expected_inputs: usize,
+        actual_inputs: usize,
+        expected_outputs: usize,
+        actual_outputs: usize,
+        start: u32,
+        end: u32,
+    },
+
+    OperationPortTypeMismatch {
+        operation: String,
+        port: usize,
+        expected: crate::ElementType,
+        actual: crate::ElementType,
+        start: u32,
+        end: u32,
+    },
+
+    OperationOperandAliased {
+        operation: String,
+        first: usize,
+        second: usize,
+        start: u32,
+        end: u32,
+    },
+
+    ReservedOperationName {
+        name: String,
+        start: u32,
+        end: u32,
+    },
+
+    InvalidOperationContext {
+        operation: String,
+        start: u32,
+        end: u32,
+    },
+
+    CallDomainMismatch {
+        operation: String,
+        detail: String,
+        start: u32,
+        end: u32,
+    },
 
     /// A linear expression was assigned to an unrestricted variable.
     LinearValueWidened {
@@ -374,6 +497,52 @@ impl std::fmt::Display for Diagnostic {
             Diagnostic::UndefinedVariable { name, .. } => {
                 write!(f, "'{name}' is used but not defined in this SystemBody")
             }
+            Diagnostic::QubitMustBeLinear { variable, .. } => {
+                write!(f, "qubit variable '{variable}' must be declared linear")
+            }
+            Diagnostic::OperationArityMismatch {
+                operation,
+                expected_inputs,
+                actual_inputs,
+                expected_outputs,
+                actual_outputs,
+                ..
+            } => write!(
+                f,
+                "operation '{operation}' expects {expected_inputs} inputs and {expected_outputs} outputs, found {actual_inputs} inputs and {actual_outputs} outputs"
+            ),
+            Diagnostic::OperationPortTypeMismatch {
+                operation,
+                port,
+                expected,
+                actual,
+                ..
+            } => write!(
+                f,
+                "operation '{operation}' port {port} expects {expected:?}, found {actual:?}"
+            ),
+            Diagnostic::OperationOperandAliased {
+                operation,
+                first,
+                second,
+                ..
+            } => write!(
+                f,
+                "operation '{operation}' aliases linear operands {first} and {second}"
+            ),
+            Diagnostic::ReservedOperationName { name, .. } => {
+                write!(f, "'{name}' is reserved for a registered operation")
+            }
+            Diagnostic::InvalidOperationContext { operation, .. } => write!(
+                f,
+                "registered operation '{operation}' must be used as a call equation"
+            ),
+            Diagnostic::CallDomainMismatch {
+                operation, detail, ..
+            } => write!(
+                f,
+                "operation '{operation}' port domains do not agree: {detail}"
+            ),
             Diagnostic::LinearValueWidened { target, .. } => write!(
                 f,
                 "linear value cannot flow into unrestricted variable '{target}'"
@@ -452,6 +621,13 @@ impl Diagnostic {
             | Diagnostic::OverlappingUseEquations { start, end, .. }
             | Diagnostic::IncompleteUseEquation { start, end, .. }
             | Diagnostic::UndefinedVariable { start, end, .. }
+            | Diagnostic::QubitMustBeLinear { start, end, .. }
+            | Diagnostic::OperationArityMismatch { start, end, .. }
+            | Diagnostic::OperationPortTypeMismatch { start, end, .. }
+            | Diagnostic::OperationOperandAliased { start, end, .. }
+            | Diagnostic::ReservedOperationName { start, end, .. }
+            | Diagnostic::InvalidOperationContext { start, end, .. }
+            | Diagnostic::CallDomainMismatch { start, end, .. }
             | Diagnostic::LinearValueWidened { start, end, .. }
             | Diagnostic::LinearArgumentToUnrestrictedPort { start, end, .. }
             | Diagnostic::LinearityUnsupportedHere { start, end, .. }

@@ -16,12 +16,11 @@
 use crate::error::{CodegenError, Result};
 use crate::expr::{self, ExprGen, Role, VarInfo};
 use crate::layout;
-use crate::legality;
-use crate::schedule;
+use crate::scheduled_ir::{self, CompareOp, IndexExpr, Predicate, ScheduledNode};
 use crate::simplec::{CType, Expr as CExpr, Function, Stmt};
-use crate::stmt::{self, Statement, StatementKind};
+use crate::stmt::{Statement, StatementKind};
 use alpha_transform::ir;
-use isl::{AstBuild, AstNodeKind, Context, DimType, Format, Set};
+use isl::{Context, DimType, Format, Set};
 use std::collections::{BTreeSet, HashMap};
 use std::fmt::Write as _;
 
@@ -90,10 +89,7 @@ impl ExprGen for Gen {
 /// separate, later call (possibly against a `ScheduledSystem` that's never `generate()`'d at all).
 pub fn validate_scheduled_system(system: &ir::System, schedule_text: &str) -> Result<()> {
     check_no_use_equations(system)?;
-    let ctx = first_body_ctx(system)?;
-    let statements = stmt::statements(system)?;
-    let schedule = schedule::build_schedule(&ctx, &statements, schedule_text)?;
-    legality::check_legality(&statements, &schedule)?;
+    scheduled_ir::build(system, schedule_text)?;
     Ok(())
 }
 
@@ -123,6 +119,7 @@ fn first_body_ctx(system: &ir::System) -> Result<Context> {
 
 pub fn generate_scheduled_system(system: &ir::System, schedule_text: &str) -> Result<String> {
     check_no_use_equations(system)?;
+    let program = scheduled_ir::build(system, schedule_text)?;
     let ctx = first_body_ctx(system)?;
     let first_body = system
         .bodies
@@ -159,10 +156,6 @@ pub fn generate_scheduled_system(system: &ir::System, schedule_text: &str) -> Re
         );
     }
 
-    let statements = stmt::statements(system)?;
-    let schedule = schedule::build_schedule(&ctx, &statements, schedule_text)?;
-    legality::check_legality(&statements, &schedule)?;
-
     let mut g = Gen {
         ctx: ctx.clone(),
         variables,
@@ -170,16 +163,13 @@ pub fn generate_scheduled_system(system: &ir::System, schedule_text: &str) -> Re
         externs: BTreeSet::new(),
     };
 
-    // §8.1: one whole-program AST build, over the union of every statement's (domain, schedule)
-    // pair — not one per output/reduce like WriteC.
-    let params_context = params_only_domain(&ctx, &statements)?;
-    let build = AstBuild::from_context(params_context)?;
-    let ast = build.generate(schedule)?;
-
-    let statements_by_name: HashMap<&str, &Statement> =
-        statements.iter().map(|s| (s.name.as_str(), s)).collect();
     let mut loop_iterators = std::collections::BTreeSet::new();
-    let walked = walk_node(&mut g, &ast, &statements_by_name, &mut loop_iterators)?;
+    let walked = walk_node(
+        &mut g,
+        &program.root,
+        &program.statements,
+        &mut loop_iterators,
+    )?;
 
     // simplec::Stmt::For assumes its own iterator is already declared (matching how WriteC's own
     // driver pre-declares `i0..maxdims`) — isl chose these names itself (no custom naming set up
@@ -197,105 +187,149 @@ pub fn generate_scheduled_system(system: &ir::System, schedule_text: &str) -> Re
     render_program(system, &g, body_stmts)
 }
 
-/// Every statement's own domain carries a *different* dimensionality (an ordinary/`__init`
-/// statement's `a` vs. a `__reduce` statement's `a+b`, §4) — unlike `WriteC`'s
-/// `union_of_body_domains`, which unions same-shaped `SystemBody` domains directly, these can't be
-/// unioned before first projecting each down to its own parameter-only constraints (`Set::params`,
-/// which drops all set dims), the one thing every statement's domain *does* share a space for.
-fn params_only_domain(ctx: &Context, statements: &[Statement]) -> Result<Set> {
-    let mut iter = statements.iter();
-    let Some(first) = iter.next() else {
-        return Ok(Set::read_from_str(ctx, "{ : }")?);
-    };
-    let mut acc = first.domain.clone().params()?;
-    for s in iter {
-        acc = acc.union(s.domain.clone().params()?)?;
-    }
-    Ok(acc)
+fn render_index(expression: &IndexExpr) -> String {
+    render_index_at(expression, 0)
 }
 
-/// §8.2: recursively converts isl's `AstNode` tree into `simplec::Stmt`s. `For`/`If`/`Block` map
-/// directly; `User` is the interesting case — dispatch by tuple name to the matching statement's
-/// own body codegen (`gen_statement_body`).
-///
-/// `loop_iterators` collects every loop iterator name isl's own AST builder chose (`c0`, `c1`,
-/// ... by default — no custom naming is set up front, unlike `WriteC`'s per-reduce
-/// `AstBuild::set_iterators`, since a whole-program schedule's loop *nesting* isn't known until
-/// after the one `AstBuild::generate` call) — `simplec::Stmt::For`'s own rendering assumes its
-/// iterator is already declared, so the caller must emit one `long` decl per name collected here
-/// before this walk's own statements.
+fn render_index_at(expression: &IndexExpr, parent_precedence: u8) -> String {
+    match expression {
+        IndexExpr::Constant(value) => value.to_string(),
+        IndexExpr::Variable(name) => name.clone(),
+        IndexExpr::Add(lhs, rhs) => render_binary(lhs, "+", rhs, 1, parent_precedence, false),
+        IndexExpr::Sub(lhs, rhs) => render_binary(lhs, "-", rhs, 1, parent_precedence, true),
+        IndexExpr::Mul(lhs, rhs) => render_binary(lhs, "*", rhs, 2, parent_precedence, false),
+        IndexExpr::Div(lhs, rhs) => render_binary(lhs, "/", rhs, 2, parent_precedence, true),
+        IndexExpr::FloorDiv(lhs, rhs) => {
+            format!("floord({}, {})", render_index(lhs), render_index(rhs))
+        }
+        IndexExpr::CeilDiv(lhs, rhs) => {
+            format!("ceild({}, {})", render_index(lhs), render_index(rhs))
+        }
+        IndexExpr::Mod(lhs, rhs) => format!("{} % {}", render_index(lhs), render_index(rhs)),
+        IndexExpr::Min(arguments) => render_variadic("min", arguments),
+        IndexExpr::Max(arguments) => render_variadic("max", arguments),
+    }
+}
+
+fn render_binary(
+    lhs: &IndexExpr,
+    operator: &str,
+    rhs: &IndexExpr,
+    precedence: u8,
+    parent_precedence: u8,
+    protect_rhs: bool,
+) -> String {
+    let expression = format!(
+        "{} {operator} {}",
+        render_index_at(lhs, precedence),
+        render_index_at(rhs, precedence + u8::from(protect_rhs))
+    );
+    if precedence < parent_precedence {
+        format!("({expression})")
+    } else {
+        expression
+    }
+}
+
+fn render_variadic(name: &str, arguments: &[IndexExpr]) -> String {
+    let mut arguments = arguments.iter();
+    let Some(first) = arguments.next() else {
+        return "0".to_string();
+    };
+    arguments.fold(render_index(first), |left, right| {
+        format!("{name}({left}, {})", render_index(right))
+    })
+}
+
+fn render_predicate(predicate: &Predicate) -> String {
+    match predicate {
+        Predicate::Compare { op, lhs, rhs } => format!(
+            "{} {} {}",
+            render_index(lhs),
+            match op {
+                CompareOp::Eq => "==",
+                CompareOp::Le => "<=",
+                CompareOp::Lt => "<",
+                CompareOp::Ge => ">=",
+                CompareOp::Gt => ">",
+            },
+            render_index(rhs)
+        ),
+        Predicate::And(arguments) => arguments
+            .iter()
+            .map(|argument| format!("({})", render_predicate(argument)))
+            .collect::<Vec<_>>()
+            .join(" && "),
+        Predicate::Or(arguments) => arguments
+            .iter()
+            .map(|argument| format!("({})", render_predicate(argument)))
+            .collect::<Vec<_>>()
+            .join(" || "),
+        Predicate::Not(argument) => format!("!({})", render_predicate(argument)),
+        Predicate::Constant(value) => (*value as u8).to_string(),
+    }
+}
+
 fn walk_node(
     g: &mut Gen,
-    node: &isl::AstNode,
-    statements_by_name: &HashMap<&str, &Statement>,
+    node: &ScheduledNode,
+    statements: &[Statement],
     loop_iterators: &mut std::collections::BTreeSet<String>,
 ) -> Result<Vec<Stmt>> {
-    match node.kind() {
-        AstNodeKind::For { .. } => {
-            let iterator = node.for_iterator()?.to_string_fmt(Format::C);
-            let init = node.for_init()?.to_string_fmt(Format::C);
-            let cond = node.for_cond()?.to_string_fmt(Format::C);
-            let inc = node.for_inc()?.to_string_fmt(Format::C);
+    match node {
+        ScheduledNode::Loop {
+            iterator,
+            init,
+            condition,
+            step,
+            body,
+        } => {
+            let iterator = iterator.0.clone();
             loop_iterators.insert(iterator.clone());
-            let body = walk_node(g, &node.for_body()?, statements_by_name, loop_iterators)?;
+            let body = walk_node(g, body, statements, loop_iterators)?;
             Ok(vec![Stmt::For {
                 iterator,
-                init,
-                cond,
-                inc,
+                init: render_index(init),
+                cond: render_predicate(condition),
+                inc: render_index(step),
                 body,
             }])
         }
-        AstNodeKind::If => {
-            let cond = node.if_cond()?.to_string_fmt(Format::C);
-            let then_branch = walk_node(g, &node.if_then()?, statements_by_name, loop_iterators)?;
-            let else_branch = match node.if_else() {
-                Some(e) => walk_node(g, &e, statements_by_name, loop_iterators)?,
+        ScheduledNode::If {
+            condition,
+            then_body,
+            else_body,
+        } => {
+            let then_branch = walk_node(g, then_body, statements, loop_iterators)?;
+            let else_branch = match else_body {
+                Some(else_body) => walk_node(g, else_body, statements, loop_iterators)?,
                 None => Vec::new(),
             };
             Ok(vec![Stmt::If {
-                cond: CExpr::Raw(cond),
+                cond: CExpr::Raw(render_predicate(condition)),
                 then_branch,
                 else_branch,
             }])
         }
-        AstNodeKind::Block => {
+        ScheduledNode::Sequence(nodes) => {
             let mut out = Vec::new();
-            for child in node.block_children()? {
-                out.extend(walk_node(g, &child, statements_by_name, loop_iterators)?);
+            for child in nodes {
+                out.extend(walk_node(g, child, statements, loop_iterators)?);
             }
             Ok(out)
         }
-        AstNodeKind::User => {
-            let user = node.user_expr()?;
-            let args = user.op_args()?;
-            let Some((name_expr, idx_exprs)) = args.split_first() else {
-                return Err(CodegenError::Unsupported(
-                    "internal error: a User node's own call expression has no arguments at all \
-                     (expected at least the statement's own tuple name)"
-                        .to_string(),
-                ));
-            };
-            let name = name_expr.id_name()?;
-            let idx: Vec<String> = idx_exprs
-                .iter()
-                .map(|a| a.to_string_fmt(Format::C))
-                .collect();
-            let stmt = statements_by_name.get(name.as_str()).ok_or_else(|| {
+        ScheduledNode::Invoke { statement, indices } => {
+            let statement = statements.get(statement.0).ok_or_else(|| {
                 CodegenError::Unsupported(format!(
-                    "internal error: the AST build named an unknown statement '{name}'"
+                    "internal error: unknown scheduled statement ID {}",
+                    statement.0
                 ))
             })?;
-            // Scoped in its own block: two sibling User nodes in the same enclosing block can
-            // each bind an index to a same-named local (independent naming choices, §8.2) —
-            // without a scope of its own, that would be a C redeclaration error.
-            Ok(vec![Stmt::Block(gen_statement_body(g, stmt, &idx)?)])
+            let indices = indices.iter().map(render_index).collect::<Vec<_>>();
+            Ok(vec![Stmt::Block(gen_statement_body(
+                g, statement, &indices,
+            )?)])
         }
-        AstNodeKind::Other => Err(CodegenError::Unsupported(
-            "unexpected AST node kind (a schedule-tree mark node, or a future isl AST node \
-             variant this port doesn't know about yet)"
-                .to_string(),
-        )),
     }
 }
 
@@ -400,6 +434,10 @@ fn gen_statement_body(g: &mut Gen, stmt: &Statement, idx_exprs: &[String]) -> Re
             });
             Ok(out)
         }
+        StatementKind::OperationCall(call) => Err(CodegenError::Unsupported(format!(
+            "registered operation '{}' has no Scheduled C backend",
+            call.operation.name()
+        ))),
     }
 }
 
@@ -641,6 +679,7 @@ fn build_driver(system: &ir::System, g: &Gen, body_stmts: Vec<Stmt>) -> Result<F
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::stmt;
     use crate::test_util::{
         normalized_system, TestGen, PIECEWISE_EQUATION, PLAIN_COPY, PREFIX_SUM, REDUCE_BINARY_BODY,
         REDUCE_EXTERNAL, REDUCE_MAX, REDUCE_MIN, REDUCE_MUL,
@@ -661,6 +700,35 @@ mod tests {
             is_static: false,
         };
         f.to_string()
+    }
+
+    #[test]
+    fn typed_index_rendering_preserves_arithmetic_grouping() {
+        let a = || IndexExpr::Variable("a".to_string());
+        let b = || IndexExpr::Variable("b".to_string());
+        let c = || IndexExpr::Variable("c".to_string());
+        let grouped_product = IndexExpr::Mul(
+            Box::new(IndexExpr::Sub(Box::new(a()), Box::new(b()))),
+            Box::new(c()),
+        );
+        let right_nested_subtraction = IndexExpr::Sub(
+            Box::new(a()),
+            Box::new(IndexExpr::Sub(Box::new(b()), Box::new(c()))),
+        );
+        assert_eq!(render_index(&grouped_product), "(a - b) * c");
+        assert_eq!(render_index(&right_nested_subtraction), "a - (b - c)");
+        assert_eq!(
+            render_index(&IndexExpr::Div(Box::new(a()), Box::new(b()))),
+            "a / b"
+        );
+        assert_eq!(
+            render_index(&IndexExpr::FloorDiv(Box::new(a()), Box::new(b()))),
+            "floord(a, b)"
+        );
+        assert_eq!(
+            render_index(&IndexExpr::CeilDiv(Box::new(a()), Box::new(b()))),
+            "ceild(a, b)"
+        );
     }
 
     /// Builds a `Gen` + the `Statement` for `<name>__init`/`<name>__reduce`'s pair (`crate::stmt`,

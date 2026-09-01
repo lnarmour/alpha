@@ -378,6 +378,32 @@ impl PwAff {
             s
         }
     }
+
+    pub fn constant_value(&self) -> Result<Option<i64>> {
+        if !self
+            .ctx
+            .check_bool(unsafe { isl_sys::isl_pw_aff_is_cst(self.ptr) })?
+        {
+            return Ok(None);
+        }
+        unsafe {
+            let space = self
+                .ctx
+                .check(isl_sys::isl_pw_aff_get_domain_space(self.ptr))?;
+            let point = self.ctx.check(isl_sys::isl_point_zero(space))?;
+            let value = self.ctx.check(isl_sys::isl_pw_aff_eval(
+                isl_sys::isl_pw_aff_copy(self.ptr),
+                point,
+            ))?;
+            if !self.ctx.check_bool(isl_sys::isl_val_is_int(value))? {
+                isl_sys::isl_val_free(value);
+                return Ok(None);
+            }
+            let result = isl_sys::isl_val_get_num_si(value) as i64;
+            isl_sys::isl_val_free(value);
+            Ok(Some(result))
+        }
+    }
 }
 
 impl std::fmt::Display for PwAff {

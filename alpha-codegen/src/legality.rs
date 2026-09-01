@@ -93,6 +93,14 @@ fn dependence_edges<'a>(stmt: &'a Statement<'a>) -> Vec<Edge<'a>> {
                 producer: Producer::Named(format!("{reduce_local}__init")),
             }]
         }
+        StatementKind::OperationCall(call) => call
+            .inputs
+            .iter()
+            .map(|access| Edge {
+                dep_fn: access.function.clone(),
+                producer: Producer::Variable(access.variable.as_str()),
+            })
+            .collect(),
     };
     edges.extend(raw.into_iter().map(|(dep_fn, producer_var)| Edge {
         dep_fn,
@@ -172,6 +180,11 @@ fn producer_of_map<'a>(statements: &'a [Statement]) -> HashMap<&'a str, &'a Stat
                 m.insert(*reduce_local, stmt);
             }
             StatementKind::ReduceInit { .. } => {}
+            StatementKind::OperationCall(call) => {
+                for output in &call.outputs {
+                    m.insert(output.variable.as_str(), stmt);
+                }
+            }
         }
     }
     m

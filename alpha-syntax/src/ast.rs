@@ -259,6 +259,14 @@ impl Locals {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ElementType {
+    Bool,
+    Int,
+    Real,
+    Qubit,
+}
+
 impl Variable {
     pub fn name(&self) -> Option<SyntaxToken> {
         name(&self.0)
@@ -271,6 +279,21 @@ impl Variable {
     /// as the source system's `JNIDomainCalculator.resolveVariableDeclaration` does.
     pub fn domain(&self) -> Option<CalcExpr> {
         child(&self.0)
+    }
+    pub fn element_type(&self) -> Option<ElementType> {
+        let node = self
+            .0
+            .children()
+            .find(|node| node.kind() == K::ELEMENT_TYPE)?;
+        node.children_with_tokens()
+            .filter_map(|element| element.into_token())
+            .find_map(|token| match token.kind() {
+                K::KW_BOOL => Some(ElementType::Bool),
+                K::KW_INT => Some(ElementType::Int),
+                K::KW_REAL => Some(ElementType::Real),
+                K::KW_QUBIT => Some(ElementType::Qubit),
+                _ => None,
+            })
     }
 }
 

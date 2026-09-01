@@ -306,17 +306,34 @@ pub struct Variable {
     pub name: String,
     pub domain: Set,
     pub multiplicity: alpha_model::Multiplicity,
+    pub element_type: alpha_model::ElementType,
 }
 
 #[derive(Clone)]
 pub enum Equation {
     Standard(StandardEquation),
+    OperationCall(OperationCall),
     /// `UseEquation`s are carried through unchanged apart from normalizing their input/output
     /// expressions (matching the source system's own doc comment: "the same [normal-form rules]
     /// applies to each input expression in an UseEquation") — `Normalize` never restructures the
     /// equation itself, and `NormalizeReduction` explicitly skips `UseEquation`s outright (its own
     /// doc comment: reductions aren't expected in `UseEquation` inputs).
     Use(UseEquation),
+}
+
+#[derive(Clone)]
+pub struct Access {
+    pub variable: String,
+    pub function: MultiAff,
+}
+
+#[derive(Clone)]
+pub struct OperationCall {
+    pub operation: alpha_model::RegisteredOperation,
+    pub index_names: Vec<String>,
+    pub domain: Set,
+    pub inputs: Vec<Access>,
+    pub outputs: Vec<Access>,
 }
 
 #[derive(Clone)]

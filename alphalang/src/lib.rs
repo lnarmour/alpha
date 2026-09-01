@@ -7,9 +7,12 @@
 //! Python types is what turns §5.1's normalized-IR precondition into a `TypeError` the binding
 //! raises before any Rust code runs, rather than a runtime diagnostic deep inside the pipeline.
 
+mod linking;
+
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::PyTuple;
+use pyo3::types::{PyBytes, PyTuple};
+use std::collections::{BTreeMap, HashMap};
 use std::path::Path;
 
 #[pyclass(module = "alpha", frozen)]
@@ -43,10 +46,62 @@ impl Multiplicity {
 }
 
 #[pyclass(module = "alpha", frozen)]
+#[derive(Clone, Copy, PartialEq, Eq)]
+struct ElementType(alpha_model::ElementType);
+
+#[pymethods]
+impl ElementType {
+    #[classattr]
+    #[pyo3(name = "UNSPECIFIED")]
+    fn unspecified() -> Self {
+        Self(alpha_model::ElementType::Unspecified)
+    }
+
+    #[classattr]
+    #[pyo3(name = "BOOL")]
+    fn bool() -> Self {
+        Self(alpha_model::ElementType::Bool)
+    }
+
+    #[classattr]
+    #[pyo3(name = "INT")]
+    fn int() -> Self {
+        Self(alpha_model::ElementType::Int)
+    }
+
+    #[classattr]
+    #[pyo3(name = "REAL")]
+    fn real() -> Self {
+        Self(alpha_model::ElementType::Real)
+    }
+
+    #[classattr]
+    #[pyo3(name = "QUBIT")]
+    fn qubit() -> Self {
+        Self(alpha_model::ElementType::Qubit)
+    }
+
+    fn __repr__(&self) -> &'static str {
+        match self.0 {
+            alpha_model::ElementType::Unspecified => "ElementType.UNSPECIFIED",
+            alpha_model::ElementType::Bool => "ElementType.BOOL",
+            alpha_model::ElementType::Int => "ElementType.INT",
+            alpha_model::ElementType::Real => "ElementType.REAL",
+            alpha_model::ElementType::Qubit => "ElementType.QUBIT",
+        }
+    }
+
+    fn __eq__(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+
+#[pyclass(module = "alpha", frozen)]
 struct Variable {
     name: String,
     domain: String,
     multiplicity: Multiplicity,
+    element_type: ElementType,
 }
 
 impl From<&alpha_transform::ir::Variable> for Variable {
@@ -55,6 +110,7 @@ impl From<&alpha_transform::ir::Variable> for Variable {
             name: variable.name.clone(),
             domain: variable.domain.to_string(),
             multiplicity: Multiplicity(variable.multiplicity),
+            element_type: ElementType(variable.element_type),
         }
     }
 }
@@ -76,12 +132,25 @@ impl Variable {
         self.multiplicity
     }
 
+    #[getter]
+    fn element_type<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        let name = match self.element_type.0 {
+            alpha_model::ElementType::Unspecified => "UNSPECIFIED",
+            alpha_model::ElementType::Bool => "BOOL",
+            alpha_model::ElementType::Int => "INT",
+            alpha_model::ElementType::Real => "REAL",
+            alpha_model::ElementType::Qubit => "QUBIT",
+        };
+        py.get_type::<ElementType>().getattr(name)
+    }
+
     fn __repr__(&self) -> String {
         format!(
-            "Variable(name='{}', domain='{}', multiplicity={})",
+            "Variable(name='{}', domain='{}', multiplicity={}, element_type={})",
             self.name,
             self.domain,
-            self.multiplicity.__repr__()
+            self.multiplicity.__repr__(),
+            self.element_type.__repr__()
         )
     }
 }
@@ -326,6 +395,59 @@ fn generate(system: &Bound<'_, PyAny>) -> PyResult<String> {
     ))
 }
 
+/// Generates a concrete scheduled HUGR envelope. Parameter values specialize all symbolic
+/// domains before resource realization, so this API never emits a parametric HUGR.
+#[pyfunction]
+fn generate_hugr(system: &Bound<'_, PyAny>, parameters: HashMap<String, i64>) -> PyResult<String> {
+    let parameters = parameters.into_iter().collect::<BTreeMap<_, _>>();
+    if let Ok(scheduled) = system.extract::<PyRef<ScheduledSystem>>() {
+        validate_parameter_names(&scheduled.system, &parameters)?;
+        return alpha_codegen::generate_hugr_system(
+            &scheduled.system,
+            &scheduled.schedule_text,
+            &parameters,
+        )
+        .map_err(codegen_err_to_py);
+    }
+    if let Ok(normalized) = system.extract::<PyRef<NormalizedSystem>>() {
+        validate_parameter_names(&normalized.0, &parameters)?;
+        return alpha_codegen::generate_hugr_system(&normalized.0, "", &parameters)
+            .map_err(codegen_err_to_py);
+    }
+    Err(PyTypeError::new_err(
+        "generate_hugr() requires a NormalizedSystem or ScheduledSystem, not a bare System — run alpha.normalize() first",
+    ))
+}
+
+fn validate_parameter_names(
+    system: &alpha_transform::ir::System,
+    parameters: &BTreeMap<String, i64>,
+) -> PyResult<()> {
+    let space = system.parameter_domain.space();
+    let expected = (0..space.dim(isl::DimType::Param))
+        .map(|position| {
+            space
+                .dim_name(isl::DimType::Param, position)
+                .ok_or_else(|| PyValueError::new_err("system parameter has no name"))
+        })
+        .collect::<PyResult<std::collections::BTreeSet<_>>>()?;
+    for name in &expected {
+        if !parameters.contains_key(name) {
+            return Err(PyValueError::new_err(format!(
+                "specialization failed: missing parameter '{name}'"
+            )));
+        }
+    }
+    for name in parameters.keys() {
+        if !expected.contains(name) {
+            return Err(PyValueError::new_err(format!(
+                "specialization failed: unknown parameter '{name}'"
+            )));
+        }
+    }
+    Ok(())
+}
+
 /// Any of the three pipeline-stage wrapper types share the same underlying `ir::System` — the
 /// three printers below (`print`/`show`/`ashow`) work identically at any stage, unlike
 /// `schedule`/`generate`, which are gated on normalization (§5.1). Clones the same as every other
@@ -372,9 +494,22 @@ fn ashow(system: &Bound<'_, PyAny>) -> PyResult<String> {
     Ok(alpha_transform::print::ashow(&extract_ir_system(system)?))
 }
 
+#[pyfunction]
+fn _link_alpha_function(
+    py: Python<'_>,
+    wrapper_package: &[u8],
+    implementation: &str,
+    symbol: &str,
+) -> PyResult<Py<PyBytes>> {
+    let linked = linking::link_alpha_function_bytes(wrapper_package, implementation, symbol)
+        .map_err(|error| PyValueError::new_err(error.to_string()))?;
+    Ok(PyBytes::new(py, &linked).unbind())
+}
+
 #[pymodule]
 fn _alpha(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<Multiplicity>()?;
+    m.add_class::<ElementType>()?;
     m.add_class::<Variable>()?;
     m.add_class::<System>()?;
     m.add_class::<NormalizedSystem>()?;
@@ -384,8 +519,10 @@ fn _alpha(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(parse, m)?)?;
     m.add_function(wrap_pyfunction!(normalize, m)?)?;
     m.add_function(wrap_pyfunction!(generate, m)?)?;
+    m.add_function(wrap_pyfunction!(generate_hugr, m)?)?;
     m.add_function(wrap_pyfunction!(print, m)?)?;
     m.add_function(wrap_pyfunction!(show, m)?)?;
     m.add_function(wrap_pyfunction!(ashow, m)?)?;
+    m.add_function(wrap_pyfunction!(_link_alpha_function, m)?)?;
     Ok(())
 }

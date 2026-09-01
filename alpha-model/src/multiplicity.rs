@@ -1,4 +1,7 @@
-use crate::{domain::use_equation_context, Diagnostic, Domains, Resolver, Value};
+use crate::{
+    domain::use_equation_context, registered_operation, Diagnostic, Domains, ElementType, Port,
+    Resolver, Value,
+};
 use alpha_syntax::ast::{self, AstNode, Equation, Expr};
 use isl::{Map, MultiAff, Set};
 use std::collections::{HashMap, HashSet};
@@ -21,24 +24,57 @@ impl VariableId {
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct PortSignature {
-    pub inputs: Vec<Multiplicity>,
-    pub outputs: Vec<Multiplicity>,
+    pub inputs: Vec<Port>,
+    pub outputs: Vec<Port>,
 }
 
 pub fn builtin_signature(_operator: &str, arity: usize) -> PortSignature {
     PortSignature {
-        inputs: vec![Multiplicity::Unrestricted; arity],
-        outputs: vec![Multiplicity::Unrestricted],
+        inputs: vec![
+            Port {
+                element_type: ElementType::Unspecified,
+                multiplicity: Multiplicity::Unrestricted,
+            };
+            arity
+        ],
+        outputs: vec![Port {
+            element_type: ElementType::Unspecified,
+            multiplicity: Multiplicity::Unrestricted,
+        }],
     }
 }
 
-#[derive(Default)]
 pub(crate) struct PortSignatures {
     signatures: HashMap<String, PortSignature>,
 }
 
+impl Default for PortSignatures {
+    fn default() -> Self {
+        let mut signatures = HashMap::new();
+        for name in ["qalloc", "h", "cx", "measure", "discard"] {
+            let operation = registered_operation(name).expect("registered operation name");
+            signatures.insert(
+                name.to_string(),
+                PortSignature {
+                    inputs: operation.inputs,
+                    outputs: operation.outputs,
+                },
+            );
+        }
+        Self { signatures }
+    }
+}
+
 impl PortSignatures {
     pub(crate) fn insert(&mut self, name: String, signature: PortSignature) {
+        if name
+            .rsplit('.')
+            .next()
+            .and_then(registered_operation)
+            .is_some()
+        {
+            return;
+        }
         self.signatures.insert(name, signature);
     }
 
@@ -640,19 +676,156 @@ fn qualified_name_text(name: &ast::QualifiedName) -> String {
         .join(".")
 }
 
+fn expression_element_type(resolver: &Resolver<'_>, expr: &Expr) -> ElementType {
+    match expr {
+        Expr::Variable(variable) => variable
+            .name()
+            .and_then(|name| resolver.variable_type(name.text()))
+            .unwrap_or_default(),
+        Expr::Dependence(dependence) => dependence
+            .applied_expr()
+            .map(|operand| expression_element_type(resolver, &operand))
+            .unwrap_or_default(),
+        Expr::Restrict(restrict) => restrict
+            .expr()
+            .map(|operand| expression_element_type(resolver, &operand))
+            .unwrap_or_default(),
+        Expr::AutoRestrict(restrict) => restrict
+            .expr()
+            .map(|operand| expression_element_type(resolver, &operand))
+            .unwrap_or_default(),
+        Expr::Paren(paren) => paren
+            .inner()
+            .map(|operand| expression_element_type(resolver, &operand))
+            .unwrap_or_default(),
+        Expr::Bool(_) => ElementType::Bool,
+        Expr::Int(_) => ElementType::Int,
+        Expr::Real(_) => ElementType::Real,
+        _ => ElementType::Unspecified,
+    }
+}
+
+fn validate_registered_call(
+    resolver: &Resolver<'_>,
+    call: &ast::UseEquation,
+    operation: &str,
+    domains: &Domains,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let Some(signature) = registered_operation(operation) else {
+        return;
+    };
+    let inputs: Vec<_> = call.input_exprs().collect();
+    let outputs: Vec<_> = call.output_exprs().collect();
+    let (start, end) = range_of(call.syntax());
+
+    if inputs.len() != signature.inputs.len() || outputs.len() != signature.outputs.len() {
+        diagnostics.push(Diagnostic::OperationArityMismatch {
+            operation: operation.to_string(),
+            expected_inputs: signature.inputs.len(),
+            actual_inputs: inputs.len(),
+            expected_outputs: signature.outputs.len(),
+            actual_outputs: outputs.len(),
+            start,
+            end,
+        });
+    }
+
+    for (index, (expr, port)) in outputs
+        .iter()
+        .zip(&signature.outputs)
+        .chain(inputs.iter().zip(&signature.inputs))
+        .enumerate()
+    {
+        let actual = expression_element_type(resolver, expr);
+        if actual != ElementType::Unspecified && actual != port.element_type {
+            let (start, end) = range_of(expr.syntax());
+            diagnostics.push(Diagnostic::OperationPortTypeMismatch {
+                operation: operation.to_string(),
+                port: index,
+                expected: port.element_type,
+                actual,
+                start,
+                end,
+            });
+        }
+    }
+
+    if call.instantiation_domain().is_none() {
+        let parameter_domain = resolver.param_domain().ok();
+        let port_domains: Vec<_> = outputs
+            .iter()
+            .chain(&inputs)
+            .filter_map(|expr| domains.get(expr.syntax()))
+            .map(|domain| {
+                parameter_domain.as_ref().map_or_else(
+                    || domain.clone(),
+                    |parameters| {
+                        domain
+                            .clone()
+                            .intersect_params(parameters.clone())
+                            .unwrap_or_else(|_| domain.clone())
+                    },
+                )
+            })
+            .collect();
+        if let Some(first) = port_domains.first() {
+            if let Some(other) = port_domains
+                .iter()
+                .skip(1)
+                .find(|domain| !first.is_equal(domain).unwrap_or(false))
+            {
+                diagnostics.push(Diagnostic::CallDomainMismatch {
+                    operation: operation.to_string(),
+                    detail: format!("{} differs from {}", first, other),
+                    start,
+                    end,
+                });
+            }
+        }
+    }
+
+    for first in 0..inputs.len() {
+        for second in first + 1..inputs.len() {
+            if signature
+                .inputs
+                .get(first)
+                .is_some_and(|port| port.multiplicity == Multiplicity::Linear)
+                && inputs[first].syntax().text().to_string().trim()
+                    == inputs[second].syntax().text().to_string().trim()
+            {
+                diagnostics.push(Diagnostic::OperationOperandAliased {
+                    operation: operation.to_string(),
+                    first,
+                    second,
+                    start,
+                    end,
+                });
+            }
+        }
+    }
+}
+
+struct UseEquationContext<'a> {
+    ambient: Option<&'a Set>,
+    names: &'a [String],
+    domains: &'a Domains,
+    contexts: &'a Domains,
+}
+
 fn collect_use_equation_expr(
     resolver: &mut Resolver<'_>,
     expr: &Expr,
-    ambient_context: Option<&Set>,
-    context_names: &[String],
-    contexts: &Domains,
+    context: &UseEquationContext<'_>,
     uses: &mut HashMap<VariableId, Vec<ResourceUse>>,
     blocked: &mut HashSet<VariableId>,
 ) -> Result<(), Diagnostic> {
-    let context = contexts
+    let relation_domain = context
+        .contexts
         .get(expr.syntax())
         .cloned()
-        .or_else(|| ambient_context.cloned())
+        .or_else(|| context.ambient.cloned())
+        .or_else(|| context.domains.get(expr.syntax()).cloned())
         .or_else(|| {
             let Expr::Variable(variable) = expr else {
                 return None;
@@ -661,10 +834,10 @@ fn collect_use_equation_expr(
                 .name()
                 .and_then(|name| resolver.variable_domain(name.text()).ok())
         });
-    let Some(context) = context else {
+    let Some(relation_domain) = relation_domain else {
         return Ok(());
     };
-    let relation = identity_relation(&context).map_err(|error| {
+    let relation = identity_relation(&relation_domain).map_err(|error| {
         let (start, end) = range_of(expr.syntax());
         Diagnostic::IslError {
             message: error.message,
@@ -676,8 +849,8 @@ fn collect_use_equation_expr(
         resolver,
         expr,
         relation,
-        context_names,
-        contexts,
+        context.names,
+        context.contexts,
         uses,
         blocked,
     )
@@ -786,13 +959,21 @@ fn expression_multiplicity(
                     })
                 })
                 .unwrap_or_default();
+            if registered_operation(&operator).is_some() {
+                let (start, end) = range_of(call.syntax());
+                diagnostics.push(Diagnostic::InvalidOperationContext {
+                    operation: operator.clone(),
+                    start,
+                    end,
+                });
+            }
             let signature = signatures.resolve(scope, &operator);
             for (index, operand) in call.args().enumerate() {
                 let actual =
                     expression_multiplicity(resolver, &operand, signatures, scope, diagnostics);
                 let expected = signature
                     .and_then(|signature| signature.inputs.get(index))
-                    .copied()
+                    .map(|port| port.multiplicity)
                     .unwrap_or(Multiplicity::Unrestricted);
                 if actual == Multiplicity::Linear && expected == Multiplicity::Unrestricted {
                     let (start, end) = range_of(operand.syntax());
@@ -805,7 +986,7 @@ fn expression_multiplicity(
             }
             signature
                 .and_then(|signature| signature.outputs.first())
-                .copied()
+                .map(|port| port.multiplicity)
                 .unwrap_or(Multiplicity::Unrestricted)
         }
         Expr::Reduce(_) => {
@@ -827,7 +1008,7 @@ fn expression_multiplicity(
 pub(crate) fn check_system(
     resolver: &mut Resolver<'_>,
     system: &ast::System,
-    _domains: &Domains,
+    domains: &Domains,
     contexts: &Domains,
     signatures: &PortSignatures,
     scope: &str,
@@ -920,6 +1101,13 @@ pub(crate) fn check_system(
                     continue;
                 };
                 let callee_name = qualified_name_text(&callee);
+                validate_registered_call(
+                    resolver,
+                    &use_equation,
+                    &callee_name,
+                    domains,
+                    &mut diagnostics,
+                );
                 let Some(signature) = signatures.resolve(scope, &callee_name) else {
                     continue;
                 };
@@ -930,6 +1118,12 @@ pub(crate) fn check_system(
                         _ => None,
                     }
                 });
+                let use_context = UseEquationContext {
+                    ambient: ambient_context.as_ref(),
+                    names: &context_names,
+                    domains,
+                    contexts,
+                };
                 for (index, expr) in use_equation.input_exprs().enumerate() {
                     let actual = expression_multiplicity(
                         resolver,
@@ -941,7 +1135,7 @@ pub(crate) fn check_system(
                     let expected = signature
                         .inputs
                         .get(index)
-                        .copied()
+                        .map(|port| port.multiplicity)
                         .unwrap_or(Multiplicity::Unrestricted);
                     if actual == Multiplicity::Linear && expected == Multiplicity::Unrestricted {
                         let (start, end) = range_of(expr.syntax());
@@ -955,9 +1149,7 @@ pub(crate) fn check_system(
                         if let Err(diagnostic) = collect_use_equation_expr(
                             resolver,
                             &expr,
-                            ambient_context.as_ref(),
-                            &context_names,
-                            contexts,
+                            &use_context,
                             &mut uses,
                             &mut blocked,
                         ) {
@@ -976,7 +1168,7 @@ pub(crate) fn check_system(
                     let expected = signature
                         .outputs
                         .get(index)
-                        .copied()
+                        .map(|port| port.multiplicity)
                         .unwrap_or(Multiplicity::Unrestricted);
                     if expected == Multiplicity::Linear && actual == Multiplicity::Unrestricted {
                         let (start, end) = range_of(expr.syntax());
@@ -991,9 +1183,7 @@ pub(crate) fn check_system(
                         if let Err(diagnostic) = collect_use_equation_expr(
                             resolver,
                             &expr,
-                            ambient_context.as_ref(),
-                            &context_names,
-                            contexts,
+                            &use_context,
                             &mut definitions,
                             &mut output_blocked,
                         ) {

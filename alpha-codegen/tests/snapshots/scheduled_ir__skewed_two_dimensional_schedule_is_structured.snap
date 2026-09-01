@@ -1,0 +1,72 @@
+---
+source: alpha-codegen/tests/scheduled_ir.rs
+expression: program.root
+---
+Loop {
+    iterator: IndexVar(
+        "c0",
+    ),
+    init: Constant(
+        0,
+    ),
+    condition: Compare {
+        op: Lt,
+        lhs: Variable(
+            "c0",
+        ),
+        rhs: Variable(
+            "N",
+        ),
+    },
+    step: Constant(
+        1,
+    ),
+    body: Loop {
+        iterator: IndexVar(
+            "c1",
+        ),
+        init: Variable(
+            "c0",
+        ),
+        condition: Compare {
+            op: Lt,
+            lhs: Variable(
+                "c1",
+            ),
+            rhs: Add(
+                Variable(
+                    "N",
+                ),
+                Variable(
+                    "c0",
+                ),
+            ),
+        },
+        step: Constant(
+            1,
+        ),
+        body: Invoke {
+            statement: StatementId(
+                0,
+            ),
+            indices: [
+                Variable(
+                    "c0",
+                ),
+                Add(
+                    Sub(
+                        Constant(
+                            0,
+                        ),
+                        Variable(
+                            "c0",
+                        ),
+                    ),
+                    Variable(
+                        "c1",
+                    ),
+                ),
+            ],
+        },
+    },
+}

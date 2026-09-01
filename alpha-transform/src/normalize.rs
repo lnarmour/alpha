@@ -1266,6 +1266,7 @@ pub fn apply(system: System, deep: bool) -> System {
                         let expr = normalize_to_fixpoint(expr, top_context, deep);
                         Equation::Standard(crate::ir::StandardEquation { variable, index_names, expr })
                     }
+                    Equation::OperationCall(call) => Equation::OperationCall(call),
                     Equation::Use(u) => {
                         let crate::ir::UseEquation {
                             callee,

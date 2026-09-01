@@ -17,8 +17,8 @@ use crate::completeness::{
 };
 use crate::multiplicity::{Multiplicity, PortSignature, PortSignatures};
 use crate::uniqueness::{check_program_uniqueness, check_system_uniqueness};
-use crate::{Diagnostic, Resolver};
-use alpha_syntax::ast::{self, Equation};
+use crate::{registered_operation, Diagnostic, ElementType, Port, Resolver};
+use alpha_syntax::ast::{self, AstNode, Equation};
 
 /// Runs every phase against one already-`Resolver::new`'d system: phase 1 (via `resolver` itself,
 /// threaded lazily through the calls below), phases 3–4 (`Resolver::analyze_system`), phase 5
@@ -36,6 +36,38 @@ fn analyze_system_with_signatures(
     scope: &str,
 ) -> Vec<Diagnostic> {
     let (domains, contexts, mut diagnostics) = resolver.analyze_system(system);
+
+    for variable in system
+        .inputs()
+        .into_iter()
+        .flat_map(|section| section.variables())
+        .chain(
+            system
+                .outputs()
+                .into_iter()
+                .flat_map(|section| section.variables()),
+        )
+        .chain(
+            system
+                .locals()
+                .into_iter()
+                .flat_map(|section| section.variables()),
+        )
+    {
+        let Some(name) = variable.name() else {
+            continue;
+        };
+        if resolver.variable_type(name.text()) == Some(ElementType::Qubit)
+            && resolver.variable_multiplicity(name.text()) != Some(Multiplicity::Linear)
+        {
+            let range = variable.syntax().text_range();
+            diagnostics.push(Diagnostic::QubitMustBeLinear {
+                variable: name.text().to_string(),
+                start: range.start().into(),
+                end: range.end().into(),
+            });
+        }
+    }
 
     diagnostics.extend(crate::multiplicity::check_system(
         resolver, system, &domains, &contexts, signatures, scope,
@@ -72,9 +104,19 @@ fn ast_multiplicity(multiplicity: alpha_syntax::ast::Multiplicity) -> Multiplici
     }
 }
 
-fn collect_program(root: &ast::Root) -> (Vec<(String, ast::System)>, PortSignatures) {
+fn untyped_port(multiplicity: Multiplicity) -> Port {
+    Port {
+        element_type: ElementType::Unspecified,
+        multiplicity,
+    }
+}
+
+fn collect_program(
+    root: &ast::Root,
+) -> (Vec<(String, ast::System)>, PortSignatures, Vec<Diagnostic>) {
     let mut systems = Vec::new();
     let mut signatures = PortSignatures::default();
+    let mut diagnostics = Vec::new();
 
     fn walk(
         scope: &str,
@@ -83,11 +125,20 @@ fn collect_program(root: &ast::Root) -> (Vec<(String, ast::System)>, PortSignatu
         packages: impl Iterator<Item = ast::AlphaPackage>,
         systems: &mut Vec<(String, ast::System)>,
         signatures: &mut PortSignatures,
+        diagnostics: &mut Vec<Diagnostic>,
     ) {
         for external in externals {
             let Some(name) = external.name() else {
                 continue;
             };
+            if registered_operation(name.text()).is_some() {
+                let range = name.text_range();
+                diagnostics.push(Diagnostic::ReservedOperationName {
+                    name: name.text().to_string(),
+                    start: range.start().into(),
+                    end: range.end().into(),
+                });
+            }
             let qualified = if scope.is_empty() {
                 name.text().to_string()
             } else {
@@ -96,18 +147,20 @@ fn collect_program(root: &ast::Root) -> (Vec<(String, ast::System)>, PortSignatu
             let signature = if let Some(cardinality) = external.cardinality() {
                 let count = cardinality.text().parse().unwrap_or(0);
                 PortSignature {
-                    inputs: vec![Multiplicity::Unrestricted; count],
-                    outputs: vec![Multiplicity::Unrestricted],
+                    inputs: vec![untyped_port(Multiplicity::Unrestricted); count],
+                    outputs: vec![untyped_port(Multiplicity::Unrestricted)],
                 }
             } else {
                 PortSignature {
                     inputs: external
                         .input_multiplicities()
                         .map(ast_multiplicity)
+                        .map(untyped_port)
                         .collect(),
                     outputs: external
                         .output_multiplicities()
                         .map(ast_multiplicity)
+                        .map(untyped_port)
                         .collect(),
                 }
             };
@@ -115,6 +168,14 @@ fn collect_program(root: &ast::Root) -> (Vec<(String, ast::System)>, PortSignatu
         }
         for system in systems_here {
             let Some(name) = system.name() else { continue };
+            if registered_operation(name.text()).is_some() {
+                let range = name.text_range();
+                diagnostics.push(Diagnostic::ReservedOperationName {
+                    name: name.text().to_string(),
+                    start: range.start().into(),
+                    end: range.end().into(),
+                });
+            }
             let qualified = if scope.is_empty() {
                 name.text().to_string()
             } else {
@@ -125,11 +186,11 @@ fn collect_program(root: &ast::Root) -> (Vec<(String, ast::System)>, PortSignatu
                 .into_iter()
                 .flat_map(|section| section.variables())
                 .map(|variable| {
-                    if variable.is_linear() {
+                    untyped_port(if variable.is_linear() {
                         Multiplicity::Linear
                     } else {
                         Multiplicity::Unrestricted
-                    }
+                    })
                 })
                 .collect();
             let outputs = system
@@ -137,11 +198,11 @@ fn collect_program(root: &ast::Root) -> (Vec<(String, ast::System)>, PortSignatu
                 .into_iter()
                 .flat_map(|section| section.variables())
                 .map(|variable| {
-                    if variable.is_linear() {
+                    untyped_port(if variable.is_linear() {
                         Multiplicity::Linear
                     } else {
                         Multiplicity::Unrestricted
-                    }
+                    })
                 })
                 .collect();
             signatures.insert(qualified, PortSignature { inputs, outputs });
@@ -169,6 +230,7 @@ fn collect_program(root: &ast::Root) -> (Vec<(String, ast::System)>, PortSignatu
                 package.packages(),
                 systems,
                 signatures,
+                diagnostics,
             );
         }
     }
@@ -180,8 +242,9 @@ fn collect_program(root: &ast::Root) -> (Vec<(String, ast::System)>, PortSignatu
         root.packages(),
         &mut systems,
         &mut signatures,
+        &mut diagnostics,
     );
-    (systems, signatures)
+    (systems, signatures, diagnostics)
 }
 
 /// Runs [`analyze_system`] over every system in `root` (walking nested `AlphaPackage`s, same as
@@ -193,8 +256,9 @@ fn collect_program(root: &ast::Root) -> (Vec<(String, ast::System)>, PortSignatu
 /// in otherwise) unless there are no systems at all, in which case they'd simply be lost — callers
 /// with a system-free root have nothing to analyze in the first place.
 pub fn analyze_root(ctx: &isl::Context, root: &ast::Root) -> Vec<(String, Vec<Diagnostic>)> {
-    let (systems, signatures) = collect_program(root);
+    let (systems, signatures, mut reserved_diagnostics) = collect_program(root);
     let mut program_diagnostics = check_program_uniqueness(std::slice::from_ref(root));
+    program_diagnostics.append(&mut reserved_diagnostics);
 
     let mut out = Vec::with_capacity(systems.len());
     for (scope, system) in &systems {

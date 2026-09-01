@@ -23,7 +23,9 @@ pub mod diagnostic;
 pub mod domain;
 pub mod function;
 pub mod multiplicity;
+pub mod operation;
 pub mod resolve;
+pub mod ty;
 pub mod uniqueness;
 pub mod value;
 pub mod walk;
@@ -33,6 +35,10 @@ pub use check::check_source;
 pub use diagnostic::Diagnostic;
 pub use domain::Domains;
 pub use multiplicity::{builtin_signature, Multiplicity, PortSignature, VariableId};
+pub use operation::{
+    registered_operation, Continuity, OperationSignature, Port, RegisteredOperation,
+};
 pub use resolve::Resolver;
+pub use ty::ElementType;
 pub use uniqueness::{check_program_uniqueness, check_system_uniqueness};
 pub use value::Value;

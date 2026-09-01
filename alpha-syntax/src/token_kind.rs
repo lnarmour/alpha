@@ -55,6 +55,16 @@ pub enum TokenKind {
     KwLinear,
     #[token("unrestricted")]
     KwUnrestricted,
+    #[token("of")]
+    KwOf,
+    #[token("bool")]
+    KwBool,
+    #[token("int")]
+    KwInt,
+    #[token("real")]
+    KwReal,
+    #[token("qubit")]
+    KwQubit,
     #[token("over")]
     KwOver,
     #[token("with")]

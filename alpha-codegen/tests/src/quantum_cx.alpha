@@ -1,0 +1,5 @@
+affine gates [N] -> {:N>0}
+inputs linear Q0, R0 : {[i] : 0 <= i < N} of qubit;
+outputs linear Q1, R1 : {[i] : 0 <= i < N} of qubit;
+let with [i] : (Q1[i], R1[i]) = cx(Q0[i], R0[i]);
+.

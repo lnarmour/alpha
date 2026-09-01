@@ -163,6 +163,7 @@ fn extract_top_level(
             name: name.clone(),
             domain,
             multiplicity: alpha_model::Multiplicity::Unrestricted,
+            element_type: alpha_model::ElementType::Unspecified,
         });
         new_equations.push(StandardEquation {
             variable: name,

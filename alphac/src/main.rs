@@ -23,6 +23,7 @@
 
 use alpha_syntax::ast;
 use isl::Context;
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
@@ -40,14 +41,26 @@ fn all_systems(root: &ast::Root) -> Vec<ast::System> {
     out
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Emit {
+    C,
+    Hugr,
+}
+
 struct Args {
     input: PathBuf,
     output: Option<PathBuf>,
+    emit: Emit,
+    schedule: Option<PathBuf>,
+    parameters: BTreeMap<String, i64>,
 }
 
 fn parse_args() -> Result<Args, String> {
     let mut input = None;
     let mut output = None;
+    let mut emit = Emit::C;
+    let mut schedule = None;
+    let mut parameters = BTreeMap::new();
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -55,6 +68,34 @@ fn parse_args() -> Result<Args, String> {
                 output = Some(PathBuf::from(
                     args.next().ok_or("-o requires a path argument")?,
                 ));
+            }
+            "--emit" => {
+                emit = match args.next().as_deref() {
+                    Some("c") => Emit::C,
+                    Some("hugr") => Emit::Hugr,
+                    Some(value) => return Err(format!("unknown emission format '{value}'")),
+                    None => return Err("--emit requires c or hugr".to_string()),
+                };
+            }
+            "--schedule" => {
+                schedule = Some(PathBuf::from(
+                    args.next().ok_or("--schedule requires a path argument")?,
+                ));
+            }
+            "--param" => {
+                let binding = args.next().ok_or("--param requires NAME=VALUE")?;
+                let (name, value) = binding
+                    .split_once('=')
+                    .filter(|(name, value)| !name.is_empty() && !value.is_empty())
+                    .ok_or_else(|| {
+                        format!("malformed parameter '{binding}', expected NAME=VALUE")
+                    })?;
+                let value = value.parse::<i64>().map_err(|_| {
+                    format!("invalid value in parameter '{binding}', expected an integer")
+                })?;
+                if parameters.insert(name.to_string(), value).is_some() {
+                    return Err(format!("duplicate parameter '{name}'"));
+                }
             }
             other if !other.starts_with('-') => {
                 if input.is_some() {
@@ -66,8 +107,13 @@ fn parse_args() -> Result<Args, String> {
         }
     }
     Ok(Args {
-        input: input.ok_or("usage: alphac <file.alpha> [-o <file.c>]")?,
+        input: input.ok_or(
+            "usage: alphac [--emit c|hugr] [--schedule file.isl] [--param NAME=VALUE] <file.alpha> [-o <output>]",
+        )?,
         output,
+        emit,
+        schedule,
+        parameters,
     })
 }
 
@@ -86,6 +132,16 @@ fn main() -> ExitCode {
             eprintln!("alphac: reading {:?}: {e}", args.input);
             return ExitCode::FAILURE;
         }
+    };
+    let schedule_text = match &args.schedule {
+        Some(path) => match std::fs::read_to_string(path) {
+            Ok(text) => text,
+            Err(error) => {
+                eprintln!("alphac: reading schedule {path:?}: {error}");
+                return ExitCode::FAILURE;
+            }
+        },
+        None => String::new(),
     };
 
     let parse = alpha_syntax::parse(&src);
@@ -144,7 +200,13 @@ fn main() -> ExitCode {
         alpha_transform::normalize_reduction::apply(&mut ir_system);
         let normalized = alpha_transform::normalize::apply(ir_system, true);
 
-        match alpha_codegen::generate_system(&normalized) {
+        let result = match args.emit {
+            Emit::C => alpha_codegen::generate_system(&normalized),
+            Emit::Hugr => {
+                alpha_codegen::generate_hugr_system(&normalized, &schedule_text, &args.parameters)
+            }
+        };
+        match result {
             Ok(code) => generated.push(code),
             Err(e) => {
                 eprintln!("alphac: codegen error: {e}");

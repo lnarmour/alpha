@@ -24,6 +24,20 @@ LINEAR_TRANSFER = """affine Transfer [N] -> {: N > 0}
 .
 """
 
+QUANTUM_CHAIN = """affine chain [T,N] -> {:T>0 and N>0}
+outputs M : {[i] : 0 <= i < N} of bool;
+locals linear Q : {[t,i] : 0 <= t < T and 0 <= i < N} of qubit;
+let
+    over {[t,i] : t=0 and 0<=i<N} with [t,i] : (Q[t,i]) = qalloc();
+    over {[t,i] : 0<t<T and 0<=i<N} with [t,i] : (Q[t,i]) = h(Q[t-1,i]);
+    with [i] : (M[i]) = measure(Q[T-1,i]);
+.
+"""
+
+QUANTUM_CHAIN_SCHEDULE = """[T,N] -> {
+Q__call0[t,i] -> [t,0,i]; Q__call1[t,i] -> [t,1,i]; M__call0[i] -> [T,2,i]
+}"""
+
 
 def test_parse_returns_a_system():
     sys = alphalang.parse(PREFIX_SUM)
@@ -180,3 +194,24 @@ def test_print_show_ashow_accept_any_pipeline_stage():
 def test_print_on_non_system_raises_type_error():
     with pytest.raises(TypeError):
         alphalang.print(42)
+
+
+def test_qubit_metadata_and_hugr_generation():
+    norm = alphalang.normalize(alphalang.parse(QUANTUM_CHAIN))
+    scheduled = norm.schedule(QUANTUM_CHAIN_SCHEDULE)
+    assert scheduled.locals[0].element_type is alphalang.ElementType.QUBIT
+    assert scheduled.outputs[0].element_type is alphalang.ElementType.BOOL
+    envelope = alphalang.generate_hugr(scheduled, {"T": 3, "N": 4})
+    assert isinstance(envelope, str)
+    assert "HUGRiHJ" in envelope
+
+
+def test_hugr_generation_requires_parameters():
+    norm = alphalang.normalize(alphalang.parse(QUANTUM_CHAIN))
+    with pytest.raises(ValueError, match="missing parameter"):
+        alphalang.generate_hugr(norm, {})
+
+
+def test_hugr_generation_rejects_bare_system():
+    with pytest.raises(TypeError):
+        alphalang.generate_hugr(alphalang.parse(QUANTUM_CHAIN), {"T": 3, "N": 4})

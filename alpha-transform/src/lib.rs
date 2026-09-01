@@ -13,3 +13,4 @@ pub mod lower;
 pub mod normalize;
 pub mod normalize_reduction;
 pub mod print;
+pub mod resource_flow;

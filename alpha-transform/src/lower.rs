@@ -81,6 +81,9 @@ pub fn lower_system(
                     multiplicity: resolver
                         .variable_multiplicity(name.text())
                         .expect("lowered variable was registered by the resolver"),
+                    element_type: resolver
+                        .variable_type(name.text())
+                        .expect("lowered variable was registered by the resolver"),
                 });
             }
         }
@@ -98,6 +101,9 @@ pub fn lower_system(
                     multiplicity: resolver
                         .variable_multiplicity(name.text())
                         .expect("lowered variable was registered by the resolver"),
+                    element_type: resolver
+                        .variable_type(name.text())
+                        .expect("lowered variable was registered by the resolver"),
                 });
             }
         }
@@ -114,6 +120,9 @@ pub fn lower_system(
                     domain,
                     multiplicity: resolver
                         .variable_multiplicity(name.text())
+                        .expect("lowered variable was registered by the resolver"),
+                    element_type: resolver
+                        .variable_type(name.text())
                         .expect("lowered variable was registered by the resolver"),
                 });
             }
@@ -178,6 +187,50 @@ fn lower_equation(
         Equation::Use(u) => {
             let context = alpha_model::domain::use_equation_context(u);
             let mut domains = Domains::new();
+            let callee = u
+                .callee()
+                .map(|qn| {
+                    qn.segments()
+                        .map(|t| t.text().to_string())
+                        .collect::<Vec<_>>()
+                        .join(".")
+                })
+                .unwrap_or_default();
+            if let Some(signature) = alpha_model::registered_operation(&callee) {
+                let output_asts: Vec<_> = u.output_exprs().collect();
+                let input_asts: Vec<_> = u.input_exprs().collect();
+                for expr in output_asts.iter().chain(&input_asts) {
+                    resolver.expression_domain(expr, &context, &mut domains)?;
+                }
+                let domain = if let Some(explicit) = u.instantiation_domain() {
+                    match resolver.eval_calc_expr(&explicit)? {
+                        Value::Set(domain) => domain,
+                        _ => return Err(missing_domain(u.syntax())),
+                    }
+                } else {
+                    output_asts
+                        .first()
+                        .or_else(|| input_asts.first())
+                        .and_then(|expr| domains.get(expr.syntax()))
+                        .cloned()
+                        .ok_or_else(|| missing_domain(u.syntax()))?
+                };
+                let outputs = output_asts
+                    .iter()
+                    .map(|expr| lower_access(resolver, expr, &context, &domains))
+                    .collect::<Result<Vec<_>, _>>()?;
+                let inputs = input_asts
+                    .iter()
+                    .map(|expr| lower_access(resolver, expr, &context, &domains))
+                    .collect::<Result<Vec<_>, _>>()?;
+                return Ok(ir::Equation::OperationCall(ir::OperationCall {
+                    operation: signature.operation,
+                    index_names: context,
+                    domain,
+                    inputs,
+                    outputs,
+                }));
+            }
             let mut output_exprs = Vec::new();
             let mut input_exprs = Vec::new();
             for e in u.output_exprs() {
@@ -200,15 +253,6 @@ fn lower_equation(
                     &Domains::new(),
                 )?);
             }
-            let callee = u
-                .callee()
-                .map(|qn| {
-                    qn.segments()
-                        .map(|t| t.text().to_string())
-                        .collect::<Vec<_>>()
-                        .join(".")
-                })
-                .unwrap_or_default();
             Ok(ir::Equation::Use(ir::UseEquation {
                 callee,
                 output_exprs,
@@ -216,6 +260,32 @@ fn lower_equation(
             }))
         }
     }
+}
+
+fn lower_access(
+    resolver: &mut Resolver,
+    expr: &Expr,
+    context: &[String],
+    domains: &Domains,
+) -> Result<ir::Access, Diagnostic> {
+    let lowered = lower_expr(resolver, expr, context, domains, &Domains::new())?;
+    let ir::ExprKind::Dependence { function, operand } = *lowered.kind else {
+        let (start, end) = range_of(expr.syntax());
+        return Err(Diagnostic::LinearityUnsupportedHere {
+            construct: "non-affine operation port".to_string(),
+            start,
+            end,
+        });
+    };
+    let ir::ExprKind::Variable(variable) = *operand.kind else {
+        let (start, end) = range_of(expr.syntax());
+        return Err(Diagnostic::LinearityUnsupportedHere {
+            construct: "non-variable operation port".to_string(),
+            start,
+            end,
+        });
+    };
+    Ok(ir::Access { variable, function })
 }
 
 fn lower_expr(
