@@ -720,7 +720,7 @@ Functions/methods, all pure — clone the receiver's underlying Rust value, run 
      same `i`), so the correct edge is `dep_fn` composed with `projection`'s own *reverse* as a
      genuine one-to-many **relation**, not an attempted pointwise function inversion.
    - **The empty/omitted target mapping (§6) is illegal for any program with a real reduce
-     dependency** — confirmed directly (`identity_default_schedule_is_illegal_for_a_real_reduce_dependency`).
+     dependency** — confirmed directly (`identity_default_illegal_for_reduce`).
      Independent per-statement identity schedules have no reason to happen to interleave a
      reduce's accumulation correctly relative to whatever reads its result; a plain
      `Y[i] = X[i]`-style copy with no reduce stays legal at identity (no reordering hazard to

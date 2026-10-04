@@ -223,7 +223,7 @@ keeps test intent visible without opening a snapshot file):
 
 - `schedule.rs`: `unknown_statement_name_is_rejected`, `partially_specified_mentioned_statement_is_rejected`,
   `non_injective_mentioned_statement_is_rejected`, `mismatched_explicit_widths_are_rejected` (4)
-- `legality.rs`: `identity_default_schedule_is_illegal_for_a_real_reduce_dependency`,
+- `legality.rs`: `identity_default_illegal_for_reduce`,
   `consumer_scheduled_before_its_producer_is_illegal`, `reduce_scheduled_before_its_own_init_is_illegal` (3)
 - `scheduledc.rs`: `empty_schedule_text_is_rejected_as_illegal_for_prefix_sum` (1)
 

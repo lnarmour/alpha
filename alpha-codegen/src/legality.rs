@@ -282,7 +282,7 @@ mod tests {
     /// is usable at all (only when there's no cross-statement dependency needing explicit
     /// reordering, e.g. `ordinary_copy_is_always_legal` below).
     #[test]
-    fn identity_default_schedule_is_illegal_for_a_real_reduce_dependency() {
+    fn identity_default_illegal_for_reduce() {
         let system = normalized_system(PREFIX_SUM);
         let stmts = statements(&system).unwrap();
         let ctx = stmts[0].domain.ctx();
